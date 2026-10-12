@@ -1,7 +1,7 @@
 import CustomBar from "@/screens/(tab)/components/CustomBar";
-import { BottomTabBarProps } from "@/screens/(tab)/types/typesBar";
 import Octicons from "@expo/vector-icons/Octicons";
 import { Tabs } from "expo-router";
+import { BottomTabBarProps } from "../../../types/typesBar";
 
 export default function TabLayout() {
   return (

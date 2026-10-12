@@ -1,12 +1,12 @@
-import { ACCENT, ACTIVE_COLOR, INACTIVE_COLOR } from "@/constants/constans";
+import { ACTIVE_COLOR, INACTIVE_COLOR, PRIMARY } from "@/constants/constans";
 import { useEffect } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
+    useAnimatedStyle,
+    useSharedValue,
+    withTiming,
 } from "react-native-reanimated";
-import { TabBarIcon } from "../types/typesBar";
+import { TabBarIcon } from "../../../../types/typesBar";
 
 type PropsTabbarItem = {
   tabBarIcon?: TabBarIcon;
@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
   indicator: {
     ...StyleSheet.absoluteFill,
     borderRadius: 16,
-    backgroundColor: ACCENT,
+    backgroundColor: PRIMARY,
   },
   label: {
     fontSize: 10,
