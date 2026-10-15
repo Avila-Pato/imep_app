@@ -3,7 +3,7 @@ import {
     Devocional,
     Iglesia,
     PalabraDelDia,
-} from "../../types/typesHome";
+} from "@/types/typesHome";
 
 export const NOTIFICACIONES = 2;
 

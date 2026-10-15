@@ -6,7 +6,7 @@ import Animated, {
     useSharedValue,
     withTiming,
 } from "react-native-reanimated";
-import { TabBarIcon } from "../../../../types/typesBar";
+import { TabBarIcon } from "@/types/typesBar";
 
 type PropsTabbarItem = {
   tabBarIcon?: TabBarIcon;

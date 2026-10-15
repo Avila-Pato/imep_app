@@ -1,7 +1,7 @@
 import CustomBar from "@/screens/(tab)/components/CustomBar";
 import Octicons from "@expo/vector-icons/Octicons";
 import { Tabs } from "expo-router";
-import { BottomTabBarProps } from "../../../types/typesBar";
+import { BottomTabBarProps } from "@/types/typesBar";
 
 export default function TabLayout() {
   return (
@@ -54,12 +54,12 @@ export default function TabLayout() {
         }}
       />
 
-      {/* Oraciones */}
+      {/* Estudio (predicaciones y estudio guiado) */}
 
       <Tabs.Screen
         name="oraciones"
         options={{
-          title: "Oraciones",
+          title: "Estudio",
           tabBarIcon: ({ color, focused, size }) =>
             !focused ? (
               <Octicons name="book" size={size} color={color} />

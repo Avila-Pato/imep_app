@@ -1,7 +1,7 @@
 import { SPACING, TABBAR_BG, TABBAR_BORDER } from "@/constants/constans";
 import { StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { BottomTabBarProps } from "../../../../types/typesBar";
+import { BottomTabBarProps } from "@/types/typesBar";
 import TabbarItem from "./TabbarItemStyles";
 
 export default function CustomBar({

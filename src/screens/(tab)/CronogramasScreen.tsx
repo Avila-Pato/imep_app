@@ -1,23 +1,692 @@
-import { DARK_BG, TEXT } from "@/constants/constans";
-import { StyleSheet, Text } from "react-native";
+import { TURNOS } from "@/assets/data/cronogramasMocks";
+import {
+  BORDER,
+  DARK_BG,
+  DIAS_CULTO,
+  DIAS_SEMANA,
+  HOME_PADDING as PADDING,
+  MUTED,
+  PRIMARY,
+  ROLES,
+  SERIF,
+  SPACING,
+  SURFACE,
+  TEXT,
+} from "@/constants/constans";
+import Octicons from "@expo/vector-icons/Octicons";
+import { Turno } from "@/types/typesCronogramas";
+import { useState } from "react";
+import {
+  LayoutChangeEvent,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-export default function CronogramasScreen() {
+const RESORTE = { damping: 22, stiffness: 220 };
+
+const pad = (n: number) => String(n).padStart(2, "0");
+const toKey = (y: number, m: number, d: number) =>
+  `${y}-${pad(m + 1)}-${pad(d)}`;
+
+// Solo la primera letra en mayuscula ("Octubre de 2026")
+const capitalizar = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+// "19:30" -> 1170 minutos
+const aMinutos = (hora: string) => {
+  const [h, m] = hora.split(":").map(Number);
+  return h * 60 + m;
+};
+
+const hoy = new Date();
+const HOY_KEY = toKey(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+
+// Dias del mes con huecos al inicio para que el 1 caiga en su dia (Lunes primero)
+function diasDelMes(y: number, m: number) {
+  const offset = (new Date(y, m, 1).getDay() + 6) % 7;
+  const total = new Date(y, m + 1, 0).getDate();
+  return [
+    ...Array<null>(offset).fill(null),
+    ...Array.from({ length: total }, (_, i) => i + 1),
+  ];
+}
+
+const deKey = (key: string) => {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(y, m - 1, d);
+};
+const aKey = (f: Date) => toKey(f.getFullYear(), f.getMonth(), f.getDate());
+const esCulto = (f: Date) => DIAS_CULTO.includes(f.getDay());
+
+// Dia de culto mas cercano desde esa fecha (ella misma si ya es de culto)
+function siguienteCulto(key: string) {
+  const f = deKey(key);
+  while (!esCulto(f)) f.setDate(f.getDate() + 1);
+  return aKey(f);
+}
+
+// Dias de culto de la semana (lunes a domingo) que contiene esa fecha
+function cultosDeLaSemana(key: string) {
+  const f = deKey(key);
+  const lunes = new Date(f);
+  lunes.setDate(f.getDate() - ((f.getDay() + 6) % 7));
+  return [...DIAS_CULTO]
+    .map((d) => (d + 6) % 7) // posicion desde el lunes
+    .sort((x, y) => x - y)
+    .map((offset) => {
+      const dia = new Date(lunes);
+      dia.setDate(lunes.getDate() + offset);
+      return {
+        key: aKey(dia),
+        nombre: capitalizar(
+          dia.toLocaleDateString("es-ES", { weekday: "long" }),
+        ),
+        numero: dia.getDate(),
+      };
+    });
+}
+
+const LINEA_SEP = 22; // separacion entre lineas del fondo
+
+// Fondo de celdas: lineas punteadas y una solida cada 4 (como cuartos de hora)
+function FondoCeldas({ alto }: { alto: number }) {
   return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.texto}>Cronogramas</Text>
+    <View pointerEvents="none" style={[styles.fondo, { height: alto }]}>
+      <View style={styles.fondoVertical} />
+      {Array.from({ length: Math.ceil(alto / LINEA_SEP) }, (_, i) => (
+        <View key={i} style={[styles.fondoLinea, { top: i * LINEA_SEP }]}>
+          <View
+            style={i % 4 === 0 ? styles.lineaSolida : styles.lineaPunteada}
+          />
+        </View>
+      ))}
+    </View>
+  );
+}
+
+export default function CronogramasScreen() {
+  const [mes, setMes] = useState({ y: hoy.getFullYear(), m: hoy.getMonth() });
+  const [seleccionado, setSeleccionado] = useState(() =>
+    siguienteCulto(HOY_KEY),
+  );
+
+  const cambiarMes = (delta: number) => {
+    const d = new Date(mes.y, mes.m + delta, 1);
+    setMes({ y: d.getFullYear(), m: d.getMonth() });
+  };
+
+  const titulo = capitalizar(
+    new Date(mes.y, mes.m, 1).toLocaleDateString("es-ES", {
+      month: "long",
+      year: "numeric",
+    }),
+  );
+
+  const semana = cultosDeLaSemana(seleccionado);
+
+  const turnosDia = TURNOS.filter((t) => t.fecha === seleccionado).sort(
+    (a, b) => aMinutos(a.hora) - aMinutos(b.hora),
+  );
+
+  // Indice donde va la linea "Ahora" (solo si se mira el dia de hoy)
+  const ahora = hoy.getHours() * 60 + hoy.getMinutes();
+  const idxAhora =
+    seleccionado === HOY_KEY
+      ? turnosDia.findIndex((t) => aMinutos(t.hora) > ahora)
+      : -2;
+  const ahoraAlFinal = idxAhora === -1 && turnosDia.length > 0;
+
+  // Panel desplegable: "abajo" = bajo el calendario, "arriba" = bajo el titulo
+  const [listo, setListo] = useState(false);
+  const [altoLista, setAltoLista] = useState(0);
+  const top = useSharedValue(0);
+  const inicio = useSharedValue(0);
+  const arriba = useSharedValue(0);
+  const abajo = useSharedValue(0);
+
+  const onTituloLayout = (e: LayoutChangeEvent) => {
+    const { y, height } = e.nativeEvent.layout;
+    arriba.value = y + height + SPACING;
+  };
+
+  const onFijoLayout = (e: LayoutChangeEvent) => {
+    const alto = e.nativeEvent.layout.height;
+    // si estaba abajo, lo acompaña cuando el calendario cambia de alto
+    if (!listo || top.value > arriba.value + 1) {
+      top.value = listo ? withSpring(alto, RESORTE) : alto;
+    }
+    abajo.value = alto;
+    setListo(true);
+  };
+
+  const arrastre = Gesture.Pan()
+    .onStart(() => {
+      inicio.value = top.value;
+    })
+    .onUpdate((e) => {
+      top.value = Math.min(
+        abajo.value,
+        Math.max(arriba.value, inicio.value + e.translationY),
+      );
+    })
+    .onEnd((e) => {
+      const mitad = (arriba.value + abajo.value) / 2;
+      const subir =
+        e.velocityY < -500 || (e.velocityY <= 500 && top.value < mitad);
+      top.value = withSpring(subir ? arriba.value : abajo.value, RESORTE);
+    });
+
+  const alternarPanel = () => {
+    const mitad = (arriba.value + abajo.value) / 2;
+    top.value = withSpring(
+      top.value > mitad ? arriba.value : abajo.value,
+      RESORTE,
+    );
+  };
+
+  const panelStyle = useAnimatedStyle(() => ({ top: top.value }));
+
+  const filaTurno = (t: Turno) => {
+    const rol = ROLES[t.rol];
+    return (
+      <View style={styles.fila}>
+        <View style={styles.horas}>
+          <Text style={styles.horaInicio}>{t.hora}</Text>
+          <Text style={styles.horaFin}>{t.horaFin}</Text>
+        </View>
+        <View style={styles.bloqueFondo}>
+          <View
+            style={[
+              styles.bloque,
+              { backgroundColor: `${rol.color}26`, borderLeftColor: rol.color },
+            ]}
+          >
+            <View style={styles.flex}>
+              <Text style={[styles.bloqueRol, { color: rol.color }]}>
+                {rol.label.toUpperCase()}
+              </Text>
+              <Text style={styles.bloquePersona} numberOfLines={1}>
+                {t.persona}
+              </Text>
+            </View>
+            <Octicons name={rol.icon} size={18} color={rol.color} />
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  const lineaAhora = (
+    <View style={styles.ahora}>
+      <Text style={styles.ahoraTexto}>
+        {pad(hoy.getHours())}:{pad(hoy.getMinutes())}
+      </Text>
+      <View style={styles.ahoraPunto} />
+      <View style={styles.ahoraLinea} />
+    </View>
+  );
+
+  return (
+    <SafeAreaView style={styles.safe} edges={["top"]}>
+      {/* Parte fija */}
+      <View style={styles.fijo} onLayout={onFijoLayout}>
+        <View onLayout={onTituloLayout}>
+          <Text style={styles.titulo}>Cronogramas</Text>
+          <Text style={styles.subtitulo}>Turnos del ministerio</Text>
+        </View>
+
+        <View style={styles.calendario}>
+          <View style={styles.mesFila}>
+            <Text style={styles.mesTitulo}>{titulo}</Text>
+            <View style={styles.flechas}>
+              <Pressable
+                onPress={() => cambiarMes(-1)}
+                hitSlop={8}
+                style={styles.flecha}
+                accessibilityLabel="Mes anterior"
+              >
+                <Octicons name="chevron-left" size={16} color={TEXT} />
+              </Pressable>
+              <Pressable
+                onPress={() => cambiarMes(1)}
+                hitSlop={8}
+                style={styles.flecha}
+                accessibilityLabel="Mes siguiente"
+              >
+                <Octicons name="chevron-right" size={16} color={TEXT} />
+              </Pressable>
+            </View>
+          </View>
+
+          <View style={styles.grid}>
+            {DIAS_SEMANA.map((d, i) => (
+              <Text key={i} style={[styles.celda, styles.diaSemana]}>
+                {d}
+              </Text>
+            ))}
+
+            {diasDelMes(mes.y, mes.m).map((dia, i) => {
+              if (dia === null)
+                return <View key={`v${i}`} style={styles.celda} />;
+
+              const key = toKey(mes.y, mes.m, dia);
+              const activo = key === seleccionado;
+              const esHoy = key === HOY_KEY;
+              const tieneTurnos = TURNOS.some((t) => t.fecha === key);
+              const culto = esCulto(new Date(mes.y, mes.m, dia));
+
+              return (
+                <Pressable
+                  key={key}
+                  style={styles.celda}
+                  onPress={() => setSeleccionado(siguienteCulto(key))}
+                >
+                  <View
+                    style={[
+                      styles.dia,
+                      esHoy && styles.diaHoy,
+                      activo && styles.diaActivo,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.diaTexto,
+                        !culto && styles.diaTextoApagado,
+                        activo && styles.diaTextoActivo,
+                      ]}
+                    >
+                      {dia}
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.punto,
+                      tieneTurnos && !activo && styles.puntoVisible,
+                    ]}
+                  />
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      </View>
+
+      {/* Panel desplegable */}
+      {listo && (
+        <Animated.View style={[styles.panel, panelStyle]}>
+          <GestureDetector gesture={arrastre}>
+            <View style={styles.panelCabecera}>
+              <Pressable
+                onPress={alternarPanel}
+                hitSlop={12}
+                style={styles.asaZona}
+                accessibilityLabel="Desplegar panel"
+              >
+                <View style={styles.asa} />
+              </Pressable>
+
+              {/* Dias de culto de la semana */}
+              <View style={styles.tabs}>
+                {semana.map((d) => {
+                  const activo = d.key === seleccionado;
+                  return (
+                    <Pressable
+                      key={d.key}
+                      onPress={() => setSeleccionado(d.key)}
+                      style={styles.tab}
+                      accessibilityRole="tab"
+                      accessibilityState={{ selected: activo }}
+                    >
+                      <Text
+                        style={[styles.tabTexto, activo && styles.tabActivo]}
+                      >
+                        {d.nombre} {d.numero}
+                      </Text>
+                      <View
+                        style={[
+                          styles.tabLinea,
+                          activo && styles.tabLineaActiva,
+                        ]}
+                      />
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          </GestureDetector>
+
+          <ScrollView
+            style={styles.flex}
+            contentContainerStyle={styles.content}
+            showsVerticalScrollIndicator={false}
+            onContentSizeChange={(_, h) => setAltoLista(h)}
+          >
+            <FondoCeldas alto={altoLista} />
+
+            {turnosDia.length === 0 ? (
+              <View style={styles.vacio}>
+                <Octicons name="calendar" size={22} color={MUTED} />
+                <Text style={styles.vacioTexto}>No hay turnos este día</Text>
+              </View>
+            ) : (
+              <View style={styles.agenda}>
+                {turnosDia.map((t, i) => (
+                  <View key={t.id}>
+                    {i === idxAhora && lineaAhora}
+                    {filaTurno(t)}
+                  </View>
+                ))}
+                {ahoraAlFinal && lineaAhora}
+              </View>
+            )}
+          </ScrollView>
+        </Animated.View>
+      )}
     </SafeAreaView>
   );
 }
 
+const HORA_LABEL_W = 44;
+
 const styles = StyleSheet.create({
-  container: {
+  safe: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
     backgroundColor: DARK_BG,
   },
-  texto: {
+  flex: {
+    flex: 1,
+  },
+  fijo: {
+    paddingHorizontal: PADDING,
+    paddingTop: SPACING,
+    paddingBottom: SPACING,
+    gap: SPACING * 1.2,
+  },
+  content: {
+    paddingHorizontal: PADDING,
+    paddingTop: SPACING * 1.4,
+    paddingBottom: 120, // espacio para el tabbar flotante
+    gap: SPACING * 2,
+  },
+
+  // Panel
+  panel: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: SURFACE,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderTopWidth: 1,
+    borderColor: BORDER,
+  },
+  panelCabecera: {
+    paddingHorizontal: PADDING,
+    paddingTop: 8,
+    paddingBottom: 0,
+  },
+  asaZona: {
+    alignSelf: "center",
+    paddingVertical: 4,
+    paddingHorizontal: SPACING * 2,
+  },
+  asa: {
+    alignSelf: "center",
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#3A3A3A",
+    marginBottom: 4,
+  },
+  fondo: {
+    position: "absolute",
+    top: 0,
+    left: PADDING + HORA_LABEL_W + SPACING / 2,
+    right: PADDING,
+  },
+  fondoVertical: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: StyleSheet.hairlineWidth,
+    backgroundColor: "#2A2A2A",
+  },
+  fondoLinea: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    height: 1,
+    overflow: "hidden",
+  },
+  lineaSolida: {
+    height: 1,
+    backgroundColor: "#262626",
+  },
+  // truco: borde punteado completo recortado a 1px (iOS no dibuja un solo lado)
+  lineaPunteada: {
+    height: 2,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: "#222222",
+  },
+  titulo: {
+    fontFamily: SERIF,
+    fontSize: 28,
     color: TEXT,
+  },
+  subtitulo: {
+    fontSize: 13,
+    color: MUTED,
+    marginTop: 2,
+  },
+
+  // Calendario
+  calendario: {
+    padding: SPACING * 1.2,
+    borderRadius: 20,
+    backgroundColor: SURFACE,
+    gap: 6,
+  },
+  mesFila: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 4,
+  },
+  mesTitulo: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: TEXT,
+  },
+  flechas: {
+    flexDirection: "row",
+    gap: SPACING,
+  },
+  flecha: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: BORDER,
+  },
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  celda: {
+    width: `${100 / 7}%`,
+    alignItems: "center",
+    paddingVertical: 1,
+  },
+  diaSemana: {
+    fontSize: 11,
+    color: MUTED,
+    textAlign: "center",
+    paddingBottom: 4,
+  },
+  dia: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  diaHoy: {
+    borderWidth: 1.5,
+    borderColor: PRIMARY,
+  },
+  diaActivo: {
+    backgroundColor: PRIMARY,
+    borderColor: PRIMARY,
+  },
+  diaTexto: {
+    fontSize: 13,
+    color: TEXT,
+  },
+  diaTextoApagado: {
+    color: "#4A4A4A",
+  },
+  diaTextoActivo: {
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  punto: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    marginTop: 1,
+  },
+  puntoVisible: {
+    backgroundColor: PRIMARY,
+  },
+
+  // Tabs de dias de culto
+  tabs: {
+    flexDirection: "row",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: BORDER,
+  },
+  tab: {
+    flex: 1,
+    alignItems: "center",
+    paddingTop: 4,
+  },
+  tabTexto: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: MUTED,
+    paddingBottom: SPACING,
+  },
+  tabActivo: {
+    fontWeight: "700",
+    color: TEXT,
+  },
+  tabLinea: {
+    alignSelf: "stretch",
+    marginHorizontal: SPACING,
+    height: 2,
+    borderRadius: 1,
+  },
+  tabLineaActiva: {
+    backgroundColor: PRIMARY,
+  },
+
+  // Agenda
+  agenda: {
+    gap: SPACING,
+  },
+  fila: {
+    flexDirection: "row",
+    gap: SPACING,
+  },
+  horas: {
+    width: HORA_LABEL_W,
+    paddingTop: SPACING,
+  },
+  horaInicio: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: TEXT,
+  },
+  horaFin: {
+    fontSize: 11,
+    color: MUTED,
+    marginTop: 2,
+  },
+  bloqueFondo: {
+    flex: 1,
+    borderRadius: 10,
+    backgroundColor: SURFACE,
+  },
+  bloque: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING,
+    borderLeftWidth: 3,
+    borderRadius: 10,
+    paddingHorizontal: SPACING * 1.2,
+    paddingVertical: SPACING,
+  },
+  bloqueRol: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.6,
+  },
+  bloquePersona: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: TEXT,
+    marginTop: 2,
+  },
+  ahora: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: SPACING,
+  },
+  ahoraTexto: {
+    width: HORA_LABEL_W + SPACING - 4,
+    fontSize: 11,
+    fontWeight: "700",
+    color: PRIMARY,
+  },
+  ahoraPunto: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: PRIMARY,
+  },
+  ahoraLinea: {
+    flex: 1,
+    height: 1.5,
+    backgroundColor: PRIMARY,
+  },
+
+  vacio: {
+    backgroundColor: SURFACE,
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: SPACING * 3,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: BORDER,
+  },
+  vacioTexto: {
+    fontSize: 13,
+    color: MUTED,
   },
 });
