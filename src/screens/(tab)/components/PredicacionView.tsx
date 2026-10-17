@@ -3,13 +3,13 @@ import {
   BORDER,
   MESES_CORTOS,
   MUTED,
-  PRIMARY,
   SERIF,
   SPACING,
+  SURFACE,
   TEXT,
 } from "@/constants/constans";
 import { usePasaje } from "@/hooks/usePasaje";
-import { partirTitulo } from "@/utils/texto";
+import { iniciales, partirTitulo } from "@/utils/texto";
 import Octicons from "@expo/vector-icons/Octicons";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -35,11 +35,7 @@ const LISTA = PREDICACIONES.filter((p) => p.fecha <= hoyKey).sort((a, b) =>
   b.fecha.localeCompare(a.fecha),
 );
 
-type Props = {
-  onEstudiar: (cita: string) => void;
-};
-
-export default function PredicacionView({ onEstudiar }: Props) {
+export default function PredicacionView() {
   const [actualId, setActualId] = useState(LISTA[0]?.id);
   const actual = LISTA.find((p) => p.id === actualId);
   const pasaje = usePasaje(actual?.cita ?? "");
@@ -55,84 +51,86 @@ export default function PredicacionView({ onEstudiar }: Props) {
 
   const anteriores = LISTA.filter((p) => p.id !== actual.id);
   const { inicio, final } = partirTitulo(actual.titulo);
+  const esUltima = actual.id === LISTA[0]?.id;
 
   return (
     <View style={styles.contenedor}>
       {/* Encabezado */}
-      <View style={styles.cabecera}>
-        <Text style={styles.meta}>
-          {fechaCorta(actual.fecha)} · {actual.culto.toUpperCase()}
-        </Text>
+      <View style={styles.card}>
+        <View style={styles.etiquetas}>
+          <Text style={styles.chip}>
+            {esUltima ? "ÚLTIMA PREDICACIÓN" : "PREDICACIÓN"}
+          </Text>
+          <Text style={styles.meta}>{fechaCorta(actual.fecha)}</Text>
+        </View>
+
         <Text style={styles.titulo}>
           {inicio}
-          <Text style={styles.tituloCursiva}>{final}</Text>
+          <Text style={styles.cursiva}>{final}</Text>
         </Text>
-        <Text style={styles.predicador}>
-          <Text style={styles.predicadorLabel}>Predicador </Text>
-          {actual.predicador}
-        </Text>
-      </View>
 
-      <View style={styles.separador} />
+        <View style={styles.predicador}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarTexto}>
+              {iniciales(actual.predicador)}
+            </Text>
+          </View>
+          <View>
+            <Text style={styles.predicadorNombre}>{actual.predicador}</Text>
+            <Text style={styles.predicadorRol}>{actual.culto}</Text>
+          </View>
+        </View>
+      </View>
 
       {/* Pasaje (desde la API de la Biblia) */}
-      <PasajeTexto
-        cita={actual.cita}
-        versos={pasaje.versos}
-        cargando={pasaje.cargando}
-        error={pasaje.error}
-      />
-
-      <View style={styles.separador} />
-
-      {/* Puntos principales */}
       <View>
-        {actual.puntos.map((punto, i) => (
-          <View key={i} style={[styles.punto, i > 0 && styles.conLinea]}>
-            <Text style={styles.numero}>{String(i + 1).padStart(2, "0")}</Text>
-            <Text style={styles.puntoTexto}>{punto}</Text>
-          </View>
-        ))}
+        <Text style={styles.seccion}>PASAJE</Text>
+        <View style={styles.card}>
+          <PasajeTexto
+            cita={actual.cita}
+            versos={pasaje.versos}
+            cargando={pasaje.cargando}
+            error={pasaje.error}
+          />
+        </View>
       </View>
-
-      <Pressable
-        onPress={() => onEstudiar(actual.cita)}
-        style={({ pressed }) => [styles.boton, pressed && styles.presionado]}
-      >
-        <Text style={styles.botonTexto}>Estudiar este pasaje →</Text>
-      </Pressable>
 
       {/* Anteriores */}
       {anteriores.length > 0 && (
-        <View style={styles.anteriores}>
+        <View>
           <Text style={styles.seccion}>ANTERIORES</Text>
-          {anteriores.map((p, i) => {
-            const f = deKey(p.fecha);
-            return (
-              <Pressable
-                key={p.id}
-                onPress={() => setActualId(p.id)}
-                style={({ pressed }) => [
-                  styles.fila,
-                  i > 0 && styles.conLinea,
-                  pressed && styles.presionado,
-                ]}
-              >
-                <Text style={styles.filaFecha}>
-                  {f.getDate()} {MESES_CORTOS[f.getMonth()].toLowerCase()}
-                </Text>
-                <View style={styles.flex}>
-                  <Text style={styles.filaTitulo} numberOfLines={1}>
-                    {p.titulo}
-                  </Text>
-                  <Text style={styles.filaSub} numberOfLines={1}>
-                    {p.predicador} · {p.cita}
-                  </Text>
-                </View>
-                <Octicons name="arrow-right" size={14} color={MUTED} />
-              </Pressable>
-            );
-          })}
+          <View style={[styles.card, styles.cardLista]}>
+            {anteriores.map((p, i) => {
+              const f = deKey(p.fecha);
+              return (
+                <Pressable
+                  key={p.id}
+                  onPress={() => setActualId(p.id)}
+                  style={({ pressed }) => [
+                    styles.fila,
+                    i > 0 && styles.conLinea,
+                    pressed && styles.presionado,
+                  ]}
+                >
+                  <View style={styles.fecha}>
+                    <Text style={styles.fechaDia}>{f.getDate()}</Text>
+                    <Text style={styles.fechaMes}>
+                      {MESES_CORTOS[f.getMonth()]}
+                    </Text>
+                  </View>
+                  <View style={styles.flex}>
+                    <Text style={styles.filaTitulo} numberOfLines={1}>
+                      {p.titulo}
+                    </Text>
+                    <Text style={styles.filaSub} numberOfLines={1}>
+                      {p.predicador} · {p.cita}
+                    </Text>
+                  </View>
+                  <Octicons name="chevron-right" size={16} color={MUTED} />
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
       )}
     </View>
@@ -141,110 +139,121 @@ export default function PredicacionView({ onEstudiar }: Props) {
 
 const styles = StyleSheet.create({
   contenedor: {
-    gap: SPACING * 2.4,
+    gap: SPACING * 2,
     paddingTop: SPACING,
   },
   flex: {
     flex: 1,
   },
-
-  // Encabezado
-  cabecera: {
-    alignItems: "center",
-    gap: SPACING,
-  },
-  meta: {
+  seccion: {
     fontSize: 11,
     letterSpacing: 1.4,
     color: MUTED,
+    marginBottom: SPACING,
   },
-  titulo: {
-    fontFamily: SERIF,
-    fontSize: 32,
-    lineHeight: 38,
-    color: TEXT,
-    textAlign: "center",
-  },
-  tituloCursiva: {
-    fontStyle: "italic",
-    color: PRIMARY,
-  },
-  predicador: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: TEXT,
-  },
-  predicadorLabel: {
-    fontWeight: "400",
-    color: MUTED,
-  },
-  separador: {
-    alignSelf: "center",
-    width: 32,
-    height: 1,
-    backgroundColor: BORDER,
-  },
-
-  // Puntos
-  punto: {
-    flexDirection: "row",
+  card: {
+    padding: SPACING * 1.6,
     gap: SPACING * 1.4,
-    paddingVertical: SPACING * 1.4,
+    borderRadius: 20,
+    backgroundColor: SURFACE,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: BORDER,
+  },
+  cardLista: {
+    paddingVertical: SPACING / 2,
+    gap: 0,
   },
   conLinea: {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: BORDER,
   },
-  numero: {
-    fontFamily: SERIF,
-    fontSize: 15,
-    color: MUTED,
-    width: 24,
-  },
-  puntoTexto: {
-    flex: 1,
-    fontSize: 15,
-    lineHeight: 22,
-    color: TEXT,
-  },
-
-  // Boton
-  boton: {
-    alignSelf: "center",
-    paddingHorizontal: SPACING * 2.4,
-    paddingVertical: SPACING * 1.2,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: BORDER,
-  },
   presionado: {
     opacity: 0.6,
   },
-  botonTexto: {
-    fontSize: 14,
-    fontWeight: "500",
+
+  // Encabezado
+  etiquetas: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  chip: {
+    fontSize: 10,
+    fontWeight: "600",
+    letterSpacing: 1,
     color: TEXT,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: BORDER,
+    overflow: "hidden",
+  },
+  meta: {
+    fontSize: 11,
+    letterSpacing: 1.2,
+    color: MUTED,
+  },
+  titulo: {
+    fontFamily: SERIF,
+    fontSize: 28,
+    lineHeight: 34,
+    color: TEXT,
+  },
+  cursiva: {
+    fontStyle: "italic",
+  },
+  predicador: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING,
+    paddingTop: SPACING * 1.2,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: BORDER,
+  },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: BORDER,
+  },
+  avatarTexto: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: TEXT,
+  },
+  predicadorNombre: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: TEXT,
+  },
+  predicadorRol: {
+    fontSize: 12,
+    color: MUTED,
+    marginTop: 1,
   },
 
   // Anteriores
-  anteriores: {
-    marginTop: SPACING,
-  },
-  seccion: {
-    fontSize: 11,
-    letterSpacing: 1.4,
-    color: MUTED,
-    marginBottom: SPACING / 2,
-  },
   fila: {
     flexDirection: "row",
     alignItems: "center",
-    gap: SPACING * 1.4,
-    paddingVertical: SPACING * 1.4,
+    gap: SPACING * 1.2,
+    paddingVertical: SPACING * 1.2,
   },
-  filaFecha: {
-    width: 48,
-    fontSize: 13,
+  fecha: {
+    width: 40,
+    alignItems: "center",
+  },
+  fechaDia: {
+    fontFamily: SERIF,
+    fontSize: 20,
+    color: TEXT,
+  },
+  fechaMes: {
+    fontSize: 10,
+    letterSpacing: 0.8,
     color: MUTED,
   },
   filaTitulo: {

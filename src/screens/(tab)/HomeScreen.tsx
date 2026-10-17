@@ -3,28 +3,27 @@ import {
   IGLESIA,
   NOTIFICACIONES,
   PALABRA,
+  REDES,
 } from "@/assets/data/homeMocks";
 import {
   BORDER,
+  HOME_CARD_W as CARD_W,
   DARK_BG,
   DEVO_GAP,
   DEVO_W,
-  HOME_CARD_W as CARD_W,
-  HOME_PADDING as PADDING,
-  HOME_TABS as TABS,
   MUTED,
+  HOME_PADDING as PADDING,
   PRIMARY,
   SERIF,
   SPACING,
   SURFACE,
   TEXT,
 } from "@/constants/constans";
+import { abrirComoLlegar } from "@/utils/mapa";
 import Octicons from "@expo/vector-icons/Octicons";
-import { Image } from "expo-image";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import {
   FlatList,
-  LayoutChangeEvent,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Pressable,
@@ -33,93 +32,43 @@ import {
   Text,
   View,
 } from "react-native";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
+import RedesSociales from "./components/RedesSociales";
+import MapaIglesia from "./components/MapaIglesia";
 
-const FECHA_HOY = new Date()
-  .toLocaleDateString("es-ES", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  })
+const IGLESIA_ALTO = CARD_W * 0.95;
+
+// Encabezado: "VIERNES" + "16 de octubre"
+const hoy = new Date();
+const DIA_SEMANA = hoy
+  .toLocaleDateString("es-ES", { weekday: "long" })
   .toUpperCase();
+const FECHA_HOY = hoy.toLocaleDateString("es-ES", {
+  day: "numeric",
+  month: "long",
+});
 
 export default function HomeScreen() {
+  // slide es el devocional visible en el carrusel
   const [slide, setSlide] = useState(0);
-  const [tab, setTab] = useState(0);
-  const scrollRef = useRef<ScrollView>(null);
-  const devoY = useRef(0);
-  // true solo cuando el usuario arrastra (no al hacer scroll por codigo)
-  const arrastrando = useRef(false);
 
-  // Posicion y ancho de cada tab para mover la linea
-  const tabsLayout = useRef<{ x: number; width: number }[]>([]);
-  const lineaX = useSharedValue(0);
-  const lineaW = useSharedValue(0);
-
-  useEffect(() => {
-    const t = tabsLayout.current[tab];
-    if (!t) return;
-    lineaX.value = withTiming(t.x, { duration: 220 });
-    lineaW.value = withTiming(t.width, { duration: 220 });
-  }, [tab, lineaX, lineaW]);
-
-  const lineaStyle = useAnimatedStyle(() => ({
-    width: lineaW.value,
-    transform: [{ translateX: lineaX.value }],
-  }));
-
-  const onTabLayout = (i: number) => (e: LayoutChangeEvent) => {
-    const { x, width } = e.nativeEvent.layout;
-    tabsLayout.current[i] = { x, width };
-    // posicion inicial sin animar
-    if (i === tab) {
-      lineaX.value = x;
-      lineaW.value = width;
-    }
-  };
-
-  const irATab = (i: number) => {
-    arrastrando.current = false;
-    setTab(i);
-    scrollRef.current?.scrollTo({ y: i === 0 ? 0 : devoY.current - SPACING });
-  };
-
-  // Cambia el tab activo segun el scroll
-  const onScrollVertical = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    if (!arrastrando.current) return;
-    const y = e.nativeEvent.contentOffset.y;
-    setTab(y >= devoY.current - 200 ? 1 : 0);
-  };
-
+  // en que vista se encuentra el usuario delizando
+  // e.nativeEvent.contentOffset.x indica cuantos pixeles se han desplazado
+  // actuliza el estado horizonatlmente
+  // DEVO_W: ancho de cada elemento.
+  // DEVO_GAP: espacio entre elementos.
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     setSlide(Math.round(e.nativeEvent.contentOffset.x / (DEVO_W + DEVO_GAP)));
   };
 
   return (
+    //edges es para que no se muestre la barra de notificaciones
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      {/* Barra superior fija */}
+      {/* Encabezado fijo: fecha + notificaciones */}
       <View style={styles.header}>
-        <View style={styles.tabs}>
-          {TABS.map((t, i) => (
-            <Pressable
-              key={t}
-              onLayout={onTabLayout(i)}
-              onPress={() => irATab(i)}
-              hitSlop={8}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: tab === i }}
-            >
-              <Text style={[styles.tabTexto, tab === i && styles.tabActivo]}>
-                {t}
-              </Text>
-            </Pressable>
-          ))}
-          <Animated.View style={[styles.linea, lineaStyle]} />
+        <View>
+          <Text style={styles.diaSemana}>{DIA_SEMANA}</Text>
+          <Text style={styles.fechaGrande}>{FECHA_HOY}</Text>
         </View>
 
         <Pressable
@@ -133,14 +82,9 @@ export default function HomeScreen() {
       </View>
 
       <ScrollView
-        ref={scrollRef}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
-        onScroll={onScrollVertical}
-        onScrollBeginDrag={() => (arrastrando.current = true)}
-        scrollEventThrottle={32}
       >
-        <Text style={styles.fecha}>{FECHA_HOY}</Text>
         {/* Palabra del dia */}
         <View style={styles.palabra}>
           <View style={styles.palabraLinea} />
@@ -152,15 +96,15 @@ export default function HomeScreen() {
 
         {/* Iglesia / proximo culto */}
         <View style={styles.iglesiaCard}>
-          {IGLESIA.imagen ? (
-            <Image
-              source={IGLESIA.imagen}
-              style={StyleSheet.absoluteFill}
-              contentFit="cover"
-            />
-          ) : (
-            <Octicons name="home" size={44} color={MUTED} />
-          )}
+          <MapaIglesia
+            lat={IGLESIA.lat}
+            lng={IGLESIA.lng}
+            ancho={CARD_W}
+            alto={IGLESIA_ALTO}
+            onComoLlegar={() =>
+              abrirComoLlegar(IGLESIA.lat, IGLESIA.lng, IGLESIA.direccion)
+            }
+          />
 
           <View style={styles.chip}>
             <Octicons name="location" size={12} color={TEXT} />
@@ -183,12 +127,7 @@ export default function HomeScreen() {
         </View>
 
         {/* Devocionales */}
-        <Text
-          style={styles.seccion}
-          onLayout={(e) => (devoY.current = e.nativeEvent.layout.y)}
-        >
-          Devocionales de la semana
-        </Text>
+        <Text style={styles.seccion}>Devocionales de la semana</Text>
         <FlatList
           data={DEVOCIONALES}
           keyExtractor={(d) => d.id}
@@ -221,6 +160,11 @@ export default function HomeScreen() {
             />
           ))}
         </View>
+
+        {/* Redes sociales (al final) */}
+        <View style={styles.redes}>
+          <RedesSociales redes={REDES} />
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -249,32 +193,16 @@ const styles = StyleSheet.create({
     paddingTop: SPACING / 2,
     paddingBottom: SPACING / 2,
   },
-  tabs: {
-    flexDirection: "row",
-    gap: SPACING * 2.4,
-    paddingBottom: 8,
-  },
-  tabTexto: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: MUTED,
-  },
-  tabActivo: {
-    color: TEXT,
-  },
-  linea: {
-    position: "absolute",
-    left: 0,
-    bottom: 0,
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: PRIMARY,
-  },
-  fecha: {
+  diaSemana: {
     fontSize: 11,
-    letterSpacing: 1.2,
-    color: MUTED,
-    marginBottom: -SPACING / 2,
+    letterSpacing: 1.4,
+    color: PRIMARY,
+  },
+  fechaGrande: {
+    fontFamily: SERIF,
+    fontSize: 26,
+    color: TEXT,
+    marginTop: 2,
   },
   campana: {
     width: 40,
@@ -331,12 +259,12 @@ const styles = StyleSheet.create({
 
   // Card iglesia
   iglesiaCard: {
-    height: CARD_W * 0.95,
+    height: IGLESIA_ALTO,
     borderRadius: 24,
     overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#262626", // placeholder hasta poner foto
+    backgroundColor: "#262626", // mientras cargan las teselas del mapa
   },
   chip: {
     position: "absolute",
@@ -474,6 +402,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "500",
     color: TEXT,
+  },
+  redes: {
+    marginTop: SPACING * 1.6,
+    paddingTop: SPACING * 2.4,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: BORDER,
   },
   indicadores: {
     flexDirection: "row",

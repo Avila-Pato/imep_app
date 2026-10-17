@@ -6,3 +6,13 @@ export const partirTitulo = (titulo: string) => {
     ? { inicio: "", final: t }
     : { inicio: t.slice(0, i + 1), final: t.slice(i + 1) };
 };
+
+// "María González" -> "MG"
+export const iniciales = (nombre: string) =>
+  nombre
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0])
+    .join("")
+    .toUpperCase();

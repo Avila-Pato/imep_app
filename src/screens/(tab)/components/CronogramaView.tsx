@@ -6,9 +6,7 @@ import {
   DIAS_SEMANA,
   HOME_PADDING as PADDING,
   MUTED,
-  PRIMARY,
   ROLES,
-  SERIF,
   SPACING,
   SURFACE,
   TEXT,
@@ -30,7 +28,6 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 const RESORTE = { damping: 22, stiffness: 220 };
 
@@ -74,6 +71,26 @@ function siguienteCulto(key: string) {
   return aKey(f);
 }
 
+// Dias entre hoy y esa fecha (negativo = ya paso)
+const diasDesdeHoy = (key: string) =>
+  Math.round((deKey(key).getTime() - deKey(HOY_KEY).getTime()) / 86400000);
+
+// "Hoy" | "Mañana" | "En 3 días" | "Ayer" | "Hace 4 días"
+function relativo(key: string) {
+  const d = diasDesdeHoy(key);
+  if (d === 0) return "Hoy";
+  if (d === 1) return "Mañana";
+  if (d === -1) return "Ayer";
+  return d > 0 ? `En ${d} días` : `Hace ${-d} días`;
+}
+
+const fechaLarga = (key: string) =>
+  deKey(key).toLocaleDateString("es-ES", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+
 // Dias de culto de la semana (lunes a domingo) que contiene esa fecha
 function cultosDeLaSemana(key: string) {
   const f = deKey(key);
@@ -113,7 +130,7 @@ function FondoCeldas({ alto }: { alto: number }) {
   );
 }
 
-export default function CronogramasScreen() {
+export default function CronogramaView() {
   const [mes, setMes] = useState({ y: hoy.getFullYear(), m: hoy.getMonth() });
   const [seleccionado, setSeleccionado] = useState(() =>
     siguienteCulto(HOY_KEY),
@@ -132,6 +149,7 @@ export default function CronogramasScreen() {
   );
 
   const semana = cultosDeLaSemana(seleccionado);
+  const diasSel = diasDesdeHoy(seleccionado);
 
   const turnosDia = TURNOS.filter((t) => t.fecha === seleccionado).sort(
     (a, b) => aMinutos(a.hora) - aMinutos(b.hora),
@@ -145,7 +163,7 @@ export default function CronogramasScreen() {
       : -2;
   const ahoraAlFinal = idxAhora === -1 && turnosDia.length > 0;
 
-  // Panel desplegable: "abajo" = bajo el calendario, "arriba" = bajo el titulo
+  // Panel desplegable: "abajo" = bajo el calendario, "arriba" = tope de la vista
   const [listo, setListo] = useState(false);
   const [altoLista, setAltoLista] = useState(0);
   const top = useSharedValue(0);
@@ -153,47 +171,43 @@ export default function CronogramasScreen() {
   const arriba = useSharedValue(0);
   const abajo = useSharedValue(0);
 
-  const onTituloLayout = (e: LayoutChangeEvent) => {
-    const { y, height } = e.nativeEvent.layout;
-    arriba.value = y + height + SPACING;
-  };
-
   const onFijoLayout = (e: LayoutChangeEvent) => {
     const alto = e.nativeEvent.layout.height;
     // si estaba abajo, lo acompaña cuando el calendario cambia de alto
-    if (!listo || top.value > arriba.value + 1) {
-      top.value = listo ? withSpring(alto, RESORTE) : alto;
+    if (!listo || top.get() > arriba.get() + 1) {
+      top.set(listo ? withSpring(alto, RESORTE) : alto);
     }
-    abajo.value = alto;
+    abajo.set(alto);
     setListo(true);
   };
 
   const arrastre = Gesture.Pan()
     .onStart(() => {
-      inicio.value = top.value;
+      inicio.set(top.get());
     })
     .onUpdate((e) => {
-      top.value = Math.min(
-        abajo.value,
-        Math.max(arriba.value, inicio.value + e.translationY),
+      top.set(
+        Math.min(
+          abajo.get(),
+          Math.max(arriba.get(), inicio.get() + e.translationY),
+        ),
       );
     })
     .onEnd((e) => {
-      const mitad = (arriba.value + abajo.value) / 2;
+      const mitad = (arriba.get() + abajo.get()) / 2;
       const subir =
-        e.velocityY < -500 || (e.velocityY <= 500 && top.value < mitad);
-      top.value = withSpring(subir ? arriba.value : abajo.value, RESORTE);
+        e.velocityY < -500 || (e.velocityY <= 500 && top.get() < mitad);
+      top.set(withSpring(subir ? arriba.get() : abajo.get(), RESORTE));
     });
 
   const alternarPanel = () => {
-    const mitad = (arriba.value + abajo.value) / 2;
-    top.value = withSpring(
-      top.value > mitad ? arriba.value : abajo.value,
-      RESORTE,
+    const mitad = (arriba.get() + abajo.get()) / 2;
+    top.set(
+      withSpring(top.get() > mitad ? arriba.get() : abajo.get(), RESORTE),
     );
   };
 
-  const panelStyle = useAnimatedStyle(() => ({ top: top.value }));
+  const panelStyle = useAnimatedStyle(() => ({ top: top.get() }));
 
   const filaTurno = (t: Turno) => {
     const rol = ROLES[t.rol];
@@ -204,21 +218,16 @@ export default function CronogramasScreen() {
           <Text style={styles.horaFin}>{t.horaFin}</Text>
         </View>
         <View style={styles.bloqueFondo}>
-          <View
-            style={[
-              styles.bloque,
-              { backgroundColor: `${rol.color}26`, borderLeftColor: rol.color },
-            ]}
-          >
+          <View style={styles.bloque}>
+            <View style={styles.bloqueIcono}>
+              <Octicons name={rol.icon} size={16} color={TEXT} />
+            </View>
             <View style={styles.flex}>
-              <Text style={[styles.bloqueRol, { color: rol.color }]}>
-                {rol.label.toUpperCase()}
-              </Text>
+              <Text style={styles.bloqueRol}>{rol.label.toUpperCase()}</Text>
               <Text style={styles.bloquePersona} numberOfLines={1}>
                 {t.persona}
               </Text>
             </View>
-            <Octicons name={rol.icon} size={18} color={rol.color} />
           </View>
         </View>
       </View>
@@ -236,14 +245,9 @@ export default function CronogramasScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top"]}>
+    <View style={styles.safe}>
       {/* Parte fija */}
       <View style={styles.fijo} onLayout={onFijoLayout}>
-        <View onLayout={onTituloLayout}>
-          <Text style={styles.titulo}>Cronogramas</Text>
-          <Text style={styles.subtitulo}>Turnos del ministerio</Text>
-        </View>
-
         <View style={styles.calendario}>
           <View style={styles.mesFila}>
             <Text style={styles.mesTitulo}>{titulo}</Text>
@@ -307,12 +311,18 @@ export default function CronogramasScreen() {
                       {dia}
                     </Text>
                   </View>
-                  <View
-                    style={[
-                      styles.punto,
-                      tieneTurnos && !activo && styles.puntoVisible,
-                    ]}
-                  />
+                  <View style={styles.puntoZona}>
+                    {esHoy && !activo ? (
+                      <Text style={styles.hoyEtiqueta}>HOY</Text>
+                    ) : (
+                      <View
+                        style={[
+                          styles.punto,
+                          tieneTurnos && !activo && styles.puntoVisible,
+                        ]}
+                      />
+                    )}
+                  </View>
                 </Pressable>
               );
             })}
@@ -338,6 +348,7 @@ export default function CronogramasScreen() {
               <View style={styles.tabs}>
                 {semana.map((d) => {
                   const activo = d.key === seleccionado;
+                  const dias = diasDesdeHoy(d.key);
                   return (
                     <Pressable
                       key={d.key}
@@ -347,9 +358,21 @@ export default function CronogramasScreen() {
                       accessibilityState={{ selected: activo }}
                     >
                       <Text
-                        style={[styles.tabTexto, activo && styles.tabActivo]}
+                        style={[
+                          styles.tabTexto,
+                          dias < 0 && styles.tabPasado,
+                          activo && styles.tabActivo,
+                        ]}
                       >
                         {d.nombre} {d.numero}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.tabRelativo,
+                          dias === 0 && styles.tabRelativoHoy,
+                        ]}
+                      >
+                        {dias < 0 ? "Ya pasó" : relativo(d.key)}
                       </Text>
                       <View
                         style={[
@@ -372,6 +395,37 @@ export default function CronogramasScreen() {
           >
             <FondoCeldas alto={altoLista} />
 
+            {/* Que dia se esta viendo y que dia es hoy (evita confusiones) */}
+            <View style={styles.estado}>
+              <View
+                style={[
+                  styles.estadoChip,
+                  diasSel === 0 && styles.estadoChipHoy,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.estadoChipTexto,
+                    diasSel === 0 && styles.estadoChipTextoHoy,
+                  ]}
+                >
+                  {diasSel < 0
+                    ? "YA PASÓ"
+                    : relativo(seleccionado).toUpperCase()}
+                </Text>
+              </View>
+              <View style={styles.flex}>
+                <Text style={styles.estadoDia}>
+                  {capitalizar(fechaLarga(seleccionado))}
+                </Text>
+                <Text style={styles.estadoHoy}>
+                  {diasSel === 0
+                    ? "Este culto es hoy"
+                    : `Hoy es ${fechaLarga(HOY_KEY)}`}
+                </Text>
+              </View>
+            </View>
+
             {turnosDia.length === 0 ? (
               <View style={styles.vacio}>
                 <Octicons name="calendar" size={22} color={MUTED} />
@@ -391,7 +445,7 @@ export default function CronogramasScreen() {
           </ScrollView>
         </Animated.View>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -416,6 +470,48 @@ const styles = StyleSheet.create({
     paddingTop: SPACING * 1.4,
     paddingBottom: 120, // espacio para el tabbar flotante
     gap: SPACING * 2,
+  },
+
+  // Estado del dia seleccionado
+  estado: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING * 1.2,
+    padding: SPACING * 1.2,
+    borderRadius: 14,
+    backgroundColor: DARK_BG,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: BORDER,
+  },
+  estadoChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: MUTED,
+  },
+  estadoChipHoy: {
+    backgroundColor: TEXT,
+    borderColor: TEXT,
+  },
+  estadoChipTexto: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.8,
+    color: TEXT,
+  },
+  estadoChipTextoHoy: {
+    color: DARK_BG,
+  },
+  estadoDia: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: TEXT,
+  },
+  estadoHoy: {
+    fontSize: 12,
+    color: MUTED,
+    marginTop: 2,
   },
 
   // Panel
@@ -460,7 +556,7 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: StyleSheet.hairlineWidth,
-    backgroundColor: "#2A2A2A",
+    backgroundColor: "#3D3D3D",
   },
   fondoLinea: {
     position: "absolute",
@@ -471,24 +567,14 @@ const styles = StyleSheet.create({
   },
   lineaSolida: {
     height: 1,
-    backgroundColor: "#262626",
+    backgroundColor: "#383838",
   },
   // truco: borde punteado completo recortado a 1px (iOS no dibuja un solo lado)
   lineaPunteada: {
     height: 2,
     borderWidth: 1,
     borderStyle: "dashed",
-    borderColor: "#222222",
-  },
-  titulo: {
-    fontFamily: SERIF,
-    fontSize: 28,
-    color: TEXT,
-  },
-  subtitulo: {
-    fontSize: 13,
-    color: MUTED,
-    marginTop: 2,
+    borderColor: "#3A3A3A",
   },
 
   // Calendario
@@ -546,11 +632,11 @@ const styles = StyleSheet.create({
   },
   diaHoy: {
     borderWidth: 1.5,
-    borderColor: PRIMARY,
+    borderColor: MUTED,
   },
   diaActivo: {
-    backgroundColor: PRIMARY,
-    borderColor: PRIMARY,
+    backgroundColor: TEXT,
+    borderColor: TEXT,
   },
   diaTexto: {
     fontSize: 13,
@@ -561,16 +647,26 @@ const styles = StyleSheet.create({
   },
   diaTextoActivo: {
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: DARK_BG,
+  },
+  puntoZona: {
+    height: 10,
+    alignItems: "center",
+    justifyContent: "center",
   },
   punto: {
     width: 4,
     height: 4,
     borderRadius: 2,
-    marginTop: 1,
+  },
+  hoyEtiqueta: {
+    fontSize: 7,
+    fontWeight: "700",
+    letterSpacing: 0.6,
+    color: TEXT,
   },
   puntoVisible: {
-    backgroundColor: PRIMARY,
+    backgroundColor: MUTED,
   },
 
   // Tabs de dias de culto
@@ -588,7 +684,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
     color: MUTED,
+  },
+  tabPasado: {
+    color: "#5A5A5A",
+  },
+  tabRelativo: {
+    fontSize: 11,
+    color: MUTED,
+    marginTop: 2,
     paddingBottom: SPACING,
+  },
+  tabRelativoHoy: {
+    color: TEXT,
+    fontWeight: "700",
   },
   tabActivo: {
     fontWeight: "700",
@@ -601,7 +709,7 @@ const styles = StyleSheet.create({
     borderRadius: 1,
   },
   tabLineaActiva: {
-    backgroundColor: PRIMARY,
+    backgroundColor: TEXT,
   },
 
   // Agenda
@@ -635,19 +743,30 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: SPACING,
-    borderLeftWidth: 3,
-    borderRadius: 10,
+    gap: SPACING * 1.2,
     paddingHorizontal: SPACING * 1.2,
-    paddingVertical: SPACING,
+    paddingVertical: SPACING * 1.2,
+    borderRadius: 14,
+    backgroundColor: "#242424",
+    borderWidth: 1,
+    borderColor: "#333333",
+  },
+  bloqueIcono: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#1A1A1A",
   },
   bloqueRol: {
     fontSize: 10,
     fontWeight: "700",
-    letterSpacing: 0.6,
+    letterSpacing: 0.8,
+    color: MUTED,
   },
   bloquePersona: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "600",
     color: TEXT,
     marginTop: 2,
@@ -661,18 +780,18 @@ const styles = StyleSheet.create({
     width: HORA_LABEL_W + SPACING - 4,
     fontSize: 11,
     fontWeight: "700",
-    color: PRIMARY,
+    color: TEXT,
   },
   ahoraPunto: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: PRIMARY,
+    backgroundColor: TEXT,
   },
   ahoraLinea: {
     flex: 1,
     height: 1.5,
-    backgroundColor: PRIMARY,
+    backgroundColor: TEXT,
   },
 
   vacio: {

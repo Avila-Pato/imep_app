@@ -1,7 +1,7 @@
 import { ImageSource } from "expo-image";
 import { IconName } from "./typesCronogramas";
 
-export type CategoriaId = "evento" | "aviso" | "jovenes" | "ninos";
+export type CategoriaId = "evento" | "jovenes" | "varones" | "ninos";
 
 export type Categoria = {
   label: string;

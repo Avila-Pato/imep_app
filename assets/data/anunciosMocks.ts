@@ -15,7 +15,7 @@ export const ANUNCIOS: Anuncio[] = [
   },
   {
     id: "2",
-    categoria: "aviso",
+    categoria: "evento",
     titulo: "Cambio de horario del culto",
     descripcion:
       "Desde este domingo el culto general comienza a las 11:00 hrs.",
@@ -42,7 +42,7 @@ export const ANUNCIOS: Anuncio[] = [
   },
   {
     id: "5",
-    categoria: "aviso",
+    categoria: "evento",
     titulo: "Colecta de alimentos",
     descripcion:
       "Recibimos alimentos no perecibles durante todo el mes en recepción.",
@@ -57,5 +57,15 @@ export const ANUNCIOS: Anuncio[] = [
     fecha: "2026-11-08",
     hora: "11:00",
     lugar: "Templo principal",
+  },
+  {
+    id: "7",
+    categoria: "varones",
+    titulo: "Desayuno de varones",
+    descripcion:
+      "Compartimos la Palabra y un desayuno entre hermanos. Invita a un amigo.",
+    fecha: "2026-10-24",
+    hora: "09:00",
+    lugar: "Comedor del templo",
   },
 ];

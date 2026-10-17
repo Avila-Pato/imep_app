@@ -1,4 +1,4 @@
-import { MUTED, PRIMARY, SERIF, SPACING, TEXT } from "@/constants/constans";
+import { MUTED, SERIF, SPACING, TEXT } from "@/constants/constans";
 import { Verso } from "@/services/biblia";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "600",
     letterSpacing: 1.2,
-    color: PRIMARY,
+    color: MUTED,
   },
   lectura: {
     gap: SPACING * 1.2,
@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
     fontFamily: undefined,
     fontSize: 11,
     fontWeight: "700",
-    color: PRIMARY,
+    color: MUTED,
   },
   error: {
     fontSize: 13,

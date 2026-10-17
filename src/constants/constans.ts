@@ -1,5 +1,8 @@
 import { Categoria, CategoriaId } from "@/types/typesAnuncios";
+import { Grupo } from "@/types/typesComunidad";
 import { Rol, RolId } from "@/types/typesCronogramas";
+import { Habito } from "@/types/typesOraciones";
+import { OpcionMenu } from "@/types/typesPerfil";
 import { Dimensions, Platform } from "react-native";
 
 const { width } = Dimensions.get("window");
@@ -37,26 +40,25 @@ export const MUTED = "#9A9A9A";
 export const PRIMARY = "#E5484D";
 
 // Home
-export const HOME_TABS = ["Inicio", "Devocionales"];
 export const SERIF = Platform.select({ ios: "Georgia", default: "serif" });
 export const HOME_PADDING = SPACING * 2.4;
 export const HOME_CARD_W = width - HOME_PADDING * 2;
-export const DEVO_W = HOME_CARD_W * 0.8;
-export const DEVO_GAP = SPACING * 1.2;
+export const DEVO_W = HOME_CARD_W * 0.8; // ancho de cada devocional
+export const DEVO_GAP = SPACING * 1.2; // espacio entre devocionales
 
 // Cronogramas (turnos del ministerio)
 export const DIAS_SEMANA = ["L", "M", "M", "J", "V", "S", "D"];
 // Dias de culto (como Date.getDay(): 0 = domingo ... 6 = sabado)
 export const DIAS_CULTO = [2, 4, 0]; // martes, jueves, domingo
 export const ROLES: Record<RolId, Rol> = {
-  palabra: { label: "Palabra", icon: "book", color: "#E5484D" },
-  pasillo: { label: "Pasillo", icon: "people", color: "#3B9EFF" },
-  alabanza: { label: "Alabanza", icon: "unmute", color: "#A78BFA" },
-  ofrenda: { label: "Ofrenda", icon: "gift", color: "#F5A524" },
-  recepcion: { label: "Recepción", icon: "home", color: "#30C48D" },
+  palabra: { label: "Palabra", icon: "book" },
+  pasillo: { label: "Pasillo", icon: "people" },
+  alabanza: { label: "Alabanza", icon: "unmute" },
+  ofrenda: { label: "Ofrenda", icon: "gift" },
+  recepcion: { label: "Recepción", icon: "home" },
 };
 
-// Anuncios (eventos y avisos generales)
+// Anuncios (eventos de la iglesia y de cada grupo)
 export const MESES_CORTOS = [
   "ENE",
   "FEB",
@@ -73,8 +75,8 @@ export const MESES_CORTOS = [
 ];
 export const CATEGORIAS: Record<CategoriaId, Categoria> = {
   evento: { label: "Eventos", icon: "star" },
-  aviso: { label: "Avisos", icon: "megaphone" },
   jovenes: { label: "Jóvenes", icon: "flame" },
+  varones: { label: "Varones", icon: "shield" },
   ninos: { label: "Niños", icon: "smiley" },
 };
 
@@ -150,3 +152,106 @@ export const LIBROS_BIBLIA = [
   "Judas",
   "Apocalipsis",
 ];
+
+// Perfil
+export const MENU_PERFIL: { titulo: string; opciones: OpcionMenu[] }[] = [
+  {
+    titulo: "Cuenta",
+    opciones: [
+      { id: "editar", label: "Editar perfil", icon: "pencil" },
+      { id: "ministerios", label: "Mis ministerios", icon: "people" },
+      { id: "notificaciones", label: "Notificaciones", icon: "bell" },
+    ],
+  },
+  {
+    titulo: "App",
+    opciones: [
+      { id: "privacidad", label: "Privacidad", icon: "lock" },
+      { id: "ayuda", label: "Ayuda", icon: "question" },
+      { id: "salir", label: "Cerrar sesión", icon: "sign-out", peligro: true },
+    ],
+  },
+];
+
+// Mapa (teselas "Dark Gray" de Esri, sin API key). Ojo: el orden es zoom/y/x
+export const mapaTesela = (z: number, x: number, y: number) =>
+  `https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/${z}/${y}/${x}`;
+export const MAPA_ZOOM = 16; // maximo de este mapa
+export const MAPA_ATRIBUCION = "Esri, HERE, Garmin · © OpenStreetMap";
+
+// Fuentes (Inter, cargada en src/app/_layout.tsx)
+export const FUENTE = {
+  medium: "Inter_500Medium",
+  semibold: "Inter_600SemiBold",
+  mano: "Caveat_600SemiBold", // estilo escrito a mano
+};
+
+// Muro de oracion: papelitos en tonos suaves (no llamativos)
+export const NOTAS_COLORES = ["#E9E3D6", "#D9DFE4", "#DCE3D7", "#E6DCDA"];
+export const NOTA_TINTA = "#2A2A2A";
+
+// Comunidad: salas por grupo
+export const GRUPOS: Grupo[] = [
+  {
+    id: "general",
+    label: "Iglesia",
+    descripcion: "Toda la congregación",
+    icono: "home",
+  },
+  {
+    id: "jovenes",
+    label: "Jóvenes",
+    descripcion: "Grupo de jóvenes",
+    icono: "flame",
+    tono: "#D8C8A8",
+  },
+  {
+    id: "varones",
+    label: "Varones",
+    descripcion: "Hermanos varones",
+    icono: "shield",
+    tono: "#B8C4CC",
+  },
+  {
+    id: "dorcas",
+    label: "Dorcas",
+    descripcion: "Hermanas de Dorcas",
+    icono: "heart",
+    tono: "#D5C1BF",
+  },
+  {
+    id: "ninos",
+    label: "Niños",
+    descripcion: "Escuela dominical",
+    icono: "smiley",
+    tono: "#C2CCB6",
+  },
+];
+
+// Estudio: "Tu dia con Dios" (un habito por momento del dia)
+export const HABITOS_DIA: Habito[] = [
+  {
+    id: "orar",
+    momento: "Mañana",
+    icono: "sun",
+    titulo: "Orar al despertar",
+    minutos: 5,
+  },
+  {
+    id: "leer",
+    momento: "Día",
+    icono: "book",
+    titulo: "Leer la Biblia",
+    minutos: 10,
+  },
+  {
+    id: "estudio",
+    momento: "Noche",
+    icono: "moon",
+    titulo: "Estudio guiado",
+    minutos: 15,
+  },
+];
+
+// Las peticiones del muro de oracion duran 24 horas
+export const DURACION_ORACION_HORAS = 24;

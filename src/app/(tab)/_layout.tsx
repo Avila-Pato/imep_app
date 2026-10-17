@@ -39,18 +39,15 @@ export default function TabLayout() {
         }}
       />
 
-      {/*  Cronograma */}
+      {/* Comunidad */}
 
       <Tabs.Screen
-        name="cronogramas"
+        name="comunidad"
         options={{
-          title: "Cronogramas",
-          tabBarIcon: ({ color, focused, size }) =>
-            !focused ? (
-              <Octicons name="clock" size={size} color={color} />
-            ) : (
-              <Octicons name="clock" size={size} color={color} />
-            ),
+          title: "Comunidad",
+          tabBarIcon: ({ color, size }) => (
+            <Octicons name="people" size={size} color={color} />
+          ),
         }}
       />
 

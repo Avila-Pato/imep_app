@@ -1,17 +1,21 @@
 import { PASAJES, PREGUNTAS } from "@/assets/data/oracionesMocks";
 import {
   BORDER,
+  GRUPOS,
   DARK_BG,
   HOME_PADDING as PADDING,
   MUTED,
-  PRIMARY,
+  SURFACE,
   SERIF,
   SPACING,
   TEXT,
 } from "@/constants/constans";
+import { USUARIO } from "@/assets/data/perfilMocks";
 import { usePasaje } from "@/hooks/usePasaje";
+import { guardarEstudio, publicar, useEstudios } from "@/store/estudios";
 import { partirTitulo } from "@/utils/texto";
 import Octicons from "@expo/vector-icons/Octicons";
+import { Href, router } from "expo-router";
 import { useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -24,18 +28,29 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import ElegirGrupoView from "./components/ElegirGrupoView";
+import EstudioSalaView from "./components/EstudioSalaView";
+import ModalGuardado from "./components/ModalGuardado";
 import PasajeTexto from "./components/PasajeTexto";
 import PredicacionView from "./components/PredicacionView";
+import TabsSuperiores from "./components/TabsSuperiores";
 
 type Paso = 1 | 2 | 3;
-type Vista = "predicacion" | "estudio";
+type Vista = "estudio" | "predicacion" | "sala";
+type Modo = "estudio" | "oracion";
 
-const VISTAS: { id: Vista; label: string }[] = [
-  { id: "predicacion", label: "Predicación" },
+// Dentro de "Guiado": estudiar un pasaje o pedir oracion
+const MODOS: { id: Modo; label: string }[] = [
   { id: "estudio", label: "Estudio guiado" },
+  { id: "oracion", label: "Pedir oración" },
 ];
 
-// Encabezado centrado: etiqueta pequeña + titulo serif con la ultima palabra en cursiva
+const VISTAS: { id: Vista; label: string }[] = [
+  { id: "estudio", label: "Mi estudio" },
+  { id: "predicacion", label: "Predicación" },
+];
+
+// Encabezado: etiqueta pequeña + titulo serif con la ultima palabra en cursiva
 function Encabezado({ meta, titulo }: { meta: string; titulo: string }) {
   const { inicio, final } = partirTitulo(titulo);
   return (
@@ -53,10 +68,14 @@ function Boton({
   texto,
   onPress,
   deshabilitado,
+  principal,
+  flecha = true,
 }: {
   texto: string;
   onPress: () => void;
   deshabilitado?: boolean;
+  principal?: boolean; // relleno blanco (accion principal)
+  flecha?: boolean;
 }) {
   return (
     <Pressable
@@ -64,23 +83,47 @@ function Boton({
       disabled={deshabilitado}
       style={({ pressed }) => [
         styles.boton,
+        principal && styles.botonPrincipal,
         deshabilitado && styles.botonDeshabilitado,
         pressed && styles.presionado,
       ]}
     >
-      <Text style={styles.botonTexto}>{texto} →</Text>
+      <Text
+        style={[styles.botonTexto, principal && styles.botonTextoPrincipal]}
+      >
+        {texto}
+        {flecha && " →"}
+      </Text>
     </Pressable>
   );
 }
 
-const Separador = () => <View style={styles.separador} />;
+// Id unico para cada estudio guardado
+const nuevoId = () => `e${Date.now()}`;
+
+// Etiqueta chica sobre cada bloque
+const Seccion = ({ texto }: { texto: string }) => (
+  <Text style={styles.seccionEtiqueta}>{texto}</Text>
+);
 
 export default function OracionesScreen() {
-  const [vista, setVista] = useState<Vista>("predicacion");
+  const [vista, setVista] = useState<Vista>("estudio");
   const [paso, setPaso] = useState<Paso>(1);
   const [cita, setCita] = useState("");
   const [respuestas, setRespuestas] = useState<Record<string, string>>({});
+  const [estudioId, setEstudioId] = useState<string | null>(null);
+  const [modo, setModo] = useState<Modo>("estudio");
+  const [peticion, setPeticion] = useState("");
   const scrollRef = useRef<ScrollView>(null);
+  const { guardados, grupo } = useEstudios();
+  // Aviso "Guardado correctamente" despues de guardar
+  const [avisoGuardado, setAvisoGuardado] = useState(false);
+  // Sala de la persona segun el grupo que eligio (varones, jovenes, dorcas...)
+  const miSala = GRUPOS.find((g) => g.id === grupo && g.id !== "general");
+  const tabs = [
+    ...VISTAS,
+    { id: "sala" as const, label: miSala?.label ?? "Mi grupo" },
+  ];
 
   // Texto del pasaje: desde la API de la Biblia (o el de ejemplo si falla)
   const pasaje = PASAJES.find(
@@ -98,18 +141,53 @@ export default function OracionesScreen() {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
   };
 
-  // Desde la predicacion: abre el estudio con ese pasaje
-  const estudiar = (c: string) => {
-    setCita(c);
-    setRespuestas({});
-    setVista("estudio");
-    irA(2);
-  };
-
   const nuevoEstudio = () => {
     setCita("");
     setRespuestas({});
+    setEstudioId(null);
     irA(1);
+  };
+
+  // Guardar / compartir el estudio terminado
+  const guardado = guardados.find((e) => e.id === estudioId);
+  const alDia =
+    !!guardado &&
+    guardado.cita === cita.trim() &&
+    JSON.stringify(guardado.respuestas) === JSON.stringify(respuestas);
+
+  const terminar = () => {
+    if (!estudioId) setEstudioId(nuevoId());
+    irA(3);
+  };
+
+  const guardar = () => {
+    if (!estudioId) return;
+    guardarEstudio({
+      id: estudioId,
+      cita: cita.trim(),
+      respuestas,
+      fecha: new Date().toISOString(),
+      compartido: false,
+    });
+    setAvisoGuardado(true);
+  };
+
+  // Pedir oracion: va directo al muro general (sin pasaje)
+  const pedirOracion = () => {
+    const texto = peticion.trim();
+    if (!texto) return;
+    const ahora = new Date();
+    publicar({
+      id: `o${ahora.getTime()}`,
+      autor: USUARIO.nombre,
+      grupo: "general",
+      cita: "",
+      texto,
+      fecha: ahora.toISOString(),
+      orando: 0,
+    });
+    setPeticion("");
+    router.push("/sala/general?vista=oracion" as Href);
   };
 
   return (
@@ -119,30 +197,14 @@ export default function OracionesScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         {/* Tabs */}
-        <View style={styles.tabs}>
-          {VISTAS.map((v) => {
-            const activo = v.id === vista;
-            return (
-              <Pressable
-                key={v.id}
-                onPress={() => {
-                  setVista(v.id);
-                  scrollRef.current?.scrollTo({ y: 0, animated: false });
-                }}
-                hitSlop={8}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: activo }}
-              >
-                <Text style={[styles.tabTexto, activo && styles.tabActivo]}>
-                  {v.label}
-                </Text>
-                <View
-                  style={[styles.tabLinea, activo && styles.tabLineaActiva]}
-                />
-              </Pressable>
-            );
-          })}
-        </View>
+        <TabsSuperiores
+          opciones={tabs}
+          activo={vista}
+          onCambiar={(v) => {
+            setVista(v);
+            scrollRef.current?.scrollTo({ y: 0, animated: false });
+          }}
+        />
 
         <ScrollView
           ref={scrollRef}
@@ -150,78 +212,166 @@ export default function OracionesScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {vista === "predicacion" && <PredicacionView onEstudiar={estudiar} />}
+          {vista === "predicacion" && <PredicacionView />}
+
+          {vista === "sala" &&
+            (miSala ? (
+              <EstudioSalaView key={miSala.id} sala={miSala} />
+            ) : (
+              <ElegirGrupoView />
+            ))}
 
           {vista === "estudio" && (
+            <View style={styles.modos}>
+              {MODOS.map((m) => {
+                const activo = m.id === modo;
+                return (
+                  <Pressable
+                    key={m.id}
+                    onPress={() => setModo(m.id)}
+                    style={[styles.modo, activo && styles.modoActivo]}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected: activo }}
+                  >
+                    <Text
+                      style={[
+                        styles.modoTexto,
+                        activo && styles.modoTextoActivo,
+                      ]}
+                    >
+                      {m.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+
+          {/* Pedir oracion: solo la peticion, sin pasaje ni pasos */}
+          {vista === "estudio" && modo === "oracion" && (
             <>
-              {/* Progreso: atras + paso actual */}
+              <Encabezado
+                meta="MURO DE ORACIÓN"
+                titulo="¿Por qué quieres que oremos?"
+              />
+              <View style={styles.card}>
+                <TextInput
+                  value={peticion}
+                  onChangeText={setPeticion}
+                  placeholder="Escribe tu petición…"
+                  placeholderTextColor="#555555"
+                  multiline
+                  style={[styles.inputRespuesta, styles.inputPeticion]}
+                />
+              </View>
+              <Boton
+                principal
+                texto="Publicar en el muro general"
+                flecha={false}
+                onPress={pedirOracion}
+                deshabilitado={!peticion.trim()}
+              />
+              <Text style={styles.aviso}>
+                Los hermanos podrán orar por ti. Estará visible por 24 horas.
+              </Text>
+            </>
+          )}
+
+          {vista === "estudio" && modo === "estudio" && (
+            <>
+              {/* Progreso: atras + paso actual + barra */}
               <View style={styles.progreso}>
-                <Pressable
-                  onPress={() => irA((paso - 1) as Paso)}
-                  disabled={paso === 1}
-                  hitSlop={10}
-                  style={[styles.atras, paso === 1 && styles.oculto]}
-                  accessibilityLabel="Atrás"
-                >
-                  <Octicons name="arrow-left" size={16} color={MUTED} />
-                </Pressable>
-                <Text style={styles.pasoTexto}>
-                  {String(paso).padStart(2, "0")}
-                  <Text style={styles.pasoTotal}> / 03</Text>
-                </Text>
-                <View style={styles.atras} />
+                <View style={styles.progresoFila}>
+                  {paso > 1 ? (
+                    <Pressable
+                      onPress={() => irA((paso - 1) as Paso)}
+                      hitSlop={10}
+                      style={styles.atras}
+                      accessibilityLabel="Atrás"
+                    >
+                      <Octicons name="arrow-left" size={14} color={MUTED} />
+                      <Text style={styles.atrasTexto}>Atrás</Text>
+                    </Pressable>
+                  ) : (
+                    <View />
+                  )}
+                  <Text style={styles.pasoTexto}>PASO {paso} DE 3</Text>
+                </View>
+                <View style={styles.barra}>
+                  {[1, 2, 3].map((n) => (
+                    <View
+                      key={n}
+                      style={[
+                        styles.segmento,
+                        n <= paso && styles.segmentoActivo,
+                      ]}
+                    />
+                  ))}
+                </View>
               </View>
 
               {/* Paso 1: elegir pasaje */}
               {paso === 1 && (
                 <>
                   <Encabezado
-                    meta="ESTUDIO GUIADO"
+                    meta="MAPA DEL VERSÍCULO"
                     titulo="¿Qué pasaje quieres estudiar?"
                   />
 
-                  <View style={styles.chips}>
-                    {PASAJES.map((p) => {
-                      const activo = p.cita === pasaje?.cita;
-                      return (
-                        <Pressable
-                          key={p.cita}
-                          onPress={() => setCita(p.cita)}
-                          style={[styles.chip, activo && styles.chipActivo]}
-                        >
-                          <Text
-                            style={[
-                              styles.chipTexto,
-                              activo && styles.chipTextoActivo,
-                            ]}
+                  <View>
+                    <Seccion texto="PASAJES SUGERIDOS" />
+                    <View style={styles.chips}>
+                      {PASAJES.map((p) => {
+                        const activo = p.cita === pasaje?.cita;
+                        return (
+                          <Pressable
+                            key={p.cita}
+                            onPress={() => setCita(p.cita)}
+                            style={[styles.chip, activo && styles.chipActivo]}
                           >
-                            {p.cita}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
+                            <Text
+                              style={[
+                                styles.chipTexto,
+                                activo && styles.chipTextoActivo,
+                              ]}
+                            >
+                              {p.cita}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
                   </View>
 
-                  <TextInput
-                    value={cita}
-                    onChangeText={setCita}
-                    placeholder="o escribe un pasaje…"
-                    placeholderTextColor="#555555"
-                    style={styles.inputCita}
-                  />
+                  <View>
+                    <Seccion texto="O ESCRIBE UNO" />
+                    <View style={styles.campo}>
+                      <Octicons name="search" size={14} color={MUTED} />
+                      <TextInput
+                        value={cita}
+                        onChangeText={setCita}
+                        placeholder="Ej: Juan 3:16"
+                        placeholderTextColor="#555555"
+                        style={styles.inputCita}
+                      />
+                    </View>
+                  </View>
 
                   {!!cita.trim() && (
-                    <>
-                      <Separador />
-                      <PasajeTexto
-                        cita={cita}
-                        versos={versosPasaje}
-                        cargando={api.cargando}
-                      />
-                    </>
+                    <View>
+                      <Seccion texto="PASAJE" />
+                      <View style={styles.card}>
+                        <PasajeTexto
+                          cita={cita}
+                          versos={versosPasaje}
+                          cargando={api.cargando}
+                        />
+                      </View>
+                    </View>
                   )}
 
                   <Boton
+                    principal
                     texto="Comenzar estudio"
                     onPress={() => irA(2)}
                     deshabilitado={!cita.trim()}
@@ -233,19 +383,22 @@ export default function OracionesScreen() {
               {paso === 2 && (
                 <>
                   <Encabezado meta="PREGUNTAS GUIADAS" titulo={cita} />
-                  <PasajeTexto
-                    cita={cita}
-                    versos={versosPasaje}
-                    cargando={api.cargando}
-                  />
-                  <Separador />
 
                   <View>
+                    <Seccion texto="PASAJE" />
+                    <View style={styles.card}>
+                      <PasajeTexto
+                        cita={cita}
+                        versos={versosPasaje}
+                        cargando={api.cargando}
+                      />
+                    </View>
+                  </View>
+
+                  <View style={styles.preguntas}>
+                    <Seccion texto="RESPONDE" />
                     {PREGUNTAS.map((q, i) => (
-                      <View
-                        key={q.id}
-                        style={[styles.pregunta, i > 0 && styles.conLinea]}
-                      >
+                      <View key={q.id} style={styles.card}>
                         <View style={styles.preguntaCabecera}>
                           <Text style={styles.numero}>
                             {String(i + 1).padStart(2, "0")}
@@ -271,7 +424,11 @@ export default function OracionesScreen() {
                     ))}
                   </View>
 
-                  <Boton texto="Crear mi estudio" onPress={() => irA(3)} />
+                  <Boton
+                    principal
+                    texto="Crear mi estudio"
+                    onPress={terminar}
+                  />
                 </>
               )}
 
@@ -279,51 +436,81 @@ export default function OracionesScreen() {
               {paso === 3 && (
                 <>
                   <Encabezado meta="MI ESTUDIO DE" titulo={cita} />
-                  <PasajeTexto
-                    cita={cita}
-                    versos={versosPasaje}
-                    cargando={api.cargando}
-                  />
-                  <Separador />
 
                   <View>
-                    {PREGUNTAS.map((q, i) => {
-                      const r = respuestas[q.id]?.trim();
-                      const esOracion = q.id === "oracion";
-                      return (
-                        <View
-                          key={q.id}
-                          style={[styles.seccion, i > 0 && styles.conLinea]}
-                        >
-                          <Text
-                            style={[
-                              styles.seccionTitulo,
-                              esOracion && styles.seccionTituloOracion,
-                            ]}
-                          >
-                            {q.titulo.toUpperCase()}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.seccionTexto,
-                              esOracion && styles.seccionTextoOracion,
-                              !r && styles.sinRespuesta,
-                            ]}
-                          >
-                            {r || "Sin respuesta"}
-                          </Text>
-                        </View>
-                      );
-                    })}
+                    <Seccion texto="PASAJE" />
+                    <View style={styles.card}>
+                      <PasajeTexto
+                        cita={cita}
+                        versos={versosPasaje}
+                        cargando={api.cargando}
+                      />
+                    </View>
                   </View>
 
-                  <Boton texto="Nuevo estudio" onPress={nuevoEstudio} />
+                  <View>
+                    <Seccion texto="MIS RESPUESTAS" />
+                    <View style={[styles.card, styles.cardLista]}>
+                      {PREGUNTAS.map((q, i) => {
+                        const r = respuestas[q.id]?.trim();
+                        const esOracion = q.id === "oracion";
+                        return (
+                          <View
+                            key={q.id}
+                            style={[styles.respuesta, i > 0 && styles.conLinea]}
+                          >
+                            <Text style={styles.respuestaTitulo}>
+                              {q.titulo.toUpperCase()}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.respuestaTexto,
+                                esOracion && styles.respuestaOracion,
+                                !r && styles.sinRespuesta,
+                              ]}
+                            >
+                              {r || "Sin respuesta"}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </View>
+
+                  {/* Guardar en el perfil */}
+                  <Boton
+                    principal
+                    texto={
+                      alDia ? "Guardado en tu perfil ✓" : "Guardar en mi perfil"
+                    }
+                    flecha={false}
+                    onPress={guardar}
+                    deshabilitado={alDia}
+                  />
+
+                  <Pressable
+                    onPress={nuevoEstudio}
+                    hitSlop={8}
+                    style={styles.nuevo}
+                  >
+                    <Text style={styles.nuevoTexto}>Nuevo estudio →</Text>
+                  </Pressable>
                 </>
               )}
             </>
           )}
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <ModalGuardado
+        visible={avisoGuardado}
+        cita={cita.trim()}
+        onCerrar={() => setAvisoGuardado(false)}
+        onVerPerfil={() => {
+          setAvisoGuardado(false);
+          router.push("/perfil" as Href);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -343,57 +530,74 @@ const styles = StyleSheet.create({
     gap: SPACING * 2.4,
   },
 
-  // Tabs
-  tabs: {
-    flexDirection: "row",
-    gap: SPACING * 2.4,
-    paddingHorizontal: PADDING,
-    paddingTop: SPACING / 2,
-    paddingBottom: SPACING / 2,
-  },
-  tabTexto: {
-    fontSize: 14,
-    fontWeight: "500",
+  // Bloques
+  seccionEtiqueta: {
+    fontSize: 11,
+    letterSpacing: 1.4,
     color: MUTED,
-    paddingBottom: 8,
+    marginBottom: SPACING,
   },
-  tabActivo: {
-    color: TEXT,
+  card: {
+    padding: SPACING * 1.6,
+    gap: SPACING,
+    borderRadius: 20,
+    backgroundColor: SURFACE,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: BORDER,
   },
-  tabLinea: {
-    height: 2,
-    borderRadius: 1,
+  cardLista: {
+    paddingVertical: SPACING / 2,
+    gap: 0,
   },
-  tabLineaActiva: {
-    backgroundColor: PRIMARY,
+  conLinea: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: BORDER,
+  },
+  presionado: {
+    opacity: 0.6,
   },
 
   // Progreso
   progreso: {
+    gap: SPACING,
+    paddingTop: SPACING,
+  },
+  progresoFila: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingTop: SPACING,
   },
   atras: {
-    width: 24,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
-  oculto: {
-    opacity: 0,
+  atrasTexto: {
+    fontSize: 13,
+    color: MUTED,
   },
   pasoTexto: {
-    fontFamily: SERIF,
-    fontSize: 15,
-    color: TEXT,
-  },
-  pasoTotal: {
+    fontSize: 11,
+    letterSpacing: 1.2,
     color: MUTED,
+  },
+  barra: {
+    flexDirection: "row",
+    gap: 6,
+  },
+  segmento: {
+    flex: 1,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: BORDER,
+  },
+  segmentoActivo: {
+    backgroundColor: TEXT,
   },
 
   // Encabezado
   cabecera: {
-    alignItems: "center",
-    gap: SPACING,
+    gap: 6,
   },
   meta: {
     fontSize: 11,
@@ -402,88 +606,70 @@ const styles = StyleSheet.create({
   },
   titulo: {
     fontFamily: SERIF,
-    fontSize: 30,
-    lineHeight: 36,
+    fontSize: 28,
+    lineHeight: 34,
     color: TEXT,
-    textAlign: "center",
   },
   tituloCursiva: {
     fontStyle: "italic",
-    color: PRIMARY,
-  },
-  separador: {
-    alignSelf: "center",
-    width: 32,
-    height: 1,
-    backgroundColor: BORDER,
   },
 
   // Chips
   chips: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "center",
     gap: 8,
   },
   chip: {
     paddingHorizontal: SPACING * 1.2,
-    paddingVertical: 6,
+    paddingVertical: 7,
     borderRadius: 999,
+    backgroundColor: SURFACE,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: BORDER,
   },
   chipActivo: {
-    borderColor: PRIMARY,
+    backgroundColor: TEXT,
+    borderColor: TEXT,
   },
   chipTexto: {
     fontSize: 13,
     color: MUTED,
   },
   chipTextoActivo: {
-    color: TEXT,
+    color: DARK_BG,
+    fontWeight: "600",
   },
 
-  // Inputs (solo linea inferior)
-  inputCita: {
-    alignSelf: "center",
-    minWidth: "70%",
-    paddingVertical: SPACING,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: BORDER,
-    fontFamily: SERIF,
-    fontSize: 18,
-    color: TEXT,
-    textAlign: "center",
-    outlineWidth: 0, // sin recuadro al enfocar (web)
+  // Campos
+  campo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING,
+    paddingHorizontal: SPACING * 1.4,
+    borderRadius: 14,
+    backgroundColor: SURFACE,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: BORDER,
   },
-  inputRespuesta: {
-    minHeight: 64,
-    paddingVertical: SPACING,
-    paddingLeft: 24 + SPACING * 1.4, // alineado con el titulo de la pregunta
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: BORDER,
+  inputCita: {
+    flex: 1,
+    paddingVertical: SPACING * 1.2,
     fontSize: 15,
-    lineHeight: 22,
     color: TEXT,
-    textAlignVertical: "top",
-    outlineWidth: 0,
+    outlineWidth: 0, // sin recuadro al enfocar (web)
   },
 
   // Preguntas
-  pregunta: {
-    gap: SPACING / 2,
-    paddingVertical: SPACING * 1.4,
-  },
-  conLinea: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: BORDER,
+  preguntas: {
+    gap: SPACING * 1.2,
   },
   preguntaCabecera: {
     flexDirection: "row",
-    gap: SPACING * 1.4,
+    gap: SPACING * 1.2,
   },
   numero: {
-    width: 24,
+    width: 22,
     fontFamily: SERIF,
     fontSize: 15,
     color: MUTED,
@@ -498,47 +684,107 @@ const styles = StyleSheet.create({
     color: MUTED,
     marginTop: 2,
   },
+  inputRespuesta: {
+    minHeight: 72,
+    padding: SPACING * 1.2,
+    borderRadius: 12,
+    backgroundColor: DARK_BG,
+    fontSize: 15,
+    lineHeight: 22,
+    color: TEXT,
+    textAlignVertical: "top",
+    outlineWidth: 0,
+  },
 
-  // Boton
+  // Botones
   boton: {
-    alignSelf: "center",
-    paddingHorizontal: SPACING * 2.4,
-    paddingVertical: SPACING * 1.2,
-    borderRadius: 999,
-    borderWidth: 1,
+    alignItems: "center",
+    paddingVertical: SPACING * 1.4,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: BORDER,
+  },
+  botonPrincipal: {
+    backgroundColor: TEXT,
+    borderColor: TEXT,
   },
   botonDeshabilitado: {
     opacity: 0.35,
   },
-  presionado: {
-    opacity: 0.6,
-  },
   botonTexto: {
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 15,
+    fontWeight: "600",
     color: TEXT,
   },
-
-  // Estudio final
-  seccion: {
-    gap: 6,
-    paddingVertical: SPACING * 1.4,
+  botonTextoPrincipal: {
+    color: DARK_BG,
   },
-  seccionTitulo: {
+  acciones: {
+    gap: SPACING,
+  },
+  // Selector Estudio guiado / Pedir oracion
+  modos: {
+    flexDirection: "row",
+    padding: 4,
+    borderRadius: 999,
+    backgroundColor: SURFACE,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: BORDER,
+  },
+  modo: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 9,
+    borderRadius: 999,
+  },
+  modoActivo: {
+    backgroundColor: TEXT,
+  },
+  modoTexto: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: MUTED,
+  },
+  modoTextoActivo: {
+    color: DARK_BG,
+    fontWeight: "600",
+  },
+  inputPeticion: {
+    minHeight: 140,
+    paddingTop: 0,
+    borderTopWidth: 0,
+  },
+  aviso: {
+    marginTop: -SPACING / 2,
+    fontSize: 12,
+    color: MUTED,
+  },
+  nuevo: {
+    alignSelf: "center",
+  },
+  nuevoTexto: {
+    fontSize: 13,
+    color: MUTED,
+  },
+
+  // Mis estudios
+
+  // Respuestas (paso 3)
+  respuesta: {
+    gap: 6,
+    paddingVertical: SPACING * 1.2,
+  },
+  respuestaTitulo: {
     fontSize: 11,
     letterSpacing: 1.2,
     color: MUTED,
   },
-  seccionTituloOracion: {
-    color: PRIMARY,
-  },
-  seccionTexto: {
+  respuestaTexto: {
     fontSize: 15,
     lineHeight: 23,
     color: TEXT,
   },
-  seccionTextoOracion: {
+  respuestaOracion: {
     fontFamily: SERIF,
     fontStyle: "italic",
     fontSize: 17,

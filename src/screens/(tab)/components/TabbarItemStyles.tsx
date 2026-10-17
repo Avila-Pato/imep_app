@@ -1,12 +1,17 @@
-import { ACTIVE_COLOR, INACTIVE_COLOR, PRIMARY } from "@/constants/constans";
+import {
+  ACTIVE_COLOR,
+  FUENTE,
+  INACTIVE_COLOR,
+  PRIMARY,
+} from "@/constants/constans";
+import { TabBarIcon } from "@/types/typesBar";
 import { useEffect } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import Animated, {
-    useAnimatedStyle,
-    useSharedValue,
-    withTiming,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
 } from "react-native-reanimated";
-import { TabBarIcon } from "@/types/typesBar";
 
 type PropsTabbarItem = {
   tabBarIcon?: TabBarIcon;
@@ -25,13 +30,13 @@ const TabbarItem = ({
   const progress = useSharedValue(isFocused ? 1 : 0);
 
   useEffect(() => {
-    progress.value = withTiming(isFocused ? 1 : 0, { duration: 200 });
+    progress.set(withTiming(isFocused ? 1 : 0, { duration: 200 }));
   }, [isFocused, progress]);
 
   // Pastilla detras del icono: se abre a lo ancho al activarse
   const indicatorStyle = useAnimatedStyle(() => ({
-    opacity: 0.2 * progress.value,
-    transform: [{ scaleX: 0.4 + 0.6 * progress.value }],
+    opacity: 0.2 * progress.get(),
+    transform: [{ scaleX: 0.4 + 0.6 * progress.get() }],
   }));
 
   const color = isFocused ? ACTIVE_COLOR : INACTIVE_COLOR;
@@ -50,7 +55,12 @@ const TabbarItem = ({
         {tabBarIcon?.({ focused: isFocused, color, size: 24 })}
       </View>
 
-      <Animated.Text style={[styles.label, { color }]}>{label}</Animated.Text>
+      <Animated.Text
+        numberOfLines={1}
+        style={[styles.label, isFocused && styles.labelActivo, { color }]}
+      >
+        {label}
+      </Animated.Text>
     </Pressable>
   );
 };
@@ -78,8 +88,10 @@ const styles = StyleSheet.create({
     backgroundColor: PRIMARY,
   },
   label: {
-    fontSize: 10,
-    fontWeight: "500",
-    letterSpacing: 0.2,
+    fontFamily: FUENTE.medium,
+    fontSize: 9,
+  },
+  labelActivo: {
+    fontFamily: FUENTE.semibold,
   },
 });

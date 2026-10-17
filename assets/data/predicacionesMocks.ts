@@ -9,11 +9,6 @@ export const PREDICACIONES: Predicacion[] = [
     titulo: "No temas, yo estoy contigo",
     predicador: "Pastor Luis Soto",
     cita: "Isaías 41:10",
-    puntos: [
-      "Dios no promete ausencia de problemas, promete su presencia.",
-      "El temor se vence recordando quién es nuestro Dios.",
-      "Su diestra nos sostiene cuando nuestras fuerzas se acaban.",
-    ],
   },
   {
     id: "2",
@@ -22,11 +17,6 @@ export const PREDICACIONES: Predicacion[] = [
     titulo: "Confiar cuando no entendemos",
     predicador: "Ana Muñoz",
     cita: "Proverbios 3:5-6",
-    puntos: [
-      "Confiar de todo corazón, no a medias.",
-      "Nuestra prudencia es limitada; la de Dios no.",
-      "Reconocerlo en todo trae dirección a nuestro camino.",
-    ],
   },
   {
     id: "3",
@@ -35,11 +25,6 @@ export const PREDICACIONES: Predicacion[] = [
     titulo: "Buscar primero el Reino",
     predicador: "Daniel Rojas",
     cita: "Mateo 6:33",
-    puntos: [
-      "Las prioridades revelan lo que adoramos.",
-      "Buscar el Reino es una decisión diaria.",
-      "Dios cuida de lo que nosotros soltamos.",
-    ],
   },
   {
     id: "4",
@@ -48,10 +33,5 @@ export const PREDICACIONES: Predicacion[] = [
     titulo: "La paz que guarda el corazón",
     predicador: "Pastor Luis Soto",
     cita: "Filipenses 4:6-7",
-    puntos: [
-      "La ansiedad se transforma en oración.",
-      "Dar gracias cambia nuestra perspectiva.",
-      "La paz de Dios cuida nuestra mente y corazón.",
-    ],
   },
 ];

@@ -9,7 +9,6 @@ export type RolId =
 export type Rol = {
   label: string;
   icon: IconName;
-  color: string;
 };
 
 export type Turno = {
