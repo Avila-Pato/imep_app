@@ -8,10 +8,11 @@ import {
   SURFACE,
   TEXT,
 } from "@/constants/constans";
-import { marcarVisto } from "@/store/estudios";
+import { marcarVisto, useEstudios } from "@/store/estudios";
+import { puedeVerSala } from "@/utils/peticiones";
 import { GrupoId } from "@/types/typesComunidad";
 import Octicons from "@expo/vector-icons/Octicons";
-import { router, useLocalSearchParams } from "expo-router";
+import { Href, Redirect, router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -26,6 +27,7 @@ import TabsSuperiores from "../(tab)/components/TabsSuperiores";
 import ChatSala from "./components/ChatSala";
 import MiembrosSala, { miembrosDe } from "./components/MiembrosSala";
 import MuroOracion from "./components/MuroOracion";
+import PeticionesPorAprobar from "./components/PeticionesPorAprobar";
 
 type Vista = "chat" | "oracion" | "miembros";
 
@@ -39,6 +41,7 @@ export default function SalaScreen() {
   const params = useLocalSearchParams<{ id: GrupoId; vista?: Vista }>();
   const grupo = GRUPOS.find((g) => g.id === params.id) ?? GRUPOS[0];
   const [vista, setVista] = useState<Vista>(params.vista ?? "chat");
+  const { grupo: miGrupo } = useEstudios();
 
   // Al entrar y al salir, la sala queda como leida
   useEffect(() => {
@@ -48,12 +51,22 @@ export default function SalaScreen() {
 
   const cantidad = miembrosDe(grupo.id).length;
 
+  // Sala de otro grupo: bloqueada, vuelve a Estudio
+  if (!puedeVerSala(grupo.id, miGrupo)) {
+    return <Redirect href={"/oraciones" as Href} />;
+  }
+
   return (
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       {/* Encabezado de la sala */}
       <View style={styles.cabecera}>
         <Pressable
-          onPress={() => router.back()}
+          // si se entro directo (sin historial), vuelve a Comunidad
+          onPress={() =>
+            router.canGoBack()
+              ? router.back()
+              : router.replace("/comunidad" as Href)
+          }
           hitSlop={10}
           accessibilityLabel="Volver"
         >
@@ -70,10 +83,13 @@ export default function SalaScreen() {
         </Pressable>
       </View>
 
+      {/* Solo el lider: peticiones que esperan su aprobacion */}
+      <PeticionesPorAprobar grupo={grupo.id} />
+
       <TabsSuperiores opciones={VISTAS} activo={vista} onCambiar={setVista} />
 
       <KeyboardAvoidingView style={styles.flex} behavior="padding">
-        {vista === "chat" && <ChatSala grupo={grupo.id} />}
+        {vista === "chat" && <ChatSala sala={grupo} />}
         {vista === "oracion" && (
           <ScrollView
             contentContainerStyle={styles.muro}

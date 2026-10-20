@@ -21,8 +21,16 @@ export type Mensaje = {
   id: string;
   grupo: GrupoId;
   autor: string;
-  texto: string;
+  texto: string; // puede ir vacio si es una nota de voz
   fecha: string; // ISO
+  cita?: string; // versiculo sobre el que se comparte
+  versiculo?: string; // texto de ese versiculo
+  audio?: NotaDeVoz;
+};
+
+export type NotaDeVoz = {
+  uri: string;
+  duracion: number; // segundos
 };
 
 // Estudio guiado que la persona guarda en su telefono
@@ -44,14 +52,23 @@ export type Publicacion = {
   texto: string; // la oracion o reflexion compartida
   fecha: string; // ISO
   orando: number; // cuantos hermanos estan orando
+  estado?: EstadoPeticion; // sin estado = aprobada
 };
 
-// Pasaje que estudia cada sala en la semana (lo asigna el guia del grupo)
-export type EstudioSala = {
-  id: string;
-  grupo: GrupoId;
-  titulo: string;
-  cita: string;
-  guia: string; // quien dirige el estudio
-  semana: string; // "2026-10-12" (lunes de la semana)
+// Toda peticion pasa por el lider de la sala antes de llegar al muro
+export type EstadoPeticion = "pendiente" | "aprobada" | "rechazada";
+
+// Decision del lider (las 24 h del muro cuentan desde que se aprueba)
+export type Revision = {
+  estado: Exclude<EstadoPeticion, "pendiente">;
+  fecha: string; // ISO
+};
+
+// Versiculo(s) que la persona guarda desde la Biblia
+export type VersiculoGuardado = {
+  id: string; // "1-1-3" (libro-capitulo-primer verso) + versos
+  cita: string; // "Génesis 1:3-4"
+  texto: string;
+  oracion?: string; // si oro con ese versiculo
+  fecha: string; // ISO
 };

@@ -13,6 +13,7 @@ import {
 import { USUARIO } from "@/assets/data/perfilMocks";
 import { usePasaje } from "@/hooks/usePasaje";
 import { guardarEstudio, publicar, useEstudios } from "@/store/estudios";
+import { GrupoId } from "@/types/typesComunidad";
 import { partirTitulo } from "@/utils/texto";
 import Octicons from "@expo/vector-icons/Octicons";
 import { Href, router } from "expo-router";
@@ -27,16 +28,20 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import ElegirGrupoView from "./components/ElegirGrupoView";
-import EstudioSalaView from "./components/EstudioSalaView";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
+import AccionesVersiculo, {
+  SeleccionBiblia,
+} from "./components/AccionesVersiculo";
+import BibliaView from "./components/BibliaView";
 import ModalGuardado from "./components/ModalGuardado";
 import PasajeTexto from "./components/PasajeTexto";
-import PredicacionView from "./components/PredicacionView";
 import TabsSuperiores from "./components/TabsSuperiores";
 
 type Paso = 1 | 2 | 3;
-type Vista = "estudio" | "predicacion" | "sala";
+type Vista = "estudio" | "biblia";
 type Modo = "estudio" | "oracion";
 
 // Dentro de "Guiado": estudiar un pasaje o pedir oracion
@@ -46,8 +51,8 @@ const MODOS: { id: Modo; label: string }[] = [
 ];
 
 const VISTAS: { id: Vista; label: string }[] = [
+  { id: "biblia", label: "Biblia" },
   { id: "estudio", label: "Mi estudio" },
-  { id: "predicacion", label: "Predicación" },
 ];
 
 // Encabezado: etiqueta pequeña + titulo serif con la ultima palabra en cursiva
@@ -107,23 +112,33 @@ const Seccion = ({ texto }: { texto: string }) => (
 );
 
 export default function OracionesScreen() {
-  const [vista, setVista] = useState<Vista>("estudio");
+  const [vista, setVista] = useState<Vista>("biblia");
   const [paso, setPaso] = useState<Paso>(1);
   const [cita, setCita] = useState("");
   const [respuestas, setRespuestas] = useState<Record<string, string>>({});
   const [estudioId, setEstudioId] = useState<string | null>(null);
   const [modo, setModo] = useState<Modo>("estudio");
   const [peticion, setPeticion] = useState("");
+  const [enviada, setEnviada] = useState(false);
+  // Biblia: versiculos tocados y el que se adjunta a una peticion
+  const [seleccion, setSeleccion] = useState<SeleccionBiblia | null>(null);
+  const insets = useSafeAreaInsets();
+  // a donde va la peticion: muro general (Iglesia) o la sala de su grupo
+  const [destino, setDestino] = useState<GrupoId>("general");
   const scrollRef = useRef<ScrollView>(null);
   const { guardados, grupo } = useEstudios();
   // Aviso "Guardado correctamente" despues de guardar
   const [avisoGuardado, setAvisoGuardado] = useState(false);
   // Sala de la persona segun el grupo que eligio (varones, jovenes, dorcas...)
   const miSala = GRUPOS.find((g) => g.id === grupo && g.id !== "general");
-  const tabs = [
-    ...VISTAS,
-    { id: "sala" as const, label: miSala?.label ?? "Mi grupo" },
+  const opcionesDestino = [
+    { sala: GRUPOS[0], titulo: "Muro general", sub: "Toda la iglesia" },
+    ...(miSala
+      ? [{ sala: miSala, titulo: miSala.label, sub: "Solo tu grupo" }]
+      : []),
   ];
+  const salaPeticion =
+    opcionesDestino.find((o) => o.sala.id === destino)?.sala ?? GRUPOS[0];
 
   // Texto del pasaje: desde la API de la Biblia (o el de ejemplo si falla)
   const pasaje = PASAJES.find(
@@ -172,7 +187,7 @@ export default function OracionesScreen() {
     setAvisoGuardado(true);
   };
 
-  // Pedir oracion: va directo al muro general (sin pasaje)
+  // Pedir oracion: va a la sala de su grupo (o a Iglesia si no tiene) y la aprueba su lider
   const pedirOracion = () => {
     const texto = peticion.trim();
     if (!texto) return;
@@ -180,14 +195,15 @@ export default function OracionesScreen() {
     publicar({
       id: `o${ahora.getTime()}`,
       autor: USUARIO.nombre,
-      grupo: "general",
+      grupo: salaPeticion.id,
       cita: "",
       texto,
       fecha: ahora.toISOString(),
       orando: 0,
+      estado: "pendiente", // la aprueba el lider de la sala
     });
     setPeticion("");
-    router.push("/sala/general?vista=oracion" as Href);
+    setEnviada(true);
   };
 
   return (
@@ -198,10 +214,11 @@ export default function OracionesScreen() {
       >
         {/* Tabs */}
         <TabsSuperiores
-          opciones={tabs}
+          opciones={VISTAS}
           activo={vista}
           onCambiar={(v) => {
             setVista(v);
+            setSeleccion(null);
             scrollRef.current?.scrollTo({ y: 0, animated: false });
           }}
         />
@@ -212,14 +229,16 @@ export default function OracionesScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {vista === "predicacion" && <PredicacionView />}
-
-          {vista === "sala" &&
-            (miSala ? (
-              <EstudioSalaView key={miSala.id} sala={miSala} />
-            ) : (
-              <ElegirGrupoView />
-            ))}
+          {/* Biblia completa */}
+          {vista === "biblia" && (
+            <BibliaView
+              onNavegar={() =>
+                scrollRef.current?.scrollTo({ y: 0, animated: false })
+              }
+              seleccion={seleccion}
+              onSeleccion={setSeleccion}
+            />
+          )}
 
           {vista === "estudio" && (
             <View style={styles.modos}>
@@ -248,7 +267,31 @@ export default function OracionesScreen() {
           )}
 
           {/* Pedir oracion: solo la peticion, sin pasaje ni pasos */}
-          {vista === "estudio" && modo === "oracion" && (
+          {/* Peticion enviada: espera la aprobacion del lider */}
+          {vista === "estudio" && modo === "oracion" && enviada && (
+            <View style={[styles.card, styles.enviada]}>
+              <View style={styles.enviadaIcono}>
+                <Octicons name="clock" size={20} color={DARK_BG} />
+              </View>
+              <Text style={styles.enviadaTitulo}>
+                Enviada al <Text style={styles.tituloCursiva}>líder</Text>
+              </Text>
+              <Text style={styles.enviadaSub}>
+                Tu petición aparecerá en el muro de {salaPeticion.label} cuando
+                el líder de la sala la apruebe. Desde ahí estará visible por 24
+                horas.
+              </Text>
+              <Pressable
+                onPress={() => setEnviada(false)}
+                hitSlop={8}
+                style={styles.nuevo}
+              >
+                <Text style={styles.nuevoTexto}>Escribir otra petición →</Text>
+              </Pressable>
+            </View>
+          )}
+
+          {vista === "estudio" && modo === "oracion" && !enviada && (
             <>
               <Encabezado
                 meta="MURO DE ORACIÓN"
@@ -264,15 +307,53 @@ export default function OracionesScreen() {
                   style={[styles.inputRespuesta, styles.inputPeticion]}
                 />
               </View>
+
+              {/* Enviar al muro general o a su grupo */}
+              <View>
+                <Seccion texto="ENVIAR A" />
+                <View style={[styles.card, styles.cardLista]}>
+                  {opcionesDestino.map((o, i) => {
+                    const activo = o.sala.id === salaPeticion.id;
+                    return (
+                      <Pressable
+                        key={o.sala.id}
+                        onPress={() => setDestino(o.sala.id)}
+                        style={[styles.destino, i > 0 && styles.conLinea]}
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected: activo }}
+                      >
+                        <View style={styles.destinoIcono}>
+                          <Octicons
+                            name={o.sala.icono}
+                            size={16}
+                            color={TEXT}
+                          />
+                        </View>
+                        <View style={styles.flex}>
+                          <Text style={styles.destinoTitulo}>{o.titulo}</Text>
+                          <Text style={styles.destinoSub}>{o.sub}</Text>
+                        </View>
+                        <View
+                          style={[styles.radio, activo && styles.radioActivo]}
+                        >
+                          {activo && <View style={styles.radioPunto} />}
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
               <Boton
                 principal
-                texto="Publicar en el muro general"
+                texto="Enviar petición"
                 flecha={false}
                 onPress={pedirOracion}
                 deshabilitado={!peticion.trim()}
               />
               <Text style={styles.aviso}>
-                Los hermanos podrán orar por ti. Estará visible por 24 horas.
+                El líder de {salaPeticion.label} la revisará antes de publicarla
+                en el muro.
               </Text>
             </>
           )}
@@ -501,6 +582,16 @@ export default function OracionesScreen() {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Acciones de los versiculos tocados (flota sobre el tabbar) */}
+      {vista === "biblia" && seleccion && (
+        <View style={[styles.barraBiblia, { bottom: insets.bottom + 74 }]}>
+          <AccionesVersiculo
+            seleccion={seleccion}
+            onListo={() => setSeleccion(null)}
+          />
+        </View>
+      )}
 
       <ModalGuardado
         visible={avisoGuardado}
@@ -748,6 +839,76 @@ const styles = StyleSheet.create({
   modoTextoActivo: {
     color: DARK_BG,
     fontWeight: "600",
+  },
+  destino: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING * 1.2,
+    paddingVertical: SPACING * 1.2,
+  },
+  destinoIcono: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: BORDER,
+  },
+  destinoTitulo: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: TEXT,
+  },
+  destinoSub: {
+    fontSize: 12,
+    color: MUTED,
+    marginTop: 2,
+  },
+  radio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: MUTED,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  radioActivo: {
+    borderColor: TEXT,
+  },
+  radioPunto: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: TEXT,
+  },
+  barraBiblia: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+  },
+  enviada: {
+    alignItems: "center",
+    paddingVertical: SPACING * 2.4,
+  },
+  enviadaIcono: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: TEXT,
+  },
+  enviadaTitulo: {
+    fontFamily: SERIF,
+    fontSize: 24,
+    color: TEXT,
+  },
+  enviadaSub: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: MUTED,
+    textAlign: "center",
   },
   inputPeticion: {
     minHeight: 140,

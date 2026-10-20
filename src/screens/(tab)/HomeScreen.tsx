@@ -1,16 +1,13 @@
 import {
-  DEVOCIONALES,
   IGLESIA,
   NOTIFICACIONES,
-  PALABRA,
+  PALABRAS,
   REDES,
 } from "@/assets/data/homeMocks";
 import {
   BORDER,
   HOME_CARD_W as CARD_W,
   DARK_BG,
-  DEVO_GAP,
-  DEVO_W,
   MUTED,
   HOME_PADDING as PADDING,
   PRIMARY,
@@ -19,24 +16,30 @@ import {
   SURFACE,
   TEXT,
 } from "@/constants/constans";
+import { proximoCulto } from "@/utils/cultos";
 import { abrirComoLlegar } from "@/utils/mapa";
+import { iniciales, partirTitulo } from "@/utils/texto";
 import Octicons from "@expo/vector-icons/Octicons";
-import { useState } from "react";
-import {
-  FlatList,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Href, router } from "expo-router";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import RedesSociales from "./components/RedesSociales";
 import MapaIglesia from "./components/MapaIglesia";
+import {
+  fechaCorta,
+  PREDICACIONES_PASADAS,
+} from "./components/PredicacionView";
 
 const IGLESIA_ALTO = CARD_W * 0.95;
+
+// Versiculo al azar cada vez que se abre la app
+const PALABRA = PALABRAS[Math.floor(Math.random() * PALABRAS.length)];
+
+// Proximo culto segun el horario configurado
+const CULTO = proximoCulto();
+
+// La predicacion mas reciente (la card abre la pantalla completa)
+const ULTIMA = PREDICACIONES_PASADAS[0];
 
 // Encabezado: "VIERNES" + "16 de octubre"
 const hoy = new Date();
@@ -49,18 +52,6 @@ const FECHA_HOY = hoy.toLocaleDateString("es-ES", {
 });
 
 export default function HomeScreen() {
-  // slide es el devocional visible en el carrusel
-  const [slide, setSlide] = useState(0);
-
-  // en que vista se encuentra el usuario delizando
-  // e.nativeEvent.contentOffset.x indica cuantos pixeles se han desplazado
-  // actuliza el estado horizonatlmente
-  // DEVO_W: ancho de cada elemento.
-  // DEVO_GAP: espacio entre elementos.
-  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    setSlide(Math.round(e.nativeEvent.contentOffset.x / (DEVO_W + DEVO_GAP)));
-  };
-
   return (
     //edges es para que no se muestre la barra de notificaciones
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -116,50 +107,54 @@ export default function HomeScreen() {
               <Octicons name="bell" size={16} color="#FFFFFF" />
             </View>
             <View style={styles.flex}>
-              <Text style={styles.panelTitulo}>{IGLESIA.culto}</Text>
-              <Text style={styles.panelSub}>{IGLESIA.detalle}</Text>
+              <Text style={styles.panelTitulo}>
+                {(CULTO?.horario.nombre ?? "Culto").toUpperCase()}
+              </Text>
+              <Text style={styles.panelSub}>
+                {CULTO ? `${CULTO.horario.hora} hrs · ` : ""}
+                {IGLESIA.lugar}
+              </Text>
             </View>
             <View style={styles.panelEstado}>
-              <Text style={styles.estado}>{IGLESIA.estado}</Text>
-              <Text style={styles.estadoSub}>{IGLESIA.cuando}</Text>
+              <Text style={styles.estado}>PRÓXIMO</Text>
+              <Text style={styles.estadoSub}>{CULTO?.cuando}</Text>
             </View>
           </View>
         </View>
 
-        {/* Devocionales */}
-        <Text style={styles.seccion}>Devocionales de la semana</Text>
-        <FlatList
-          data={DEVOCIONALES}
-          keyExtractor={(d) => d.id}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          snapToInterval={DEVO_W + DEVO_GAP}
-          decelerationRate="fast"
-          onMomentumScrollEnd={onScroll}
-          style={styles.carrusel}
-          contentContainerStyle={styles.carruselContent}
-          renderItem={({ item }) => (
-            <View style={styles.devoCard}>
-              <Text style={styles.etiqueta}>{item.dia.toUpperCase()}</Text>
-              <Text style={styles.devoTitulo}>{item.titulo}</Text>
-              <View style={styles.devoPie}>
-                <View style={styles.enfoqueChip}>
-                  <Text style={styles.enfoqueTexto}>{item.enfoque}</Text>
-                </View>
-                <Text style={styles.leer}>Leer →</Text>
-              </View>
+        {/* Ultima predicacion */}
+        {ULTIMA && (
+          <Pressable
+            onPress={() => router.push("/predicacion" as Href)}
+            style={({ pressed }) => [
+              styles.predicacion,
+              pressed && styles.presionado,
+            ]}
+          >
+            <View style={styles.predicacionFila}>
+              <Text style={styles.etiqueta}>ÚLTIMA PREDICACIÓN</Text>
+              <Text style={styles.etiqueta}>{fechaCorta(ULTIMA.fecha)}</Text>
             </View>
-          )}
-        />
-
-        <View style={styles.indicadores}>
-          {DEVOCIONALES.map((d, i) => (
-            <View
-              key={d.id}
-              style={[styles.indicador, i === slide && styles.indicadorActivo]}
-            />
-          ))}
-        </View>
+            <Text style={styles.predicacionTitulo}>
+              {partirTitulo(ULTIMA.titulo).inicio}
+              <Text style={styles.cursiva}>
+                {partirTitulo(ULTIMA.titulo).final}
+              </Text>
+            </Text>
+            <View style={styles.predicador}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarTexto}>
+                  {iniciales(ULTIMA.predicador)}
+                </Text>
+              </View>
+              <View style={styles.flex}>
+                <Text style={styles.predicadorNombre}>{ULTIMA.predicador}</Text>
+                <Text style={styles.predicadorSub}>{ULTIMA.cita}</Text>
+              </View>
+              <Text style={styles.leer}>Ver →</Text>
+            </View>
+          </Pressable>
+        )}
 
         {/* Redes sociales (al final) */}
         <View style={styles.redes}>
@@ -350,53 +345,58 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
 
-  // Devocionales
-  seccion: {
-    fontFamily: SERIF,
-    fontSize: 22,
-    color: TEXT,
-    marginTop: SPACING,
-  },
-  carrusel: {
-    // el carrusel llega hasta los bordes de la pantalla
-    marginHorizontal: -PADDING,
-  },
-  carruselContent: {
-    paddingHorizontal: PADDING,
-    gap: DEVO_GAP,
-  },
-  devoCard: {
-    width: DEVO_W,
-    padding: SPACING * 1.8,
-    gap: SPACING,
+  // Ultima predicacion
+  predicacion: {
+    padding: SPACING * 1.6,
+    gap: SPACING * 1.2,
     borderRadius: 20,
     backgroundColor: SURFACE,
     borderWidth: 1,
     borderColor: BORDER,
   },
-  devoTitulo: {
-    fontFamily: SERIF,
-    fontSize: 20,
-    lineHeight: 26,
-    color: TEXT,
-    minHeight: 52,
+  predicacionFila: {
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
-  devoPie: {
+  predicacionTitulo: {
+    fontFamily: SERIF,
+    fontSize: 24,
+    lineHeight: 30,
+    color: TEXT,
+  },
+  cursiva: {
+    fontStyle: "italic",
+  },
+  predicador: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: SPACING / 2,
+    gap: SPACING,
+    paddingTop: SPACING * 1.2,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: BORDER,
   },
-  enfoqueChip: {
-    paddingHorizontal: SPACING,
-    paddingVertical: 4,
-    borderRadius: 999,
-    backgroundColor: "rgba(229, 72, 77, 0.15)",
+  avatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: BORDER,
   },
-  enfoqueTexto: {
+  avatarTexto: {
     fontSize: 12,
+    fontWeight: "700",
+    color: TEXT,
+  },
+  predicadorNombre: {
+    fontSize: 14,
     fontWeight: "600",
-    color: PRIMARY,
+    color: TEXT,
+  },
+  predicadorSub: {
+    fontSize: 12,
+    color: MUTED,
+    marginTop: 1,
   },
   leer: {
     fontSize: 13,
@@ -408,19 +408,5 @@ const styles = StyleSheet.create({
     paddingTop: SPACING * 2.4,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: BORDER,
-  },
-  indicadores: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 8,
-  },
-  indicador: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: BORDER,
-  },
-  indicadorActivo: {
-    backgroundColor: PRIMARY,
   },
 });

@@ -33,6 +33,13 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "IMEP usa el micrófono para enviar notas de voz a tu grupo.",
+          "recordAudioAndroid": true
+        }
       ]
     ],
     "experiments": {

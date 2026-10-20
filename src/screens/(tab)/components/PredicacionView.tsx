@@ -21,7 +21,7 @@ const deKey = (key: string) => {
 };
 
 // "2026-10-13" -> "MAR 13 OCT"
-const fechaCorta = (key: string) => {
+export const fechaCorta = (key: string) => {
   const f = deKey(key);
   const dia = f
     .toLocaleDateString("es-ES", { weekday: "short" })
@@ -31,13 +31,13 @@ const fechaCorta = (key: string) => {
 
 // Mas reciente primero, sin las que aun no ocurren
 const hoyKey = new Date().toISOString().slice(0, 10);
-const LISTA = PREDICACIONES.filter((p) => p.fecha <= hoyKey).sort((a, b) =>
-  b.fecha.localeCompare(a.fecha),
-);
+export const PREDICACIONES_PASADAS = PREDICACIONES.filter(
+  (p) => p.fecha <= hoyKey,
+).sort((a, b) => b.fecha.localeCompare(a.fecha));
 
 export default function PredicacionView() {
-  const [actualId, setActualId] = useState(LISTA[0]?.id);
-  const actual = LISTA.find((p) => p.id === actualId);
+  const [actualId, setActualId] = useState(PREDICACIONES_PASADAS[0]?.id);
+  const actual = PREDICACIONES_PASADAS.find((p) => p.id === actualId);
   const pasaje = usePasaje(actual?.cita ?? "");
 
   if (!actual) {
@@ -49,9 +49,9 @@ export default function PredicacionView() {
     );
   }
 
-  const anteriores = LISTA.filter((p) => p.id !== actual.id);
+  const anteriores = PREDICACIONES_PASADAS.filter((p) => p.id !== actual.id);
   const { inicio, final } = partirTitulo(actual.titulo);
-  const esUltima = actual.id === LISTA[0]?.id;
+  const esUltima = actual.id === PREDICACIONES_PASADAS[0]?.id;
 
   return (
     <View style={styles.contenedor}>

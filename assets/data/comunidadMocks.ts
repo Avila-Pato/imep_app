@@ -1,15 +1,32 @@
 // Publicaciones de ejemplo de otros hermanos (luego vendran de la API)
-import {
-  EstudioSala,
-  GrupoId,
-  Mensaje,
-  Miembro,
-  Publicacion,
-} from "@/types/typesComunidad";
+import { GrupoId, Mensaje, Miembro, Publicacion } from "@/types/typesComunidad";
 import { haceHoras } from "@/utils/tiempo";
 
 // Fechas relativas: el muro solo muestra lo de las ultimas 24 horas
 export const PUBLICACIONES: Publicacion[] = [
+  // Esperando aprobacion del lider
+  {
+    id: "m0j",
+    autor: "Felipe Díaz",
+    grupo: "jovenes",
+    cita: "",
+    texto:
+      "Oren por mí, esta semana tengo exámenes finales en la universidad y estoy muy nervioso. Que Dios me dé calma y memoria.",
+    fecha: haceHoras(2),
+    orando: 0,
+    estado: "pendiente",
+  },
+  {
+    id: "m0",
+    autor: "Rosa Herrera",
+    grupo: "general",
+    cita: "",
+    texto:
+      "Pido oración por la salud de mi mamá, mañana la operan de la cadera. Que el Señor guíe las manos de los médicos y le dé paz a toda la familia en estos días difíciles.",
+    fecha: haceHoras(1),
+    orando: 0,
+    estado: "pendiente",
+  },
   {
     id: "m1",
     autor: "María González",
@@ -146,6 +163,15 @@ export const MENSAJES: Mensaje[] = [
     fecha: "2026-10-15T20:02:00",
   },
   {
+    id: "c5b",
+    grupo: "jovenes",
+    autor: "Camila Rojas",
+    cita: "1 Timoteo 4:12",
+    texto:
+      "Entendí que no por ser joven mi fe vale menos. Puedo ser ejemplo en cómo hablo y trato a los demás 🙏",
+    fecha: "2026-10-15T21:30:00",
+  },
+  {
     id: "c6",
     grupo: "varones",
     autor: "Jorge Pérez",
@@ -172,41 +198,5 @@ export const MENSAJES: Mensaje[] = [
     autor: "Camila Torres",
     texto: "Este domingo los niños presentan el versículo de memoria 😊",
     fecha: "2026-10-13T17:00:00",
-  },
-];
-
-// Estudio de la semana de cada sala
-export const ESTUDIOS_SALA: EstudioSala[] = [
-  {
-    id: "es-varones-42",
-    grupo: "varones",
-    titulo: "Esfuérzate y sé valiente",
-    cita: "Josué 1:8-9",
-    guia: "Hno. Luis Morales",
-    semana: "2026-10-12",
-  },
-  {
-    id: "es-jovenes-42",
-    grupo: "jovenes",
-    titulo: "Que nadie tenga en poco tu juventud",
-    cita: "1 Timoteo 4:12",
-    guia: "Hna. Camila Rojas",
-    semana: "2026-10-12",
-  },
-  {
-    id: "es-dorcas-42",
-    grupo: "dorcas",
-    titulo: "Llena de buenas obras",
-    cita: "Hechos 9:36-39",
-    guia: "Hna. Rosa Fuentes",
-    semana: "2026-10-12",
-  },
-  {
-    id: "es-ninos-42",
-    grupo: "ninos",
-    titulo: "El buen pastor",
-    cita: "Juan 10:11-14",
-    guia: "Hna. Paula Díaz",
-    semana: "2026-10-12",
   },
 ];

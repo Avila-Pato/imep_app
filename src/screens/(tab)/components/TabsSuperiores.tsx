@@ -1,4 +1,6 @@
 import {
+  BORDER,
+  FUENTE,
   HOME_PADDING as PADDING,
   MUTED,
   PRIMARY,
@@ -20,14 +22,16 @@ export default function TabsSuperiores<T extends string>({
   onCambiar,
 }: Props<T>) {
   return (
-    <View style={styles.tabs}>
+    <View style={styles.tabs} accessibilityRole="tablist">
       {opciones.map((o) => {
         const esActivo = o.id === activo;
         return (
           <Pressable
             key={o.id}
             onPress={() => onCambiar(o.id)}
-            hitSlop={8}
+            // area de toque mas grande que el texto
+            hitSlop={{ top: 6, bottom: 6, left: 12, right: 12 }}
+            style={styles.tab}
             accessibilityRole="tab"
             accessibilityState={{ selected: esActivo }}
           >
@@ -45,22 +49,30 @@ export default function TabsSuperiores<T extends string>({
 const styles = StyleSheet.create({
   tabs: {
     flexDirection: "row",
-    gap: SPACING * 2.4,
+    gap: SPACING * 2.6,
     paddingHorizontal: PADDING,
     paddingTop: SPACING / 2,
-    paddingBottom: SPACING / 2,
+    marginBottom: SPACING / 2,
+    // linea fina de base: los tabs se leen como un grupo
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: BORDER,
+  },
+  tab: {
+    paddingTop: 6,
   },
   texto: {
+    fontFamily: FUENTE.medium,
     fontSize: 14,
-    fontWeight: "500",
     color: MUTED,
-    paddingBottom: 8,
+    paddingBottom: 10,
   },
   textoActivo: {
+    fontFamily: FUENTE.semibold,
     color: TEXT,
   },
   linea: {
     height: 2,
+    marginBottom: -StyleSheet.hairlineWidth, // queda sobre la linea de base
     borderRadius: 1,
   },
   lineaActiva: {

@@ -16,6 +16,7 @@ import {
   TEXT,
 } from "@/constants/constans";
 import { useEstudios } from "@/store/estudios";
+import { horaCulto } from "@/utils/cultos";
 import { haceCuanto } from "@/utils/tiempo";
 import Octicons from "@expo/vector-icons/Octicons";
 import { useState } from "react";
@@ -53,7 +54,7 @@ const partesFecha = (key: string) => {
 const MIS_TURNOS = TURNOS.filter(
   (t) => t.persona === USUARIO.nombre && t.fecha >= HOY_KEY,
 )
-  .sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora))
+  .sort((a, b) => a.fecha.localeCompare(b.fecha))
   .slice(0, 3);
 
 const ESTADISTICAS = [
@@ -63,7 +64,7 @@ const ESTADISTICAS = [
 ];
 
 export default function PerfilScreen() {
-  const { grupo, guardados } = useEstudios();
+  const { grupo, guardados, versiculos } = useEstudios();
   // estudio abierto en el modal (sin cambiar de vista)
   const [abiertoId, setAbiertoId] = useState<string | null>(null);
   const abierto = guardados.find((e) => e.id === abiertoId) ?? null;
@@ -153,6 +154,24 @@ export default function PerfilScreen() {
           )}
         </View>
 
+        {/* Versiculos guardados desde la Biblia */}
+        {versiculos.length > 0 && (
+          <View style={styles.seccion}>
+            <Text style={styles.seccionTitulo}>VERSÍCULOS Y ORACIONES</Text>
+            {versiculos.map((v) => (
+              <View key={v.id} style={styles.versiculo}>
+                <Text style={styles.versiculoTexto} numberOfLines={3}>
+                  «{v.texto}»
+                </Text>
+                <Text style={styles.versiculoCita}>{v.cita}</Text>
+                {v.oracion && (
+                  <Text style={styles.versiculoOracion}>🙏 {v.oracion}</Text>
+                )}
+              </View>
+            ))}
+          </View>
+        )}
+
         {/* Proximos turnos */}
         <View style={styles.seccion}>
           <Text style={styles.seccionTitulo}>MIS PRÓXIMOS TURNOS</Text>
@@ -178,7 +197,7 @@ export default function PerfilScreen() {
                         {rol.label.toUpperCase()}
                       </Text>
                       <Text style={styles.bloqueHora}>
-                        {t.hora} – {t.horaFin}
+                        {horaCulto(t.fecha) ?? "—"} hrs
                       </Text>
                     </View>
                   </View>
@@ -380,6 +399,36 @@ const styles = StyleSheet.create({
   },
   vacio: {
     fontSize: 14,
+    color: MUTED,
+  },
+  versiculo: {
+    gap: 6,
+    padding: SPACING * 1.4,
+    borderRadius: 16,
+    backgroundColor: SURFACE,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: BORDER,
+  },
+  versiculoTexto: {
+    fontFamily: SERIF,
+    fontStyle: "italic",
+    fontSize: 15,
+    lineHeight: 22,
+    color: TEXT,
+  },
+  versiculoOracion: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: TEXT,
+    paddingTop: 8,
+    marginTop: 2,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: BORDER,
+  },
+  versiculoCita: {
+    fontSize: 11,
+    fontWeight: "600",
+    letterSpacing: 0.8,
     color: MUTED,
   },
   estudioCita: {

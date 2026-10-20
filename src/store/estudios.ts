@@ -3,9 +3,11 @@ import {
   GrupoId,
   Mensaje,
   Publicacion,
+  Revision,
+  VersiculoGuardado,
 } from "@/types/typesComunidad";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { oracionVigente } from "@/utils/tiempo";
+import { sigueGuardada } from "@/utils/peticiones";
 import { useSyncExternalStore } from "react";
 
 // Estado compartido entre pantallas (Estudio y Comunidad), guardado en el telefono.
@@ -18,10 +20,14 @@ type Estado = {
   mensajes: Mensaje[]; // los que envio esta persona en los chats
   vistos: Partial<Record<GrupoId, string>>; // ultima vez que abrio cada sala (ISO)
   habitos: Record<string, string[]>; // "YYYY-MM-DD" -> ids de habitos cumplidos
+  revisiones: Record<string, Revision>; // decisiones del lider sobre peticiones
+  resaltados: Record<string, string>; // "libro-capitulo-verso" -> color
+  versiculos: VersiculoGuardado[]; // guardados desde la Biblia
   grupo?: GrupoId; // grupo al que se unio (varones, jovenes, dorcas, ninos)
 };
 
-const CLAVE = "imep:estudios:v1";
+// v2: se reinicio todo (sin grupo) para probar desde cero
+const CLAVE = "imep:estudios:v2";
 
 let estado: Estado = {
   guardados: [],
@@ -30,6 +36,9 @@ let estado: Estado = {
   mensajes: [],
   vistos: {},
   habitos: {},
+  revisiones: {},
+  resaltados: {},
+  versiculos: [],
 };
 const oyentes = new Set<() => void>();
 
@@ -53,16 +62,21 @@ AsyncStorage.getItem(CLAVE)
     estado = {
       ...estado,
       guardados: unir(estado.guardados, previo.guardados ?? []),
+      revisiones: { ...(previo.revisiones ?? {}), ...estado.revisiones },
       // las peticiones vencidas (mas de 24 h) se borran del telefono
       publicaciones: unir(
         estado.publicaciones,
         previo.publicaciones ?? [],
-      ).filter((p) => oracionVigente(p.fecha)),
+      ).filter((p) =>
+        sigueGuardada(p, { ...previo.revisiones, ...estado.revisiones }),
+      ),
       orando: [...new Set([...estado.orando, ...(previo.orando ?? [])])],
       mensajes: unir(estado.mensajes, previo.mensajes ?? []),
       vistos: { ...(previo.vistos ?? {}), ...estado.vistos },
       habitos: { ...(previo.habitos ?? {}), ...estado.habitos },
       grupo: estado.grupo ?? previo.grupo,
+      resaltados: { ...(previo.resaltados ?? {}), ...estado.resaltados },
+      versiculos: unir(estado.versiculos, previo.versiculos ?? []),
     };
     avisar();
   })
@@ -90,7 +104,7 @@ export function publicar(p: Publicacion) {
     publicaciones: [
       p,
       ...estado.publicaciones.filter(
-        (x) => x.id !== p.id && oracionVigente(x.fecha),
+        (x) => x.id !== p.id && sigueGuardada(x, estado.revisiones),
       ),
     ],
   });
@@ -131,7 +145,37 @@ export function alternarHabito(fecha: string, id: string) {
   });
 }
 
-// Unirse a un grupo (define el estudio de la semana y el muro de su sala)
-export function elegirGrupo(grupo: GrupoId) {
+// Unirse a un grupo (define el estudio de la semana y el muro de su sala).
+// Sin grupo = salir. Luego esto lo hara el onboarding.
+export function elegirGrupo(grupo?: GrupoId) {
   cambiar({ ...estado, grupo });
+}
+
+// El lider aprueba o rechaza una peticion (desde ahi corren las 24 h)
+export function revisarPeticion(id: string, decision: Revision["estado"]) {
+  cambiar({
+    ...estado,
+    revisiones: {
+      ...estado.revisiones,
+      [id]: { estado: decision, fecha: new Date().toISOString() },
+    },
+  });
+}
+
+// Resalta versiculos con un color (null = quitar el resaltado)
+export function resaltar(claves: string[], color: string | null) {
+  const resaltados = { ...estado.resaltados };
+  claves.forEach((k) => {
+    if (color) resaltados[k] = color;
+    else delete resaltados[k];
+  });
+  cambiar({ ...estado, resaltados });
+}
+
+// Guarda un versiculo (o varios seguidos) en el perfil
+export function guardarVersiculo(v: VersiculoGuardado) {
+  cambiar({
+    ...estado,
+    versiculos: [v, ...estado.versiculos.filter((x) => x.id !== v.id)],
+  });
 }

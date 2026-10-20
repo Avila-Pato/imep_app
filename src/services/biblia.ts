@@ -1,6 +1,7 @@
 import {
   BIBLIA_API,
   BIBLIA_VERSION,
+  CAPITULOS_BIBLIA,
   LIBROS_BIBLIA,
 } from "@/constants/constans";
 
@@ -39,7 +40,7 @@ export function parseCita(cita: string): Referencia | null {
   const idx = LIBROS_BIBLIA.findIndex(
     (l) => normalizar(l) === (ALIAS[nombre] ?? nombre),
   );
- // Null si no coincide
+  // Null si no coincide
   if (idx === -1) return null;
 
   // construir la referencia
@@ -69,15 +70,15 @@ const limpiar = (texto: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
-    // cache de pasajes
+// cache de pasajes
 const cache = new Map<string, Verso[]>();
 
-// 
+//
 export async function obtenerPasaje(
   ref: Referencia, // referencia de la api ya tipada
   signal?: AbortSignal, // para cancelar la peticion
-
-): Promise<Verso[]> { // es una promise porque es asincrona osea espera a que se resuelva y despues devuelve el resultado
+): Promise<Verso[]> {
+  // es una promise porque es asincrona osea espera a que se resuelva y despues devuelve el resultado
   // construye la clave para buscar la referencia
   const clave = `${ref.libro}-${ref.capitulo}-${ref.desde}-${ref.hasta}`;
   // si lo encuentra lo devuelve
@@ -110,8 +111,20 @@ export async function obtenerPasaje(
     numero: v.verse,
     texto: limpiar(v.text),
   }));
-  // guarda el resultado en el cache  
+  // guarda el resultado en el cache
   cache.set(clave, resultado);
-  //devuelve el resultado 
+  //devuelve el resultado
   return resultado;
+}
+
+const azar = (n: number) => Math.floor(Math.random() * n);
+
+// Un versiculo al azar de TODA la Biblia: libro y capitulo al azar,
+// se pide el capitulo a la API y se elige un verso. Devuelve la cita.
+export async function versiculoAlAzar(): Promise<string> {
+  const libro = azar(LIBROS_BIBLIA.length) + 1;
+  const capitulo = azar(CAPITULOS_BIBLIA[libro - 1]) + 1;
+  const versos = await obtenerPasaje({ libro, capitulo });
+  const verso = versos[azar(versos.length)];
+  return `${LIBROS_BIBLIA[libro - 1]} ${capitulo}:${verso.numero}`;
 }

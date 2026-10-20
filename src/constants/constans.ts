@@ -43,13 +43,9 @@ export const PRIMARY = "#E5484D";
 export const SERIF = Platform.select({ ios: "Georgia", default: "serif" });
 export const HOME_PADDING = SPACING * 2.4;
 export const HOME_CARD_W = width - HOME_PADDING * 2;
-export const DEVO_W = HOME_CARD_W * 0.8; // ancho de cada devocional
-export const DEVO_GAP = SPACING * 1.2; // espacio entre devocionales
 
 // Cronogramas (turnos del ministerio)
 export const DIAS_SEMANA = ["L", "M", "M", "J", "V", "S", "D"];
-// Dias de culto (como Date.getDay(): 0 = domingo ... 6 = sabado)
-export const DIAS_CULTO = [2, 4, 0]; // martes, jueves, domingo
 export const ROLES: Record<RolId, Rol> = {
   palabra: { label: "Palabra", icon: "book" },
   pasillo: { label: "Pasillo", icon: "people" },
@@ -152,6 +148,38 @@ export const LIBROS_BIBLIA = [
   "Judas",
   "Apocalipsis",
 ];
+// Grupos de libros (desde/hasta = numero de libro, 1 = Genesis)
+export const GENEROS_BIBLIA = [
+  { nombre: "Ley", desde: 1, hasta: 5 },
+  { nombre: "Historia", desde: 6, hasta: 17 },
+  { nombre: "Poesía", desde: 18, hasta: 22 },
+  { nombre: "Profetas", desde: 23, hasta: 39 },
+  { nombre: "Evangelios", desde: 40, hasta: 43 },
+  { nombre: "Historia de la Iglesia", desde: 44, hasta: 44 },
+  { nombre: "Cartas de Pablo", desde: 45, hasta: 57 },
+  { nombre: "Cartas generales", desde: 58, hasta: 65 },
+  { nombre: "Profecía", desde: 66, hasta: 66 },
+];
+// Colores para resaltar versiculos (apagados, se ven con transparencia)
+export const COLORES_RESALTADO = [
+  "#C9B24A", // amarillo
+  "#D98C4A", // naranja
+  "#C95F5F", // rojo
+  "#C27A9E", // rosa
+  "#9278C2", // morado
+  "#5B7FC4", // azul
+  "#3F8FA8", // celeste
+  "#4FA59A", // turquesa
+  "#5FA36A", // verde
+  "#9AA85A", // oliva
+];
+// Cantidad de capitulos de cada libro (mismo orden que LIBROS_BIBLIA)
+export const CAPITULOS_BIBLIA = [
+  50, 40, 27, 36, 34, 24, 21, 4, 31, 24, 22, 25, 29, 36, 10, 13, 10, 42, 150,
+  31, 12, 8, 66, 52, 5, 48, 12, 14, 3, 9, 1, 4, 7, 3, 3, 3, 2, 14, 4, 28, 16,
+  24, 21, 28, 16, 16, 13, 6, 6, 4, 4, 5, 3, 6, 4, 3, 1, 13, 5, 5, 3, 5, 1, 1, 1,
+  22,
+];
 
 // Perfil
 export const MENU_PERFIL: { titulo: string; opciones: OpcionMenu[] }[] = [
@@ -184,6 +212,10 @@ export const FUENTE = {
   medium: "Inter_500Medium",
   semibold: "Inter_600SemiBold",
   mano: "Caveat_600SemiBold", // estilo escrito a mano
+  // Biblia: letra de libro impreso (EB Garamond)
+  biblia: "EBGaramond_400Regular",
+  bibliaCursiva: "EBGaramond_400Regular_Italic",
+  bibliaFuerte: "EBGaramond_600SemiBold",
 };
 
 // Muro de oracion: papelitos en tonos suaves (no llamativos)

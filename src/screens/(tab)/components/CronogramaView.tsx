@@ -1,8 +1,8 @@
+import { HORARIOS_CULTO } from "@/assets/data/configMocks";
 import { TURNOS } from "@/assets/data/cronogramasMocks";
 import {
   BORDER,
   DARK_BG,
-  DIAS_CULTO,
   DIAS_SEMANA,
   HOME_PADDING as PADDING,
   MUTED,
@@ -13,6 +13,7 @@ import {
 } from "@/constants/constans";
 import Octicons from "@expo/vector-icons/Octicons";
 import { Turno } from "@/types/typesCronogramas";
+import { horaCulto } from "@/utils/cultos";
 import { useState } from "react";
 import {
   LayoutChangeEvent,
@@ -62,6 +63,8 @@ const deKey = (key: string) => {
   return new Date(y, m - 1, d);
 };
 const aKey = (f: Date) => toKey(f.getFullYear(), f.getMonth(), f.getDate());
+// Dias de culto segun la configuracion de la iglesia
+const DIAS_CULTO = HORARIOS_CULTO.map((h) => h.dia);
 const esCulto = (f: Date) => DIAS_CULTO.includes(f.getDay());
 
 // Dia de culto mas cercano desde esa fecha (ella misma si ya es de culto)
@@ -151,17 +154,17 @@ export default function CronogramaView() {
   const semana = cultosDeLaSemana(seleccionado);
   const diasSel = diasDesdeHoy(seleccionado);
 
+  // Todos los turnos comienzan a la hora del culto (en el orden de los roles)
+  const hora = horaCulto(seleccionado);
+  const ordenRoles = Object.keys(ROLES);
   const turnosDia = TURNOS.filter((t) => t.fecha === seleccionado).sort(
-    (a, b) => aMinutos(a.hora) - aMinutos(b.hora),
+    (a, b) => ordenRoles.indexOf(a.rol) - ordenRoles.indexOf(b.rol),
   );
 
-  // Indice donde va la linea "Ahora" (solo si se mira el dia de hoy)
+  // Linea "Ahora" (solo hoy): antes del culto arriba, despues abajo
   const ahora = hoy.getHours() * 60 + hoy.getMinutes();
-  const idxAhora =
-    seleccionado === HOY_KEY
-      ? turnosDia.findIndex((t) => aMinutos(t.hora) > ahora)
-      : -2;
-  const ahoraAlFinal = idxAhora === -1 && turnosDia.length > 0;
+  const esHoy = seleccionado === HOY_KEY && turnosDia.length > 0;
+  const yaComenzo = !!hora && ahora >= aMinutos(hora);
 
   // Panel desplegable: "abajo" = bajo el calendario, "arriba" = tope de la vista
   const [listo, setListo] = useState(false);
@@ -209,13 +212,18 @@ export default function CronogramaView() {
 
   const panelStyle = useAnimatedStyle(() => ({ top: top.get() }));
 
-  const filaTurno = (t: Turno) => {
+  // la hora solo se escribe en el primero: todos comienzan juntos
+  const filaTurno = (t: Turno, primero: boolean) => {
     const rol = ROLES[t.rol];
     return (
       <View style={styles.fila}>
         <View style={styles.horas}>
-          <Text style={styles.horaInicio}>{t.hora}</Text>
-          <Text style={styles.horaFin}>{t.horaFin}</Text>
+          {primero && (
+            <>
+              <Text style={styles.horaInicio}>{hora}</Text>
+              <Text style={styles.horaFin}>hrs</Text>
+            </>
+          )}
         </View>
         <View style={styles.bloqueFondo}>
           <View style={styles.bloque}>
@@ -433,13 +441,11 @@ export default function CronogramaView() {
               </View>
             ) : (
               <View style={styles.agenda}>
+                {esHoy && !yaComenzo && lineaAhora}
                 {turnosDia.map((t, i) => (
-                  <View key={t.id}>
-                    {i === idxAhora && lineaAhora}
-                    {filaTurno(t)}
-                  </View>
+                  <View key={t.id}>{filaTurno(t, i === 0)}</View>
                 ))}
-                {ahoraAlFinal && lineaAhora}
+                {esHoy && yaComenzo && lineaAhora}
               </View>
             )}
           </ScrollView>

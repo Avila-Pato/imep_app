@@ -8,10 +8,7 @@ export type PalabraDelDia = {
 
 export type Iglesia = {
   sede: string;
-  culto: string;
-  detalle: string;
-  estado: string;
-  cuando: string;
+  lugar: string;
   direccion: string; // se usa en "Como llegar" (Google/Apple ubican el numero exacto)
   // Ubicacion del templo para dibujar el mapa
   lat: number;
@@ -24,11 +21,4 @@ export type RedSocial = {
   usuario: string; // como se muestra, ej: "@iglesia"
   url: string;
   icono: ComponentProps<typeof FontAwesome6>["name"];
-};
-
-export type Devocional = {
-  id: string;
-  dia: string;
-  titulo: string;
-  enfoque: string;
 };

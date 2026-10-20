@@ -16,6 +16,5 @@ export type Turno = {
   fecha: string; // "YYYY-MM-DD"
   rol: RolId;
   persona: string;
-  hora: string; // inicio "HH:MM"
-  horaFin: string; // termino "HH:MM"
+  // sin hora propia: todos comienzan a la hora del culto (horaCulto)
 };

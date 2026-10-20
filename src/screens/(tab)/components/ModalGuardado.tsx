@@ -13,6 +13,8 @@ import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 type Props = {
   visible: boolean;
   cita: string;
+  mensaje?: string; // por defecto: "Tu estudio de {cita} quedó guardado…"
+  textoCerrar?: string; // por defecto: "Seguir aquí"
   onCerrar: () => void;
   onVerPerfil: () => void;
 };
@@ -21,6 +23,8 @@ type Props = {
 export default function ModalGuardado({
   visible,
   cita,
+  mensaje,
+  textoCerrar = "Seguir aquí",
   onCerrar,
   onVerPerfil,
 }: Props) {
@@ -42,7 +46,7 @@ export default function ModalGuardado({
             Guardado <Text style={styles.cursiva}>correctamente</Text>
           </Text>
           <Text style={styles.sub}>
-            Tu estudio de {cita} quedó guardado en tu perfil.
+            {mensaje ?? `Tu estudio de ${cita} quedó guardado en tu perfil.`}
           </Text>
 
           <Pressable
@@ -64,7 +68,7 @@ export default function ModalGuardado({
               pressed && styles.presionado,
             ]}
           >
-            <Text style={styles.botonTexto}>Seguir aquí</Text>
+            <Text style={styles.botonTexto}>{textoCerrar}</Text>
           </Pressable>
         </Pressable>
       </Pressable>

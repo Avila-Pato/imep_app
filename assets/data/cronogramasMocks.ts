@@ -7,24 +7,18 @@ export const TURNOS: Turno[] = [
     fecha: "2026-10-13",
     rol: "palabra",
     persona: "Patricio Ávila",
-    hora: "19:30",
-    horaFin: "20:30",
   },
   {
     id: "2",
     fecha: "2026-10-13",
     rol: "pasillo",
     persona: "María González",
-    hora: "19:00",
-    horaFin: "21:00",
   },
   {
     id: "3",
     fecha: "2026-10-13",
     rol: "alabanza",
     persona: "Daniel Rojas",
-    hora: "19:30",
-    horaFin: "20:15",
   },
 
   {
@@ -32,16 +26,12 @@ export const TURNOS: Turno[] = [
     fecha: "2026-10-15",
     rol: "palabra",
     persona: "Ana Muñoz",
-    hora: "20:00",
-    horaFin: "21:00",
   },
   {
     id: "5",
     fecha: "2026-10-15",
     rol: "recepcion",
     persona: "Jorge Pérez",
-    hora: "19:45",
-    horaFin: "20:15",
   },
 
   {
@@ -49,40 +39,30 @@ export const TURNOS: Turno[] = [
     fecha: "2026-10-18",
     rol: "palabra",
     persona: "Pastor Luis Soto",
-    hora: "10:00",
-    horaFin: "11:00",
   },
   {
     id: "7",
     fecha: "2026-10-18",
     rol: "pasillo",
     persona: "Camila Torres",
-    hora: "09:30",
-    horaFin: "11:30",
   },
   {
     id: "8",
     fecha: "2026-10-18",
     rol: "pasillo",
     persona: "Felipe Díaz",
-    hora: "09:30",
-    horaFin: "11:30",
   },
   {
     id: "9",
     fecha: "2026-10-18",
     rol: "alabanza",
     persona: "Grupo Jóvenes",
-    hora: "10:00",
-    horaFin: "10:45",
   },
   {
     id: "10",
     fecha: "2026-10-18",
     rol: "ofrenda",
     persona: "Rosa Herrera",
-    hora: "11:15",
-    horaFin: "11:45",
   },
 
   {
@@ -90,16 +70,12 @@ export const TURNOS: Turno[] = [
     fecha: "2026-10-20",
     rol: "palabra",
     persona: "Daniel Rojas",
-    hora: "19:30",
-    horaFin: "20:30",
   },
   {
     id: "12",
     fecha: "2026-10-20",
     rol: "pasillo",
     persona: "Patricio Ávila",
-    hora: "19:00",
-    horaFin: "21:00",
   },
 
   {
@@ -107,24 +83,18 @@ export const TURNOS: Turno[] = [
     fecha: "2026-10-25",
     rol: "palabra",
     persona: "Pastor Luis Soto",
-    hora: "10:00",
-    horaFin: "11:00",
   },
   {
     id: "14",
     fecha: "2026-10-25",
     rol: "recepcion",
     persona: "María González",
-    hora: "09:30",
-    horaFin: "10:00",
   },
   {
     id: "15",
     fecha: "2026-10-25",
     rol: "ofrenda",
     persona: "Jorge Pérez",
-    hora: "11:15",
-    horaFin: "11:45",
   },
 
   {
@@ -132,15 +102,11 @@ export const TURNOS: Turno[] = [
     fecha: "2026-11-01",
     rol: "palabra",
     persona: "Ana Muñoz",
-    hora: "10:00",
-    horaFin: "11:00",
   },
   {
     id: "17",
     fecha: "2026-11-01",
     rol: "pasillo",
     persona: "Felipe Díaz",
-    hora: "09:30",
-    horaFin: "11:30",
   },
 ];

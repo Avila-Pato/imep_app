@@ -1,78 +1,43 @@
-import { MENSAJES } from "@/assets/data/comunidadMocks";
-import { USUARIO } from "@/assets/data/perfilMocks";
 import {
   DARK_BG,
-  GRUPOS,
-  HOME_CARD_W,
   HOME_PADDING as PADDING,
-  MUTED,
-  SERIF,
   SPACING,
-  TEXT,
 } from "@/constants/constans";
-import { useEstudios } from "@/store/estudios";
-import { Href, router } from "expo-router";
-import { useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useRef, useState } from "react";
+import { ScrollView, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import MuroOracion from "../sala/components/MuroOracion";
-import RuedaSalas from "./components/RuedaSalas";
+import IglesiaView from "./components/IglesiaView";
 import TabsSuperiores from "./components/TabsSuperiores";
 
-type Vista = "salas" | "muro";
+type Vista = "muro" | "salas";
 
 const VISTAS: { id: Vista; label: string }[] = [
-  { id: "salas", label: "Salas" },
   { id: "muro", label: "Muro de oración" },
+  { id: "salas", label: "Salas" },
 ];
 
+// Comunidad: el muro de oracion y las salas de cada grupo
 export default function ComunidadScreen() {
-  const [vista, setVista] = useState<Vista>("salas");
-  const { mensajes, vistos } = useEstudios();
-  const todos = [...MENSAJES, ...mensajes];
-
-  // Cada sala con sus mensajes no leidos (se muestran en la rueda)
-  const salas = GRUPOS.map((g) => {
-    const visto = vistos[g.id] ?? "";
-    const noLeidos = todos.filter(
-      (m) => m.grupo === g.id && m.autor !== USUARIO.nombre && m.fecha > visto,
-    ).length;
-    return { ...g, noLeidos };
-  });
-  // Rueda: la iglesia al centro y los grupos alrededor
-  const centro = salas.find((s) => s.id === "general") ?? salas[0];
-  const grupos = salas.filter((s) => s.id !== centro.id);
-  const abrir = (id: string) => router.push(`/sala/${id}` as Href);
+  const [vista, setVista] = useState<Vista>("muro");
+  const scrollRef = useRef<ScrollView>(null);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <TabsSuperiores opciones={VISTAS} activo={vista} onCambiar={setVista} />
-
+      <TabsSuperiores
+        opciones={VISTAS}
+        activo={vista}
+        onCambiar={(v) => {
+          setVista(v);
+          scrollRef.current?.scrollTo({ y: 0, animated: false });
+        }}
+      />
       <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          vista === "salas" && styles.contentCentrado,
-        ]}
+        ref={scrollRef}
+        contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Rueda de salas: somos una iglesia, unidos */}
-        {vista === "salas" && (
-          <View style={styles.rueda}>
-            <Text style={styles.ruedaTitulo}>
-              Somos <Text style={styles.cursiva}>una iglesia</Text>
-            </Text>
-            <Text style={styles.ruedaSub}>Toca una sala para entrar</Text>
-            <RuedaSalas
-              centro={centro}
-              salas={grupos}
-              tamano={HOME_CARD_W}
-              onAbrir={abrir}
-            />
-          </View>
-        )}
-
-        {/* Peticiones de todas las salas */}
-        {vista === "muro" && <MuroOracion />}
+        {vista === "muro" ? <MuroOracion /> : <IglesiaView />}
       </ScrollView>
     </SafeAreaView>
   );
@@ -87,31 +52,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: PADDING,
     paddingTop: SPACING,
     paddingBottom: 120, // espacio para el tabbar flotante
-    gap: SPACING * 1.6,
-  },
-
-  // La rueda queda al centro de la pantalla
-  contentCentrado: {
-    flexGrow: 1,
-    justifyContent: "center",
-  },
-
-  // Rueda
-  rueda: {
-    alignItems: "center",
-    gap: 6,
-  },
-  ruedaTitulo: {
-    fontFamily: SERIF,
-    fontSize: 32,
-    color: TEXT,
-  },
-  cursiva: {
-    fontStyle: "italic",
-  },
-  ruedaSub: {
-    fontSize: 13,
-    color: MUTED,
-    marginBottom: SPACING * 2.4,
   },
 });
