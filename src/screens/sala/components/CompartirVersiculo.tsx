@@ -12,7 +12,7 @@ import {
   TEXT,
 } from "@/constants/constans";
 import { usePasaje } from "@/hooks/usePasaje";
-import { versiculoAlAzar } from "@/services/biblia";
+import { sugerirCitas, versiculoAlAzar } from "@/services/biblia";
 import { enviarMensaje } from "@/store/estudios";
 import { Grupo, NotaDeVoz } from "@/types/typesComunidad";
 import Octicons from "@expo/vector-icons/Octicons";
@@ -70,6 +70,13 @@ export default function CompartirVersiculo({ sala, visible, onCerrar }: Props) {
   const [audio, setAudio] = useState<NotaDeVoz | null>(null);
   const [sinPermiso, setSinPermiso] = useState(false);
   const pasaje = usePasaje(cita);
+  // Autocompletado: solo mientras escribe (al elegir una cita se oculta)
+  const [sugerir, setSugerir] = useState(false);
+  const sugerencias = sugerir ? sugerirCitas(cita) : [];
+  const elegirCita = (c: string) => {
+    setCita(c);
+    setSugerir(false);
+  };
   // Elegir el versiculo leyendo la Biblia (dentro de esta misma hoja)
   const [enBiblia, setEnBiblia] = useState(false);
   const [eleccion, setEleccion] = useState<SeleccionBiblia | null>(null);
@@ -88,10 +95,10 @@ export default function CompartirVersiculo({ sala, visible, onCerrar }: Props) {
   const inspirar = async () => {
     setBuscando(true);
     try {
-      setCita(await versiculoAlAzar());
+      elegirCita(await versiculoAlAzar());
     } catch {
       const otros = PASAJES.filter((p) => p.cita !== cita.trim());
-      setCita(otros[Math.floor(Math.random() * otros.length)].cita);
+      elegirCita(otros[Math.floor(Math.random() * otros.length)].cita);
     } finally {
       setBuscando(false);
     }
@@ -149,7 +156,7 @@ export default function CompartirVersiculo({ sala, visible, onCerrar }: Props) {
     const { libro, capitulo, versos } = eleccion;
     const desde = versos[0].numero;
     const hasta = versos[versos.length - 1].numero;
-    setCita(
+    elegirCita(
       `${LIBROS_BIBLIA[libro - 1]} ${capitulo}:${desde}${hasta > desde ? `-${hasta}` : ""}`,
     );
     salirBiblia();
@@ -277,15 +284,37 @@ export default function CompartirVersiculo({ sala, visible, onCerrar }: Props) {
                   <Octicons name="search" size={14} color={MUTED} />
                   <TextInput
                     value={cita}
-                    onChangeText={setCita}
+                    onChangeText={(t) => {
+                      setCita(t);
+                      setSugerir(true);
+                    }}
                     placeholder="Ej: Juan 3:16"
                     placeholderTextColor="#555555"
                     style={styles.inputCita}
                   />
                 </View>
+                {sugerencias.length > 0 && (
+                  <View style={styles.sugerencias}>
+                    {sugerencias.map((c, i) => (
+                      <Pressable
+                        key={c}
+                        onPress={() => elegirCita(c)}
+                        style={({ pressed }) => [
+                          styles.sugerencia,
+                          i > 0 && styles.sugerenciaBorde,
+                          pressed && styles.presionado,
+                        ]}
+                      >
+                        <Octicons name="book" size={13} color={MUTED} />
+                        <Text style={styles.sugerenciaTexto}>{c}</Text>
+                        <Octicons name="chevron-right" size={13} color={MUTED} />
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
               </View>
 
-              {!!cita.trim() && (
+              {pasaje.valida && (
                 <View style={styles.card}>
                   <PasajeTexto
                     cita={cita}
@@ -553,6 +582,30 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: TEXT,
     outlineWidth: 0,
+  },
+  sugerencias: {
+    marginTop: SPACING * 0.6,
+    borderRadius: 16,
+    backgroundColor: SURFACE,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: BORDER,
+    overflow: "hidden",
+  },
+  sugerencia: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING,
+    paddingHorizontal: SPACING * 1.4,
+    paddingVertical: 12,
+  },
+  sugerenciaBorde: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: BORDER,
+  },
+  sugerenciaTexto: {
+    flex: 1,
+    fontSize: 15,
+    color: TEXT,
   },
   card: {
     padding: SPACING * 1.6,

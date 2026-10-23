@@ -3,6 +3,7 @@ import {
   BIBLIA_VERSION,
   CAPITULOS_BIBLIA,
   LIBROS_BIBLIA,
+  VERSICULOS_POPULARES,
 } from "@/constants/constans";
 
 export type Referencia = {
@@ -127,4 +128,38 @@ export async function versiculoAlAzar(): Promise<string> {
   const versos = await obtenerPasaje({ libro, capitulo });
   const verso = versos[azar(versos.length)];
   return `${LIBROS_BIBLIA[libro - 1]} ${capitulo}:${verso.numero}`;
+}
+
+// Autocompletado mientras se escribe ("sal" -> "Salmos 23:1", "Salmos 27:1"…).
+// Sin internet: sugiere versiculos conocidos del libro o, si no hay, el capitulo.
+export function sugerirCitas(texto: string, max = 6): string[] {
+  const m = texto.trim().match(/^(\d?\s*[^\d:]*)\s*(\d[\d:\-\s]*)?$/);
+  const nombre = m ? normalizar(m[1]) : "";
+  if (!nombre) return [];
+  const resto = (m?.[2] ?? "").replace(/\s/g, "");
+
+  // primero los que empiezan igual ("1co"), luego sin el numero ("juan" -> "1 Juan")
+  const libros = [
+    ...LIBROS_BIBLIA.filter((l) => normalizar(l).startsWith(nombre)),
+    ...LIBROS_BIBLIA.filter((l) =>
+      normalizar(l).replace(/^\d/, "").startsWith(nombre),
+    ),
+  ];
+
+  const escrito = normalizar(texto);
+  const sugerencias = libros.flatMap((libro) => {
+    const prefijo = normalizar(`${libro}${resto}`);
+    const populares = VERSICULOS_POPULARES.filter((c) =>
+      normalizar(c).startsWith(prefijo),
+    );
+    if (populares.length) return populares;
+    if (/:\d/.test(resto)) return []; // ya escribio el versiculo completo
+    const capitulo = Number(resto.split(":")[0]) || 1;
+    const total = CAPITULOS_BIBLIA[LIBROS_BIBLIA.indexOf(libro)];
+    return capitulo <= total ? [`${libro} ${resto.replace(/:$/, "") || 1}`] : [];
+  });
+
+  return [...new Set(sugerencias)]
+    .filter((c) => normalizar(c) !== escrito)
+    .slice(0, max);
 }
