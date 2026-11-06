@@ -38,8 +38,11 @@ const PALABRA = PALABRAS[Math.floor(Math.random() * PALABRAS.length)];
 // Proximo culto segun el horario configurado
 const CULTO = proximoCulto();
 
-// La predicacion mas reciente (la card abre la pantalla completa)
-const ULTIMA = PREDICACIONES_PASADAS[0];
+// La predicacion mas reciente destacada y un par de las anteriores
+const [ULTIMA, ...RESTO] = PREDICACIONES_PASADAS;
+const ANTERIORES = RESTO.slice(0, 2);
+const abrirPredicaciones = (id?: string) =>
+  router.push((id ? `/predicacion?id=${id}` : "/predicacion") as Href);
 
 // Encabezado: "VIERNES" + "16 de octubre"
 const hoy = new Date();
@@ -122,38 +125,87 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Ultima predicacion */}
+        {/* Predicaciones: la ultima destacada + las anteriores */}
         {ULTIMA && (
-          <Pressable
-            onPress={() => router.push("/predicacion" as Href)}
-            style={({ pressed }) => [
-              styles.predicacion,
-              pressed && styles.presionado,
-            ]}
-          >
-            <View style={styles.predicacionFila}>
-              <Text style={styles.etiqueta}>ÚLTIMA PREDICACIÓN</Text>
-              <Text style={styles.etiqueta}>{fechaCorta(ULTIMA.fecha)}</Text>
+          <View style={styles.seccionPred}>
+            <View style={styles.seccionCabecera}>
+              <View>
+                <Text style={styles.seccionTitulo}>Predicaciones</Text>
+                <Text style={styles.seccionSub}>Vuelve a leer la Palabra</Text>
+              </View>
+              <Pressable
+                onPress={() => abrirPredicaciones()}
+                hitSlop={8}
+                style={({ pressed }) => [
+                  styles.verTodas,
+                  pressed && styles.presionado,
+                ]}
+              >
+                <Text style={styles.verTodasTexto}>Ver todas</Text>
+                <Octicons name="chevron-right" size={12} color={TEXT} />
+              </Pressable>
             </View>
-            <Text style={styles.predicacionTitulo}>
-              {partirTitulo(ULTIMA.titulo).inicio}
-              <Text style={styles.cursiva}>
-                {partirTitulo(ULTIMA.titulo).final}
-              </Text>
-            </Text>
-            <View style={styles.predicador}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarTexto}>
-                  {iniciales(ULTIMA.predicador)}
+
+            <Pressable
+              onPress={() => abrirPredicaciones()}
+              style={({ pressed }) => [
+                styles.predicacion,
+                pressed && styles.presionado,
+              ]}
+            >
+              <View style={styles.predicacionFila}>
+                <Text style={styles.etiqueta}>ÚLTIMA</Text>
+                <Text style={styles.etiqueta}>{fechaCorta(ULTIMA.fecha)}</Text>
+              </View>
+              <Text style={styles.predicacionTitulo}>
+                {partirTitulo(ULTIMA.titulo).inicio}
+                <Text style={styles.cursiva}>
+                  {partirTitulo(ULTIMA.titulo).final}
                 </Text>
+              </Text>
+              <View style={styles.predicador}>
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarTexto}>
+                    {iniciales(ULTIMA.predicador)}
+                  </Text>
+                </View>
+                <View style={styles.flex}>
+                  <Text style={styles.predicadorNombre}>
+                    {ULTIMA.predicador}
+                  </Text>
+                  <Text style={styles.predicadorSub}>{ULTIMA.cita}</Text>
+                </View>
+                <Text style={styles.leer}>Ver →</Text>
               </View>
-              <View style={styles.flex}>
-                <Text style={styles.predicadorNombre}>{ULTIMA.predicador}</Text>
-                <Text style={styles.predicadorSub}>{ULTIMA.cita}</Text>
+            </Pressable>
+
+            {/* Anteriores (compactas) */}
+            {ANTERIORES.length > 0 && (
+              <View style={styles.anteriores}>
+                {ANTERIORES.map((p, i) => (
+                  <Pressable
+                    key={p.id}
+                    onPress={() => abrirPredicaciones(p.id)}
+                    style={({ pressed }) => [
+                      styles.anterior,
+                      i > 0 && styles.conLinea,
+                      pressed && styles.presionado,
+                    ]}
+                  >
+                    <View style={styles.flex}>
+                      <Text style={styles.anteriorTitulo} numberOfLines={1}>
+                        {p.titulo}
+                      </Text>
+                      <Text style={styles.predicadorSub} numberOfLines={1}>
+                        {p.predicador} · {fechaCorta(p.fecha)}
+                      </Text>
+                    </View>
+                    <Octicons name="chevron-right" size={14} color={MUTED} />
+                  </Pressable>
+                ))}
               </View>
-              <Text style={styles.leer}>Ver →</Text>
-            </View>
-          </Pressable>
+            )}
+          </View>
         )}
 
         {/* Redes sociales (al final) */}
@@ -343,6 +395,65 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "500",
+  },
+
+  // Seccion predicaciones
+  seccionPred: {
+    gap: SPACING,
+    marginTop: SPACING,
+  },
+  seccionCabecera: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    marginBottom: 2,
+  },
+  seccionTitulo: {
+    fontFamily: SERIF,
+    fontSize: 22,
+    color: TEXT,
+  },
+  seccionSub: {
+    fontSize: 12,
+    color: MUTED,
+    marginTop: 2,
+  },
+  verTodas: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: BORDER,
+  },
+  verTodasTexto: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: TEXT,
+  },
+  anteriores: {
+    paddingHorizontal: SPACING * 1.6,
+    borderRadius: 20,
+    backgroundColor: SURFACE,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: BORDER,
+  },
+  anterior: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING,
+    paddingVertical: SPACING * 1.2,
+  },
+  conLinea: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: BORDER,
+  },
+  anteriorTitulo: {
+    fontFamily: SERIF,
+    fontSize: 16,
+    color: TEXT,
   },
 
   // Ultima predicacion

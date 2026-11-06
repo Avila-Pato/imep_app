@@ -9,17 +9,18 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import MuroOracion from "../sala/components/MuroOracion";
 import IglesiaView from "./components/IglesiaView";
 import TabsSuperiores from "./components/TabsSuperiores";
+import VistaAnimada from "./components/VistaAnimada";
 
 type Vista = "muro" | "salas";
 
 const VISTAS: { id: Vista; label: string }[] = [
-  { id: "muro", label: "Muro de oración" },
   { id: "salas", label: "Salas" },
+  { id: "muro", label: "Muro de oración" },
 ];
 
 // Comunidad: el muro de oracion y las salas de cada grupo
 export default function ComunidadScreen() {
-  const [vista, setVista] = useState<Vista>("muro");
+  const [vista, setVista] = useState<Vista>("salas");
   const scrollRef = useRef<ScrollView>(null);
 
   return (
@@ -37,7 +38,9 @@ export default function ComunidadScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {vista === "muro" ? <MuroOracion /> : <IglesiaView />}
+        <VistaAnimada vista={vista}>
+          {vista === "muro" ? <MuroOracion /> : <IglesiaView />}
+        </VistaAnimada>
       </ScrollView>
     </SafeAreaView>
   );

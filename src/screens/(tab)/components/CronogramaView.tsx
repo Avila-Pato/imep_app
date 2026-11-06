@@ -1,5 +1,5 @@
 import { HORARIOS_CULTO } from "@/assets/data/configMocks";
-import { TURNOS } from "@/assets/data/cronogramasMocks";
+import { USUARIO } from "@/assets/data/perfilMocks";
 import {
   BORDER,
   DARK_BG,
@@ -12,8 +12,10 @@ import {
   TEXT,
 } from "@/constants/constans";
 import Octicons from "@expo/vector-icons/Octicons";
-import { Turno } from "@/types/typesCronogramas";
+import { asignarTurno, useEstudios } from "@/store/estudios";
+import { RolId, Turno } from "@/types/typesCronogramas";
 import { horaCulto } from "@/utils/cultos";
+import { unirTurnos } from "@/utils/turnos";
 import { useState } from "react";
 import {
   LayoutChangeEvent,
@@ -29,6 +31,7 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
+import ModalAsignar from "./ModalAsignar";
 
 const RESORTE = { damping: 22, stiffness: 220 };
 
@@ -154,10 +157,20 @@ export default function CronogramaView() {
   const semana = cultosDeLaSemana(seleccionado);
   const diasSel = diasDesdeHoy(seleccionado);
 
+  // Turnos de ejemplo + los que asigno el admin
+  const { turnosEditados } = useEstudios();
+  const turnos = unirTurnos(turnosEditados);
+
+  // Modo admin: asigna quien sirve en cada rol (solo cultos que no pasaron)
+  const [editando, setEditando] = useState(false);
+  const [rolAbierto, setRolAbierto] = useState<RolId | null>(null);
+  const puedeEditar = !!USUARIO.admin && diasSel >= 0;
+  const enEdicion = editando && puedeEditar;
+
   // Todos los turnos comienzan a la hora del culto (en el orden de los roles)
   const hora = horaCulto(seleccionado);
-  const ordenRoles = Object.keys(ROLES);
-  const turnosDia = TURNOS.filter((t) => t.fecha === seleccionado).sort(
+  const ordenRoles = Object.keys(ROLES) as RolId[];
+  const turnosDia = turnos.filter((t) => t.fecha === seleccionado).sort(
     (a, b) => ordenRoles.indexOf(a.rol) - ordenRoles.indexOf(b.rol),
   );
 
@@ -242,6 +255,42 @@ export default function CronogramaView() {
     );
   };
 
+  // En modo admin: todos los roles, con o sin persona
+  const filaEditable = (rolId: RolId) => {
+    const rol = ROLES[rolId];
+    const persona = turnosDia.find((t) => t.rol === rolId)?.persona;
+    return (
+      <Pressable
+        key={rolId}
+        onPress={() => setRolAbierto(rolId)}
+        style={({ pressed }) => [
+          styles.bloque,
+          !persona && styles.bloqueVacio,
+          pressed && styles.presionado,
+        ]}
+        accessibilityLabel={`${rol.label}: ${persona ?? "sin asignar"}`}
+      >
+        <View style={styles.bloqueIcono}>
+          <Octicons name={rol.icon} size={16} color={TEXT} />
+        </View>
+        <View style={styles.flex}>
+          <Text style={styles.bloqueRol}>{rol.label.toUpperCase()}</Text>
+          <Text
+            style={[styles.bloquePersona, !persona && styles.sinAsignar]}
+            numberOfLines={1}
+          >
+            {persona ?? "Sin asignar"}
+          </Text>
+        </View>
+        <Octicons
+          name={persona ? "pencil" : "plus"}
+          size={14}
+          color={MUTED}
+        />
+      </Pressable>
+    );
+  };
+
   const lineaAhora = (
     <View style={styles.ahora}>
       <Text style={styles.ahoraTexto}>
@@ -293,7 +342,7 @@ export default function CronogramaView() {
               const key = toKey(mes.y, mes.m, dia);
               const activo = key === seleccionado;
               const esHoy = key === HOY_KEY;
-              const tieneTurnos = TURNOS.some((t) => t.fecha === key);
+              const tieneTurnos = turnos.some((t) => t.fecha === key);
               const culto = esCulto(new Date(mes.y, mes.m, dia));
 
               return (
@@ -432,9 +481,40 @@ export default function CronogramaView() {
                     : `Hoy es ${fechaLarga(HOY_KEY)}`}
                 </Text>
               </View>
+              {puedeEditar && (
+                <Pressable
+                  onPress={() => setEditando((e) => !e)}
+                  hitSlop={8}
+                  style={[styles.editar, enEdicion && styles.editarActivo]}
+                  accessibilityLabel={
+                    enEdicion ? "Terminar de editar" : "Editar turnos"
+                  }
+                >
+                  <Octicons
+                    name={enEdicion ? "check" : "pencil"}
+                    size={13}
+                    color={enEdicion ? DARK_BG : TEXT}
+                  />
+                  <Text
+                    style={[
+                      styles.editarTexto,
+                      enEdicion && styles.editarTextoActivo,
+                    ]}
+                  >
+                    {enEdicion ? "Listo" : "Editar"}
+                  </Text>
+                </Pressable>
+              )}
             </View>
 
-            {turnosDia.length === 0 ? (
+            {enEdicion ? (
+              <View style={styles.agenda}>
+                <Text style={styles.ayuda}>
+                  Toca un rol para elegir quién sirve ese día.
+                </Text>
+                {ordenRoles.map(filaEditable)}
+              </View>
+            ) : turnosDia.length === 0 ? (
               <View style={styles.vacio}>
                 <Octicons name="calendar" size={22} color={MUTED} />
                 <Text style={styles.vacioTexto}>No hay turnos este día</Text>
@@ -451,6 +531,17 @@ export default function CronogramaView() {
           </ScrollView>
         </Animated.View>
       )}
+
+      <ModalAsignar
+        rol={rolAbierto}
+        fecha={capitalizar(fechaLarga(seleccionado))}
+        actual={turnosDia.find((t) => t.rol === rolAbierto)?.persona}
+        onElegir={(persona) => {
+          if (rolAbierto) asignarTurno(seleccionado, rolAbierto, persona);
+          setRolAbierto(null);
+        }}
+        onCerrar={() => setRolAbierto(null)}
+      />
     </View>
   );
 }
@@ -464,6 +555,9 @@ const styles = StyleSheet.create({
   },
   flex: {
     flex: 1,
+  },
+  presionado: {
+    opacity: 0.6,
   },
   fijo: {
     paddingHorizontal: PADDING,
@@ -518,6 +612,32 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: MUTED,
     marginTop: 2,
+  },
+  editar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: BORDER,
+  },
+  editarActivo: {
+    backgroundColor: TEXT,
+    borderColor: TEXT,
+  },
+  editarTexto: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: TEXT,
+  },
+  editarTextoActivo: {
+    color: DARK_BG,
+  },
+  ayuda: {
+    fontSize: 12,
+    color: MUTED,
   },
 
   // Panel
@@ -756,6 +876,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#242424",
     borderWidth: 1,
     borderColor: "#333333",
+  },
+  bloqueVacio: {
+    backgroundColor: "transparent",
+    borderStyle: "dashed",
+  },
+  sinAsignar: {
+    color: MUTED,
+    fontWeight: "500",
   },
   bloqueIcono: {
     width: 34,

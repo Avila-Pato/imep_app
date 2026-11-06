@@ -6,13 +6,15 @@ import {
   TEXT,
 } from "@/constants/constans";
 import Octicons from "@expo/vector-icons/Octicons";
-import { Href, router } from "expo-router";
+import { Href, router, useLocalSearchParams } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import PredicacionView from "../(tab)/components/PredicacionView";
 
 // Pantalla de la predicacion (se abre desde la card de Inicio)
 export default function PredicacionScreen() {
+  // ?id=... abre una predicacion anterior (sin id = la ultima)
+  const { id } = useLocalSearchParams<{ id?: string }>();
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.cabecera}>
@@ -33,7 +35,7 @@ export default function PredicacionScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <PredicacionView />
+        <PredicacionView inicialId={id} />
       </ScrollView>
     </SafeAreaView>
   );

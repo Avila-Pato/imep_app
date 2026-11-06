@@ -14,6 +14,9 @@ import { usePasaje } from "@/hooks/usePasaje";
 import { Verso } from "@/services/biblia";
 import { useEstudios } from "@/store/estudios";
 import { claveVerso, SeleccionBiblia } from "./AccionesVersiculo";
+import TamanoLetra from "./TamanoLetra";
+import BotonLibro from "@/screens/biblia/BotonLibro";
+import SelectorLibro from "@/screens/biblia/SelectorLibro";
 import Octicons from "@expo/vector-icons/Octicons";
 import { ReactNode, useCallback, useEffect, useState } from "react";
 import {
@@ -25,7 +28,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useFocusEffect } from "expo-router";
+import { Href, router, useFocusEffect } from "expo-router";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   Easing,
@@ -34,7 +37,8 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-type Lado = "izquierda" | "derecha";
+// "quieto" = aparece sin deslizarse (al entrar o volver de los versiculos)
+type Lado = "izquierda" | "derecha" | "quieto";
 
 // Grupo de un libro (Ley, Historia, Evangelios...)
 const generoDe = (libro: number) =>
@@ -44,7 +48,7 @@ const generoDe = (libro: number) =>
 // Transicion entre pantallas: entra deslizandose desde el lado y aparece
 // "izquierda" = avanza (entra desde la derecha), "derecha" = retrocede
 function Pagina({ lado, children }: { lado: Lado; children: ReactNode }) {
-  const entrada = useSharedValue(0);
+  const entrada = useSharedValue(lado === "quieto" ? 1 : 0);
 
   useEffect(() => {
     entrada.set(
@@ -52,7 +56,7 @@ function Pagina({ lado, children }: { lado: Lado; children: ReactNode }) {
     );
   }, [entrada]);
 
-  const desde = lado === "izquierda" ? 40 : -40;
+  const desde = lado === "izquierda" ? 40 : lado === "derecha" ? -40 : 0;
   const estilo = useAnimatedStyle(() => ({
     opacity: entrada.get(),
     transform: [{ translateX: desde * (1 - entrada.get()) }],
@@ -69,11 +73,13 @@ function VersoTexto({
   color,
   onPress,
   style,
+  tamano,
   children,
 }: {
   color?: string;
   onPress: () => void;
   style?: object;
+  tamano?: { fontSize: number; lineHeight: number }; // letra elegida
   children: ReactNode;
 }) {
   const [lineas, setLineas] = useState<Linea[]>([]);
@@ -106,7 +112,7 @@ function VersoTexto({
           />
         ))}
       <Text
-        style={styles.parrafo}
+        style={[styles.parrafo, tamano]}
         onTextLayout={(e) =>
           setLineas(
             e.nativeEvent.lines.map((l) => ({
@@ -124,6 +130,10 @@ function VersoTexto({
   );
 }
 
+// Un versiculo por pantalla (deslizando, como videos)
+const abrirVersiculos = (libro: number, capitulo: number) =>
+  router.push(`/versiculos?libro=${libro}&capitulo=${capitulo}` as Href);
+
 // Los primeros 39 libros son del Antiguo Testamento
 const FIN_AT = 39;
 
@@ -135,6 +145,7 @@ type Props = {
   onNavegar?: () => void; // para volver arriba al cambiar de pantalla
   seleccion: SeleccionBiblia | null; // versiculos tocados
   onSeleccion: (s: SeleccionBiblia | null) => void;
+  inicio?: { libro: number; capitulo: number }; // capitulo abierto al entrar
 };
 
 // Biblia completa: libros -> capitulos -> lectura del capitulo
@@ -142,12 +153,16 @@ export default function BibliaView({
   onNavegar,
   seleccion,
   onSeleccion,
+  inicio,
 }: Props) {
-  const [libro, setLibro] = useState<number | null>(null); // 1..66
-  const [capitulo, setCapitulo] = useState<number | null>(null);
+  const [libro, setLibro] = useState<number | null>(inicio?.libro ?? null); // 1..66
+  const [capitulo, setCapitulo] = useState<number | null>(
+    inicio?.capitulo ?? null,
+  );
   const [busqueda, setBusqueda] = useState("");
   // hacia donde se da vuelta la pagina
-  const [lado, setLado] = useState<Lado>("izquierda");
+  // al abrir la pestaña (o volver de los versiculos) no se desliza
+  const [lado, setLado] = useState<Lado>("quieto");
 
   const ir = (
     l: number | null,
@@ -203,6 +218,7 @@ export default function BibliaView({
           libro={libro}
           capitulo={capitulo}
           onIr={(c) => ir(libro, c, c > capitulo ? "izquierda" : "derecha")}
+          onElegir={(l, c) => ir(l, c)}
           seleccionados={
             seleccion?.libro === libro && seleccion.capitulo === capitulo
               ? seleccion.versos.map((v) => v.numero)
@@ -247,7 +263,11 @@ export default function BibliaView({
                 {Array.from({ length: total }, (_, i) => i + 1).map((c) => (
                   <Pressable
                     key={c}
-                    onPress={() => ir(libro, c)}
+                    onPress={() => {
+                      // abre los versiculos uno a uno; al volver queda la lectura
+                      ir(libro, c);
+                      abrirVersiculos(libro, c);
+                    }}
                     style={styles.capitulo}
                   >
                     {({ pressed }) => (
@@ -352,16 +372,21 @@ function Lectura({
   libro,
   capitulo,
   onIr,
+  onElegir,
   seleccionados,
   onTocar,
 }: {
+  onElegir: (libro: number, capitulo: number) => void; // otro libro / capitulo
   libro: number;
   capitulo: number;
   onIr: (c: number) => void;
   seleccionados: number[];
   onTocar: (v: Verso) => void;
 }) {
-  const { resaltados } = useEstudios();
+  const { resaltados, letra = 1 } = useEstudios();
+  const [eligiendo, setEligiendo] = useState(false); // selector de libro abierto
+  // tamaño elegido con A− / A+
+  const tamano = { fontSize: 20 * letra, lineHeight: 30 * letra };
   // estilo de un versiculo: resaltado (color) y/o seleccionado (subrayado)
   // color del resaltado de un versiculo
   const colorDe = (n: number) =>
@@ -377,7 +402,34 @@ function Lectura({
       <View style={styles.libro}>
         <View style={styles.hoja}>
           {/* Encabezado: solo el libro (el numero va grande junto al texto) */}
-          <Text style={styles.cornisa}>{nombre.toUpperCase()}</Text>
+          {/* Libro y capitulo: tocar para cambiar */}
+          <BotonLibro
+            titulo={`${nombre} ${capitulo}`}
+            onPress={() => setEligiendo(true)}
+          />
+          <SelectorLibro
+            visible={eligiendo}
+            libro={libro}
+            capitulo={capitulo}
+            onElegir={onElegir}
+            onCerrar={() => setEligiendo(false)}
+          />
+          <View style={styles.herramientas}>
+            <Pressable
+              onPress={() => abrirVersiculos(libro, capitulo)}
+              hitSlop={6}
+              style={({ pressed }) => [
+                styles.modoVersos,
+                pressed && styles.presionado,
+              ]}
+            >
+              <Octicons name="versions" size={13} color={TEXT} />
+              <Text style={styles.modoVersosTexto}>
+                Versículo por versículo
+              </Text>
+            </Pressable>
+            <TamanoLetra />
+          </View>
 
           {cargando && (
             <View style={styles.estado}>
@@ -390,11 +442,19 @@ function Lectura({
             <View style={styles.texto}>
               {/* Capitular: numero grande al lado del primer versiculo */}
               <View style={styles.inicio}>
-                <Text style={styles.capitular}>{capitulo}</Text>
+                <Text
+                  style={[
+                    styles.capitular,
+                    { fontSize: 62 * letra, lineHeight: 62 * letra },
+                  ]}
+                >
+                  {capitulo}
+                </Text>
                 <VersoTexto
                   color={colorDe(versos[0].numero)}
                   onPress={() => onTocar(versos[0])}
                   style={styles.flex}
+                  tamano={tamano}
                 >
                   <Text style={marca(versos[0].numero)}>{versos[0].texto}</Text>
                 </VersoTexto>
@@ -406,8 +466,11 @@ function Lectura({
                   key={v.numero}
                   color={colorDe(v.numero)}
                   onPress={() => onTocar(v)}
+                  tamano={tamano}
                 >
-                  <Text style={styles.numeroVerso}>{v.numero} </Text>
+                  <Text style={[styles.numeroVerso, { fontSize: 11 * letra }]}>
+                    {v.numero}{" "}
+                  </Text>
                   <Text style={marca(v.numero)}>{v.texto}</Text>
                 </VersoTexto>
               ))}
@@ -637,6 +700,29 @@ const styles = StyleSheet.create({
     letterSpacing: 3,
     color: MUTED,
     textAlign: "center",
+  },
+  // boton de versiculos y nivelador de letra, siempre en una fila
+  herramientas: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: SPACING,
+    marginTop: SPACING,
+  },
+  modoVersos: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: BORDER,
+  },
+  modoVersosTexto: {
+    fontFamily: FUENTE.medium,
+    fontSize: 12,
+    color: TEXT,
   },
   adorno: {
     flexDirection: "row",

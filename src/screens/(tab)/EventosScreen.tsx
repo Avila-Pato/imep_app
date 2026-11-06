@@ -20,13 +20,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import CronogramaView from "./components/CronogramaView";
 import ModalAnuncio from "./components/ModalAnuncio";
 import TabsSuperiores from "./components/TabsSuperiores";
+import VistaAnimada from "./components/VistaAnimada";
 
 type Filtro = "todos" | CategoriaId;
 type Vista = "anuncios" | "cronograma";
 
 const VISTAS: { id: Vista; label: string }[] = [
-  { id: "anuncios", label: "Anuncios" },
   { id: "cronograma", label: "Cronograma" },
+  { id: "anuncios", label: "Anuncios" },
 ];
 
 const FILTROS: { id: Filtro; label: string }[] = [
@@ -66,15 +67,7 @@ const PROXIMOS = ANUNCIOS.filter((a) => a.fecha >= HOY).sort((a, b) =>
 );
 
 // Una fila: fecha a la izquierda, texto a la derecha
-function Fila({
-  a,
-  primera,
-  onAbrir,
-}: {
-  a: Anuncio;
-  primera: boolean;
-  onAbrir: () => void;
-}) {
+function Fila({ a, onAbrir }: { a: Anuncio; onAbrir: () => void }) {
   const f = deKey(a.fecha);
   const dia = f
     .toLocaleDateString("es-ES", { weekday: "short" })
@@ -84,11 +77,7 @@ function Fila({
   return (
     <Pressable
       onPress={onAbrir}
-      style={({ pressed }) => [
-        styles.fila,
-        !primera && styles.conLinea,
-        pressed && styles.presionado,
-      ]}
+      style={({ pressed }) => [styles.fila, pressed && styles.presionado]}
     >
       <View style={styles.fecha}>
         <Text style={styles.fechaDiaSemana}>{dia}</Text>
@@ -121,7 +110,7 @@ function Fila({
 }
 
 export default function EventosScreen() {
-  const [vista, setVista] = useState<Vista>("anuncios");
+  const [vista, setVista] = useState<Vista>("cronograma");
   const [filtro, setFiltro] = useState<Filtro>("todos");
   const [abierto, setAbierto] = useState<Anuncio | null>(null);
 
@@ -143,86 +132,83 @@ export default function EventosScreen() {
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <TabsSuperiores opciones={VISTAS} activo={vista} onCambiar={setVista} />
 
-      {vista === "cronograma" ? (
-        <CronogramaView />
-      ) : (
-        <ScrollView
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Proximo culto (horario configurado por el lider) */}
-          {CULTO && (
-            <View style={styles.culto}>
-              <View style={styles.cultoIcono}>
-                <Octicons name="bell" size={16} color={DARK_BG} />
-              </View>
-              <View style={styles.flex}>
-                <Text style={styles.cultoEtiqueta}>PRÓXIMO CULTO</Text>
-                <Text style={styles.cultoTitulo}>
-                  {CULTO.cuando} · {CULTO.horario.hora} hrs
-                </Text>
-                <Text style={styles.cultoFecha}>
-                  {CULTO.horario.nombre ?? FECHA_CULTO}
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {/* Filtros */}
+      <VistaAnimada vista={vista} style={styles.flex}>
+        {vista === "cronograma" ? (
+          <CronogramaView />
+        ) : (
           <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.filtros}
-            contentContainerStyle={styles.filtrosContent}
+            contentContainerStyle={styles.content}
+            showsVerticalScrollIndicator={false}
           >
-            {FILTROS.map((f) => {
-              const activo = f.id === filtro;
-              return (
-                <Pressable
-                  key={f.id}
-                  onPress={() => setFiltro(f.id)}
-                  style={[styles.filtro, activo && styles.filtroActivo]}
-                >
-                  <Text
-                    style={[
-                      styles.filtroTexto,
-                      activo && styles.filtroTextoActivo,
-                    ]}
-                  >
-                    {f.label}
+            {/* Proximo culto (horario configurado por el lider) */}
+            {CULTO && (
+              <View style={styles.culto}>
+                <View style={styles.cultoIcono}>
+                  <Octicons name="bell" size={16} color={DARK_BG} />
+                </View>
+                <View style={styles.flex}>
+                  <Text style={styles.cultoEtiqueta}>PRÓXIMO CULTO</Text>
+                  <Text style={styles.cultoTitulo}>
+                    {CULTO.cuando} · {CULTO.horario.hora} hrs
                   </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-
-          {/* Anuncios agrupados por cuando ocurren */}
-          {secciones.length === 0 ? (
-            <View style={styles.vacio}>
-              <Octicons name="inbox" size={22} color={MUTED} />
-              <Text style={styles.vacioTexto}>
-                No hay anuncios próximos en esta categoría
-              </Text>
-            </View>
-          ) : (
-            secciones.map((s) => (
-              <View key={s.titulo}>
-                <Text style={styles.seccion}>{s.titulo}</Text>
-                <View style={styles.card}>
-                  {s.lista.map((a, i) => (
-                    <Fila
-                      key={a.id}
-                      a={a}
-                      primera={i === 0}
-                      onAbrir={() => setAbierto(a)}
-                    />
-                  ))}
+                  <Text style={styles.cultoFecha}>
+                    {CULTO.horario.nombre ?? FECHA_CULTO}
+                  </Text>
                 </View>
               </View>
-            ))
-          )}
-        </ScrollView>
-      )}
+            )}
+
+            {/* Filtros */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.filtros}
+              contentContainerStyle={styles.filtrosContent}
+            >
+              {FILTROS.map((f) => {
+                const activo = f.id === filtro;
+                return (
+                  <Pressable
+                    key={f.id}
+                    onPress={() => setFiltro(f.id)}
+                    style={[styles.filtro, activo && styles.filtroActivo]}
+                  >
+                    <Text
+                      style={[
+                        styles.filtroTexto,
+                        activo && styles.filtroTextoActivo,
+                      ]}
+                    >
+                      {f.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+
+            {/* Anuncios agrupados por cuando ocurren */}
+            {secciones.length === 0 ? (
+              <View style={styles.vacio}>
+                <Octicons name="inbox" size={22} color={MUTED} />
+                <Text style={styles.vacioTexto}>
+                  No hay anuncios próximos en esta categoría
+                </Text>
+              </View>
+            ) : (
+              secciones.map((s) => (
+                <View key={s.titulo}>
+                  <Text style={styles.seccion}>{s.titulo}</Text>
+                  <View style={styles.lista}>
+                    {s.lista.map((a) => (
+                      <Fila key={a.id} a={a} onAbrir={() => setAbierto(a)} />
+                    ))}
+                  </View>
+                </View>
+              ))
+            )}
+          </ScrollView>
+        )}
+      </VistaAnimada>
 
       <ModalAnuncio anuncio={abierto} onCerrar={() => setAbierto(null)} />
     </SafeAreaView>
@@ -238,7 +224,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: PADDING,
     paddingTop: SPACING,
     paddingBottom: 120, // espacio para el tabbar flotante
-    gap: SPACING * 1.6,
+    gap: SPACING * 2.4,
   },
   flex: {
     flex: 1,
@@ -318,12 +304,9 @@ const styles = StyleSheet.create({
     color: MUTED,
     marginBottom: SPACING,
   },
-  card: {
-    paddingHorizontal: SPACING * 1.6,
-    borderRadius: 20,
-    backgroundColor: SURFACE,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: BORDER,
+  // cada anuncio en su propia tarjeta, separadas
+  lista: {
+    gap: SPACING * 1.2,
   },
   presionado: {
     opacity: 0.6,
@@ -331,16 +314,17 @@ const styles = StyleSheet.create({
   flecha: {
     alignSelf: "center",
   },
-  conLinea: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: BORDER,
-  },
 
   // Fila
   fila: {
     flexDirection: "row",
     gap: SPACING * 1.4,
-    paddingVertical: SPACING * 1.6,
+    paddingVertical: SPACING * 1.8,
+    paddingHorizontal: SPACING * 1.6,
+    borderRadius: 20,
+    backgroundColor: SURFACE,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: BORDER,
   },
   fecha: {
     width: 40,

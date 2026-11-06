@@ -7,7 +7,14 @@ import {
   SPACING,
   TEXT,
 } from "@/constants/constans";
+import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 
 type Props<T extends string> = {
   opciones: { id: T; label: string }[];
@@ -15,12 +22,39 @@ type Props<T extends string> = {
   onCambiar: (id: T) => void;
 };
 
-// Tabs de texto con linea roja bajo el activo (para cambiar de vista en una pantalla)
+type Medida = { x: number; ancho: number };
+
+const SUAVE = { duration: 260, easing: Easing.out(Easing.cubic) };
+
+// Tabs de texto con linea roja bajo el activo (para cambiar de vista en una pantalla).
+// La linea se desliza de un tab al otro.
 export default function TabsSuperiores<T extends string>({
   opciones,
   activo,
   onCambiar,
 }: Props<T>) {
+  // posicion y ancho de cada tab (se miden al dibujarse)
+  const [medidas, setMedidas] = useState<Partial<Record<T, Medida>>>({});
+  const x = useSharedValue(0);
+  const ancho = useSharedValue(0);
+  const visible = useSharedValue(0);
+
+  useEffect(() => {
+    const m = medidas[activo];
+    if (!m) return;
+    // la primera vez se ubica sin animar; despues se desliza
+    const primera = visible.get() === 0;
+    x.set(primera ? m.x : withTiming(m.x, SUAVE));
+    ancho.set(primera ? m.ancho : withTiming(m.ancho, SUAVE));
+    visible.set(1);
+  }, [activo, medidas, x, ancho, visible]);
+
+  const lineaStyle = useAnimatedStyle(() => ({
+    opacity: visible.get(),
+    width: ancho.get(),
+    transform: [{ translateX: x.get() }],
+  }));
+
   return (
     <View style={styles.tabs} accessibilityRole="tablist">
       {opciones.map((o) => {
@@ -29,6 +63,13 @@ export default function TabsSuperiores<T extends string>({
           <Pressable
             key={o.id}
             onPress={() => onCambiar(o.id)}
+            onLayout={(e) => {
+              const { x: px, width } = e.nativeEvent.layout;
+              setMedidas((prev) => ({
+                ...prev,
+                [o.id]: { x: px, ancho: width },
+              }));
+            }}
             // area de toque mas grande que el texto
             hitSlop={{ top: 6, bottom: 6, left: 12, right: 12 }}
             style={styles.tab}
@@ -38,10 +79,10 @@ export default function TabsSuperiores<T extends string>({
             <Text style={[styles.texto, esActivo && styles.textoActivo]}>
               {o.label}
             </Text>
-            <View style={[styles.linea, esActivo && styles.lineaActiva]} />
           </Pressable>
         );
       })}
+      <Animated.View pointerEvents="none" style={[styles.linea, lineaStyle]} />
     </View>
   );
 }
@@ -59,6 +100,7 @@ const styles = StyleSheet.create({
   },
   tab: {
     paddingTop: 6,
+    paddingBottom: 2, // lugar para la linea roja
   },
   texto: {
     fontFamily: FUENTE.medium,
@@ -70,12 +112,13 @@ const styles = StyleSheet.create({
     fontFamily: FUENTE.semibold,
     color: TEXT,
   },
+  // linea roja que se desliza (queda sobre la linea de base)
   linea: {
+    position: "absolute",
+    left: 0,
+    bottom: -StyleSheet.hairlineWidth,
     height: 2,
-    marginBottom: -StyleSheet.hairlineWidth, // queda sobre la linea de base
     borderRadius: 1,
-  },
-  lineaActiva: {
     backgroundColor: PRIMARY,
   },
 });

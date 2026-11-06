@@ -39,6 +39,9 @@ export const TEXT = "#F2F2F2";
 export const MUTED = "#9A9A9A";
 export const PRIMARY = "#E5484D";
 
+// Onboarding: false = no se muestra nunca (mientras se termina la app)
+export const MOSTRAR_BIENVENIDA = true;
+
 // Home
 export const SERIF = Platform.select({ ios: "Georgia", default: "serif" });
 export const HOME_PADDING = SPACING * 2.4;
@@ -51,7 +54,7 @@ export const ROLES: Record<RolId, Rol> = {
   pasillo: { label: "Pasillo", icon: "people" },
   alabanza: { label: "Alabanza", icon: "unmute" },
   ofrenda: { label: "Ofrenda", icon: "gift" },
-  recepcion: { label: "Recepción", icon: "home" },
+  recepcion: { label: "Puerta", icon: "sign-in" },
 };
 
 // Anuncios (eventos de la iglesia y de cada grupo)
@@ -196,6 +199,7 @@ export const MENU_PERFIL: { titulo: string; opciones: OpcionMenu[] }[] = [
     opciones: [
       { id: "privacidad", label: "Privacidad", icon: "lock" },
       { id: "ayuda", label: "Ayuda", icon: "question" },
+      { id: "bienvenida", label: "Ver bienvenida", icon: "rocket" },
       { id: "salir", label: "Cerrar sesión", icon: "sign-out", peligro: true },
     ],
   },

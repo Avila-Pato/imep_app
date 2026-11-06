@@ -24,6 +24,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import TabsSuperiores from "../(tab)/components/TabsSuperiores";
+import VistaAnimada from "../(tab)/components/VistaAnimada";
 import ChatSala from "./components/ChatSala";
 import MiembrosSala, { miembrosDe } from "./components/MiembrosSala";
 import MuroOracion from "./components/MuroOracion";
@@ -51,9 +52,9 @@ export default function SalaScreen() {
 
   const cantidad = miembrosDe(grupo.id).length;
 
-  // Sala de otro grupo: bloqueada, vuelve a Estudio
+  // Sala de otro grupo: bloqueada, vuelve a Comunidad
   if (!puedeVerSala(grupo.id, miGrupo)) {
-    return <Redirect href={"/oraciones" as Href} />;
+    return <Redirect href={"/comunidad" as Href} />;
   }
 
   return (
@@ -89,16 +90,18 @@ export default function SalaScreen() {
       <TabsSuperiores opciones={VISTAS} activo={vista} onCambiar={setVista} />
 
       <KeyboardAvoidingView style={styles.flex} behavior="padding">
-        {vista === "chat" && <ChatSala sala={grupo} />}
-        {vista === "oracion" && (
-          <ScrollView
-            contentContainerStyle={styles.muro}
-            showsVerticalScrollIndicator={false}
-          >
-            <MuroOracion grupo={grupo.id} />
-          </ScrollView>
-        )}
-        {vista === "miembros" && <MiembrosSala grupo={grupo.id} />}
+        <VistaAnimada vista={vista} style={styles.flex}>
+          {vista === "chat" && <ChatSala sala={grupo} />}
+          {vista === "oracion" && (
+            <ScrollView
+              contentContainerStyle={styles.muro}
+              showsVerticalScrollIndicator={false}
+            >
+              <MuroOracion grupo={grupo.id} />
+            </ScrollView>
+          )}
+          {vista === "miembros" && <MiembrosSala grupo={grupo.id} />}
+        </VistaAnimada>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

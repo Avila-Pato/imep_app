@@ -9,6 +9,8 @@ export default function TabLayout() {
       tabBar={(props: BottomTabBarProps) => <CustomBar {...props} />}
       screenOptions={{
         headerShown: false,
+        // fundido al cambiar de pestaña (sin salto brusco)
+        animation: "fade",
       }}
     >
       <Tabs.Screen
@@ -51,12 +53,12 @@ export default function TabLayout() {
         }}
       />
 
-      {/* Estudio (predicaciones y estudio guiado) */}
+      {/* Biblia */}
 
       <Tabs.Screen
         name="oraciones"
         options={{
-          title: "Estudio",
+          title: "Biblia",
           tabBarIcon: ({ color, focused, size }) =>
             !focused ? (
               <Octicons name="book" size={size} color={color} />

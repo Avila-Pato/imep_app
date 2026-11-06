@@ -35,8 +35,14 @@ export const PREDICACIONES_PASADAS = PREDICACIONES.filter(
   (p) => p.fecha <= hoyKey,
 ).sort((a, b) => b.fecha.localeCompare(a.fecha));
 
-export default function PredicacionView() {
-  const [actualId, setActualId] = useState(PREDICACIONES_PASADAS[0]?.id);
+export default function PredicacionView({
+  inicialId,
+}: {
+  inicialId?: string;
+}) {
+  const [actualId, setActualId] = useState(
+    inicialId ?? PREDICACIONES_PASADAS[0]?.id,
+  );
   const actual = PREDICACIONES_PASADAS.find((p) => p.id === actualId);
   const pasaje = usePasaje(actual?.cita ?? "");
 

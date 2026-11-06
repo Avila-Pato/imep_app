@@ -51,8 +51,8 @@ const MODOS: { id: Modo; label: string }[] = [
 ];
 
 const VISTAS: { id: Vista; label: string }[] = [
-  { id: "biblia", label: "Biblia" },
   { id: "estudio", label: "Mi estudio" },
+  { id: "biblia", label: "Biblia" },
 ];
 
 // Encabezado: etiqueta pequeña + titulo serif con la ultima palabra en cursiva
@@ -112,7 +112,7 @@ const Seccion = ({ texto }: { texto: string }) => (
 );
 
 export default function OracionesScreen() {
-  const [vista, setVista] = useState<Vista>("biblia");
+  const [vista, setVista] = useState<Vista>("estudio");
   const [paso, setPaso] = useState<Paso>(1);
   const [cita, setCita] = useState("");
   const [respuestas, setRespuestas] = useState<Record<string, string>>({});

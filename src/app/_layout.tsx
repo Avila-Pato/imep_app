@@ -5,6 +5,8 @@ import { Caveat_600SemiBold } from "@expo-google-fonts/caveat/600SemiBold";
 import { EBGaramond_400Regular } from "@expo-google-fonts/eb-garamond/400Regular";
 import { EBGaramond_400Regular_Italic } from "@expo-google-fonts/eb-garamond/400Regular_Italic";
 import { EBGaramond_600SemiBold } from "@expo-google-fonts/eb-garamond/600SemiBold";
+import { MOSTRAR_BIENVENIDA } from "@/constants/constans";
+import { useCargado, useEstudios } from "@/store/estudios";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -26,17 +28,38 @@ export default function RootLayout() {
     EBGaramond_600SemiBold,
   });
 
-  useEffect(() => {
-    if (fuentesListas || error) SplashScreen.hideAsync();
-  }, [fuentesListas, error]);
+  // Lo guardado en el telefono (para saber si ya vio el onboarding)
+  const cargado = useCargado();
+  const { bienvenida: vista } = useEstudios();
+  const bienvenida = vista || !MOSTRAR_BIENVENIDA;
+  const listo = (fuentesListas || !!error) && cargado;
 
-  if (!fuentesListas && !error) return null;
+  useEffect(() => {
+    if (listo) SplashScreen.hideAsync();
+  }, [listo]);
+
+  if (!listo) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       {/* Hora e iconos del celular en claro (la app es oscura) */}
       <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false }} />
+      <Stack screenOptions={{ headerShown: false }}>
+        {/* Primera vez: solo el onboarding */}
+        <Stack.Protected guard={!bienvenida}>
+          <Stack.Screen name="(onboarding)" />
+        </Stack.Protected>
+        <Stack.Protected guard={!!bienvenida}>
+          <Stack.Screen name="(tab)" />
+          <Stack.Screen name="sala/[id]" />
+          <Stack.Screen name="predicacion" />
+          {/* entra y sale desde abajo, como una hoja */}
+          <Stack.Screen
+            name="versiculos"
+            options={{ animation: "slide_from_bottom" }}
+          />
+        </Stack.Protected>
+      </Stack>
     </GestureHandlerRootView>
   );
 }

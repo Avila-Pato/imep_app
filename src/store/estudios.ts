@@ -6,8 +6,11 @@ import {
   Revision,
   VersiculoGuardado,
 } from "@/types/typesComunidad";
+import { RolId, Turno } from "@/types/typesCronogramas";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { sigueGuardada } from "@/utils/peticiones";
+import { unirTurnos } from "@/utils/turnos";
+import { useSyncExternalStore } from "react";
 import { create } from "zustand";
 import { PersistStorage, persist } from "zustand/middleware";
 
@@ -25,6 +28,9 @@ type Estado = {
   resaltados: Record<string, string>; // "libro-capitulo-verso" -> color
   versiculos: VersiculoGuardado[]; // guardados desde la Biblia
   grupo?: GrupoId; // grupo al que se unio (varones, jovenes, dorcas, ninos)
+  turnosEditados: Record<string, Turno[]>; // "YYYY-MM-DD" -> turnos que asigno el admin
+  bienvenida?: boolean; // ya vio el onboarding (solo se muestra la primera vez)
+  letra?: number; // tamaño de letra de la Biblia (1 = normal)
 };
 
 // v2: se reinicio todo (sin grupo) para probar desde cero
@@ -59,6 +65,7 @@ const useStore = create<Estado>()(
       revisiones: {},
       resaltados: {},
       versiculos: [],
+      turnosEditados: {},
     }),
     {
       name: CLAVE,
@@ -66,7 +73,10 @@ const useStore = create<Estado>()(
       // Carga lo guardado al abrir la app (sin pisar cambios hechos mientras cargaba)
       merge: (guardado, estado) => {
         const previo = (guardado ?? {}) as Partial<Estado>;
-        const revisiones = { ...(previo.revisiones ?? {}), ...estado.revisiones };
+        const revisiones = {
+          ...(previo.revisiones ?? {}),
+          ...estado.revisiones,
+        };
         return {
           ...estado,
           guardados: unir(estado.guardados, previo.guardados ?? []),
@@ -81,8 +91,14 @@ const useStore = create<Estado>()(
           vistos: { ...(previo.vistos ?? {}), ...estado.vistos },
           habitos: { ...(previo.habitos ?? {}), ...estado.habitos },
           grupo: estado.grupo ?? previo.grupo,
+          bienvenida: estado.bienvenida || previo.bienvenida,
+          letra: estado.letra ?? previo.letra,
           resaltados: { ...(previo.resaltados ?? {}), ...estado.resaltados },
           versiculos: unir(estado.versiculos, previo.versiculos ?? []),
+          turnosEditados: {
+            ...(previo.turnosEditados ?? {}),
+            ...estado.turnosEditados,
+          },
         };
       },
     },
@@ -93,6 +109,29 @@ const cambiar = useStore.setState;
 
 export function useEstudios() {
   return useStore();
+}
+
+// true cuando ya se cargo lo guardado en el telefono (evita mostrar
+// el onboarding un instante a quien ya lo vio)
+export function useCargado() {
+  return useSyncExternalStore(
+    (avisar) => useStore.persist.onFinishHydration(avisar),
+    () => useStore.persist.hasHydrated(),
+  );
+}
+
+// Agranda o achica la letra de la Biblia (para quienes ven poco)
+export const LETRA_MIN = 0.8;
+export const LETRA_MAX = 1.8;
+export function fijarLetra(valor: number) {
+  // pasos de 0.1, dentro del rango
+  const nueva = Math.round(valor * 10) / 10;
+  cambiar({ letra: Math.min(LETRA_MAX, Math.max(LETRA_MIN, nueva)) });
+}
+
+// Termina el onboarding (false = volver a verlo, para probar)
+export function verBienvenida(vista: boolean) {
+  cambiar({ bienvenida: vista });
 }
 
 export function guardarEstudio(e: EstudioGuardado) {
@@ -171,6 +210,24 @@ export function resaltar(claves: string[], color: string | null) {
       else delete resaltados[k];
     });
     return { resaltados };
+  });
+}
+
+// El admin asigna (o quita, con null) a la persona de un rol en un culto.
+// Luego esto lo guardara la API para que lo vea toda la iglesia.
+export function asignarTurno(
+  fecha: string,
+  rol: RolId,
+  persona: string | null,
+) {
+  cambiar((s) => {
+    const otros = unirTurnos(s.turnosEditados).filter(
+      (t) => t.fecha === fecha && t.rol !== rol,
+    );
+    const turnos = persona
+      ? [...otros, { id: `${fecha}-${rol}`, fecha, rol, persona }]
+      : otros;
+    return { turnosEditados: { ...s.turnosEditados, [fecha]: turnos } };
   });
 }
 

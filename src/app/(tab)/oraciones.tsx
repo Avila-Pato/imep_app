@@ -1,1 +1,1 @@
-export { default } from "@/screens/(tab)/OracionesScreen";
+export { default } from "@/screens/(tab)/BibliaScreen";

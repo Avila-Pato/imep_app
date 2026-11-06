@@ -21,7 +21,6 @@ import {
 } from "@/utils/peticiones";
 import { tiempoRestante } from "@/utils/tiempo";
 import Octicons from "@expo/vector-icons/Octicons";
-import { Href, router } from "expo-router";
 import { useState } from "react";
 import {
   Modal,
@@ -186,12 +185,6 @@ export default function MuroOracion({ grupo }: Props) {
           <Text style={styles.vacioTexto}>
             Aún no hay peticiones en el muro.
           </Text>
-          <Pressable
-            onPress={() => router.navigate("/oraciones" as Href)}
-            hitSlop={8}
-          >
-            <Text style={styles.vacioLink}>Pedir oración →</Text>
-          </Pressable>
         </View>
       ) : (
         <View style={styles.columnas}>
@@ -429,11 +422,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: MUTED,
     textAlign: "center",
-  },
-  vacioLink: {
-    marginTop: SPACING,
-    fontSize: 13,
-    fontWeight: "600",
-    color: TEXT,
   },
 });

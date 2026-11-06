@@ -1,4 +1,3 @@
-import { TURNOS } from "@/assets/data/cronogramasMocks";
 import { USUARIO } from "@/assets/data/perfilMocks";
 import {
   BORDER,
@@ -15,9 +14,10 @@ import {
   SURFACE,
   TEXT,
 } from "@/constants/constans";
-import { useEstudios } from "@/store/estudios";
+import { useEstudios, verBienvenida } from "@/store/estudios";
 import { horaCulto } from "@/utils/cultos";
 import { haceCuanto } from "@/utils/tiempo";
+import { unirTurnos } from "@/utils/turnos";
 import Octicons from "@expo/vector-icons/Octicons";
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -50,13 +50,6 @@ const partesFecha = (key: string) => {
   };
 };
 
-// Turnos del usuario desde hoy en adelante
-const MIS_TURNOS = TURNOS.filter(
-  (t) => t.persona === USUARIO.nombre && t.fecha >= HOY_KEY,
-)
-  .sort((a, b) => a.fecha.localeCompare(b.fecha))
-  .slice(0, 3);
-
 const ESTADISTICAS = [
   { valor: USUARIO.turnosRealizados, label: "Turnos" },
   { valor: USUARIO.estudios, label: "Estudios" },
@@ -64,7 +57,12 @@ const ESTADISTICAS = [
 ];
 
 export default function PerfilScreen() {
-  const { grupo, guardados, versiculos } = useEstudios();
+  const { grupo, guardados, versiculos, turnosEditados } = useEstudios();
+  // Turnos del usuario desde hoy en adelante (incluye los que asigno el admin)
+  const MIS_TURNOS = unirTurnos(turnosEditados)
+    .filter((t) => t.persona === USUARIO.nombre && t.fecha >= HOY_KEY)
+    .sort((a, b) => a.fecha.localeCompare(b.fecha))
+    .slice(0, 3);
   // estudio abierto en el modal (sin cambiar de vista)
   const [abiertoId, setAbiertoId] = useState<string | null>(null);
   const abierto = guardados.find((e) => e.id === abiertoId) ?? null;
@@ -217,6 +215,12 @@ export default function PerfilScreen() {
               {grupo.opciones.map((op, i) => (
                 <Pressable
                   key={op.id}
+                  // por ahora solo "Ver bienvenida" hace algo
+                  onPress={
+                    op.id === "bienvenida"
+                      ? () => verBienvenida(false)
+                      : undefined
+                  }
                   style={({ pressed }) => [
                     styles.opcion,
                     i > 0 && styles.conLinea,
