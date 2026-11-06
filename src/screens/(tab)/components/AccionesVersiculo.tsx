@@ -1,5 +1,4 @@
 import {
-  BIBLIA_VERSION,
   BORDER,
   COLORES_RESALTADO,
   DARK_BG,
@@ -10,7 +9,12 @@ import {
   TEXT,
 } from "@/constants/constans";
 import { Verso } from "@/services/biblia";
-import { guardarVersiculo, resaltar, useEstudios } from "@/store/estudios";
+import {
+  guardarVersiculo,
+  resaltar,
+  useEstudios,
+  useVersion,
+} from "@/store/estudios";
 import Octicons from "@expo/vector-icons/Octicons";
 import * as Clipboard from "expo-clipboard";
 import { useEffect, useState } from "react";
@@ -55,6 +59,7 @@ type Props = {
 // Barra que aparece al tocar versiculos: resaltar, guardar, copiar, compartir, orar
 export default function AccionesVersiculo({ seleccion, onListo }: Props) {
   const { resaltados } = useEstudios();
+  const version = useVersion();
   // aviso corto en lugar de la cita (la barra no se cierra)
   const [aviso, setAviso] = useState<string | null>(null);
   const avisar = setAviso;
@@ -69,7 +74,7 @@ export default function AccionesVersiculo({ seleccion, onListo }: Props) {
 
   const cita = citaDe(seleccion);
   const texto = seleccion.versos.map((v) => v.texto).join(" ");
-  const mensaje = `«${texto}»\n— ${cita} (${BIBLIA_VERSION})`;
+  const mensaje = `«${texto}»\n— ${cita} (${version})`;
   const claves = seleccion.versos.map((v) =>
     claveVerso(seleccion.libro, seleccion.capitulo, v.numero),
   );

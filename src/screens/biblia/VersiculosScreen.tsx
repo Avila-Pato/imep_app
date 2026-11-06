@@ -1,5 +1,4 @@
 import {
-  BIBLIA_VERSION,
   BORDER,
   CAPITULOS_BIBLIA,
   COLORES_RESALTADO,
@@ -16,7 +15,12 @@ import { claveVerso } from "@/screens/(tab)/components/AccionesVersiculo";
 import ModalOracion from "@/screens/(tab)/components/ModalOracion";
 import TamanoLetra from "@/screens/(tab)/components/TamanoLetra";
 import { Verso } from "@/services/biblia";
-import { guardarVersiculo, resaltar, useEstudios } from "@/store/estudios";
+import {
+  guardarVersiculo,
+  resaltar,
+  useEstudios,
+  useVersion,
+} from "@/store/estudios";
 import Octicons from "@expo/vector-icons/Octicons";
 import { Href, router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
@@ -32,6 +36,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import BotonLibro from "./BotonLibro";
+import BotonVersion from "./BotonVersion";
 import SelectorLibro from "./SelectorLibro";
 
 // En el telefono se desliza con el dedo; en web hay flechas para el mouse
@@ -56,6 +61,7 @@ export default function VersiculosScreen() {
   const nombre = LIBROS_BIBLIA[libro - 1];
   const total = CAPITULOS_BIBLIA[libro - 1];
   const { versos, cargando, error } = usePasaje(`${nombre} ${capitulo}`);
+  const version = useVersion();
 
   const [alto, setAlto] = useState(0); // alto de cada pagina = alto de la lista
   const [actual, setActual] = useState(0);
@@ -97,24 +103,29 @@ export default function VersiculosScreen() {
     <SafeAreaView style={styles.safe}>
       {/* Cabecera: cita y progreso (se vuelve con "Leer capítulo completo") */}
       <View style={styles.cabecera}>
-        {/* mismo ancho que el contador: el titulo queda centrado */}
-        <View style={styles.contador} />
         {/* Tocar el titulo abre el selector de libro y capitulo */}
         <View style={styles.cabeceraCentro}>
           <Text style={styles.eyebrow}>SAGRADA ESCRITURA</Text>
-          <BotonLibro
-            titulo={`${nombre} ${capitulo}`}
-            onPress={() => setEligiendo(true)}
-          />
+          {/* libro y version, uno al lado del otro */}
+          <View style={styles.titulos}>
+            <BotonLibro
+              titulo={`${nombre} ${capitulo}`}
+              onPress={() => setEligiendo(true)}
+            />
+            <BotonVersion />
+          </View>
+        </View>
+      </View>
+      {/* Progreso: barra + "3/25" */}
+      <View style={styles.progreso}>
+        <View style={styles.barra}>
+          <View style={[styles.barraLlena, { width: `${progreso * 100}%` }]} />
         </View>
         <Text style={styles.contador}>
           {lista.length
             ? `${Math.min(actual + 1, lista.length)}/${lista.length}`
             : ""}
         </Text>
-      </View>
-      <View style={styles.barra}>
-        <View style={[styles.barraLlena, { width: `${progreso * 100}%` }]} />
       </View>
 
       {/* Leer el capitulo normal y tamaño de letra */}
@@ -254,7 +265,7 @@ export default function VersiculosScreen() {
         onCompartir={(oracion) => {
           if (!orando) return;
           Share.share({
-            message: `«${orando.texto}»\n— ${nombre} ${capitulo}:${orando.numero} (${BIBLIA_VERSION})\n\n🙏 ${oracion}`,
+            message: `«${orando.texto}»\n— ${nombre} ${capitulo}:${orando.numero} (${version})\n\n🙏 ${oracion}`,
           }).catch(() => {});
           setOrando(null);
         }}
@@ -294,6 +305,7 @@ function Pagina({
   onSiguiente,
 }: PaginaProps) {
   const { resaltados, versiculos, letra = 1 } = useEstudios();
+  const version = useVersion();
   const tamanoVerso = tamano(verso.texto, letra);
   const clave = claveVerso(libro, capitulo, verso.numero);
   const cita = `${LIBROS_BIBLIA[libro - 1]} ${capitulo}:${verso.numero}`;
@@ -339,7 +351,7 @@ function Pagina({
       icono: "share-android" as const,
       onPress: () => {
         Share.share({
-          message: `«${verso.texto}»\n— ${cita} (${BIBLIA_VERSION})`,
+          message: `«${verso.texto}»\n— ${cita} (${version})`,
         }).catch(() => {});
       },
     },
@@ -493,16 +505,20 @@ const styles = StyleSheet.create({
     letterSpacing: 2.4,
     color: MUTED,
   },
+  progreso: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING,
+    paddingHorizontal: SPACING * 2,
+  },
   contador: {
-    width: 44, // fijo, para que el titulo quede justo al centro
-    textAlign: "right",
     fontFamily: FUENTE.medium,
     fontSize: 12,
     color: MUTED,
   },
   barra: {
+    flex: 1,
     height: 2,
-    marginHorizontal: SPACING * 2,
     borderRadius: 1,
     backgroundColor: BORDER,
     overflow: "hidden",
@@ -606,6 +622,12 @@ const styles = StyleSheet.create({
     fontFamily: FUENTE.semibold,
     fontSize: 13,
     color: DARK_BG,
+  },
+  titulos: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
   },
   herramientas: {
     flexDirection: "row",

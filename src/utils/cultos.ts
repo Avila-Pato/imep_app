@@ -1,5 +1,6 @@
 import { HORARIOS_CULTO } from "@/assets/data/configMocks";
 import { HorarioCulto } from "@/types/typesAnuncios";
+import { Turno } from "@/types/typesCronogramas";
 
 export type ProximoCulto = {
   horario: HorarioCulto;
@@ -47,3 +48,7 @@ export function horaCulto(fechaKey: string) {
   const dia = new Date(y, m - 1, d).getDay();
   return HORARIOS_CULTO.find((h) => h.dia === dia)?.hora;
 }
+
+// Hora de un turno: la que puso el admin o, si no, la del culto
+export const horaTurno = (t: Pick<Turno, "fecha" | "hora">) =>
+  t.hora ?? horaCulto(t.fecha);

@@ -3,7 +3,6 @@ import { USUARIO } from "@/assets/data/perfilMocks";
 import {
   BORDER,
   DARK_BG,
-  GRUPOS,
   MUTED,
   PRIMARY,
   SERIF,
@@ -12,13 +11,14 @@ import {
   TEXT,
 } from "@/constants/constans";
 import { miembrosDe } from "@/screens/sala/components/MiembrosSala";
-import { elegirGrupo, useEstudios } from "@/store/estudios";
+import { useEsPastor, useEstudios, useGrupos } from "@/store/estudios";
 import { Grupo } from "@/types/typesComunidad";
-import { grupoDeInvitacion } from "@/utils/invitacion";
+import { useUnirse } from "@/hooks/useUnirse";
 import Octicons from "@expo/vector-icons/Octicons";
 import { Href, router } from "expo-router";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import ModalNuevaSala from "./ModalNuevaSala";
 
 type Sala = Grupo & { noLeidos: number };
 
@@ -36,42 +36,79 @@ function SalaAbierta({
   meta,
   sala,
   claro,
+  bloqueada,
   onPress,
 }: {
   titulo: string;
   meta: string;
   sala: Sala;
   claro: string;
+  bloqueada?: boolean; // hermano que aun no se une a una iglesia
   onPress: () => void;
 }) {
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.abierta, pressed && styles.presionado]}
+      disabled={bloqueada}
+      style={({ pressed }) => [
+        styles.abierta,
+        bloqueada && styles.bloqueada,
+        pressed && styles.presionado,
+      ]}
+      accessibilityLabel={bloqueada ? `${titulo}, únete primero` : titulo}
     >
-      <View style={[styles.iconoGrande, { backgroundColor: claro }]}>
-        <Octicons name={sala.icono} size={20} color={DARK_BG} />
+      <View
+        style={[
+          styles.iconoGrande,
+          { backgroundColor: bloqueada ? SURFACE : claro },
+        ]}
+      >
+        <Octicons
+          name={sala.icono}
+          size={20}
+          color={bloqueada ? MUTED : DARK_BG}
+        />
       </View>
       <View style={styles.flex}>
         <Text style={styles.abiertaTitulo}>{titulo}</Text>
         <Text style={styles.meta}>{meta}</Text>
       </View>
-      <Badge n={sala.noLeidos} />
-      <Octicons name="chevron-right" size={16} color={MUTED} />
+      {bloqueada ? (
+        <View style={styles.chip}>
+          <Octicons name="lock" size={11} color={MUTED} />
+          <Text style={styles.chipTexto}>Únete primero</Text>
+        </View>
+      ) : (
+        <>
+          <Badge n={sala.noLeidos} />
+          <Octicons name="chevron-right" size={16} color={MUTED} />
+        </>
+      )}
     </Pressable>
   );
 }
 
 // Salas: la iglesia, la sala de tu grupo y el resto (solo con invitacion)
 export default function IglesiaView() {
-  const { mensajes, vistos, grupo: miGrupo } = useEstudios();
+  const {
+    mensajes,
+    vistos,
+    grupo: miGrupo,
+    iglesia: miIglesia,
+  } = useEstudios();
   const [invitando, setInvitando] = useState(false);
   const [enlace, setEnlace] = useState("");
   const [error, setError] = useState(false);
+  const [creando, setCreando] = useState(false);
+  const grupos = useGrupos(); // las de base y las que creo el pastor
+  const esPastor = useEsPastor(); // entra a todas y puede crear salas
+  const unirse = useUnirse();
+  // el hermano entra a las salas solo despues de unirse a una iglesia
+  const sinIglesia = !esPastor && !miIglesia;
   const todos = [...MENSAJES, ...mensajes];
 
   // Cada sala con sus mensajes no leidos
-  const salas: Sala[] = GRUPOS.map((g) => {
+  const salas: Sala[] = grupos.map((g) => {
     const visto = vistos[g.id] ?? "";
     const noLeidos = todos.filter(
       (m) => m.grupo === g.id && m.autor !== USUARIO.nombre && m.fecha > visto,
@@ -84,12 +121,12 @@ export default function IglesiaView() {
   const abrir = (id: string) => router.push(`/sala/${id}` as Href);
 
   const usarInvitacion = () => {
-    const id = grupoDeInvitacion(enlace);
-    if (!id) return setError(true);
-    elegirGrupo(id);
+    // tambien llega la iglesia (y su mapa en Inicio)
+    const r = unirse(enlace);
+    if (!r) return setError(true);
     setEnlace("");
     setInvitando(false);
-    abrir(id);
+    if (r.grupo) abrir(r.grupo);
   };
 
   return (
@@ -106,12 +143,17 @@ export default function IglesiaView() {
         <Text style={styles.seccion}>TUS SALAS</Text>
         <SalaAbierta
           titulo="Mi iglesia"
-          meta={`${iglesia.descripcion} · ${miembrosDe(iglesia.id).length} miembros`}
+          meta={
+            sinIglesia
+              ? "Aún no te has unido a una iglesia"
+              : `${iglesia.descripcion} · ${miembrosDe(iglesia.id).length} miembros`
+          }
           sala={iglesia}
           claro={TEXT}
+          bloqueada={sinIglesia}
           onPress={() => abrir(iglesia.id)}
         />
-        {mia ? (
+        {mia && !sinIglesia ? (
           <SalaAbierta
             titulo={mia.label}
             meta={`Tu grupo · ${miembrosDe(mia.id).length} miembros`}
@@ -127,10 +169,13 @@ export default function IglesiaView() {
                 <Octicons name="link" size={16} color={TEXT} />
               </View>
               <View style={styles.flex}>
-                <Text style={styles.invitacionTitulo}>Tu sala de grupo</Text>
+                <Text style={styles.invitacionTitulo}>
+                  {sinIglesia ? "Únete a tu iglesia" : "Tu sala de grupo"}
+                </Text>
                 <Text style={styles.meta}>
-                  Tu líder te enviará un enlace para entrar a la sala de tu
-                  grupo.
+                  {sinIglesia
+                    ? "Tu pastor te enviará un enlace o código para entrar a tu iglesia y a tu sala."
+                    : "Tu líder te enviará un enlace para entrar a la sala de tu grupo."}
                 </Text>
               </View>
             </View>
@@ -153,7 +198,8 @@ export default function IglesiaView() {
                 />
                 {error && (
                   <Text style={styles.error}>
-                    Ese enlace no es válido. Pídele uno nuevo a tu líder.
+                    Ese enlace no es válido. Pídele uno nuevo a tu{" "}
+                    {sinIglesia ? "pastor" : "líder"}.
                   </Text>
                 )}
                 <Pressable
@@ -165,7 +211,9 @@ export default function IglesiaView() {
                     pressed && styles.presionado,
                   ]}
                 >
-                  <Text style={styles.botonTexto}>Entrar a la sala</Text>
+                  <Text style={styles.botonTexto}>
+                    {sinIglesia ? "Unirme a mi iglesia" : "Entrar a la sala"}
+                  </Text>
                 </Pressable>
               </View>
             ) : (
@@ -185,18 +233,47 @@ export default function IglesiaView() {
         )}
       </View>
 
-      {/* Resto de grupos: solo se entra con invitacion */}
+      {/* Resto de grupos: solo se entra con invitacion (el pastor entra a todas) */}
       <View style={styles.bloque}>
-        <Text style={styles.seccion}>OTROS GRUPOS</Text>
+        <View style={styles.seccionFila}>
+          <Text style={styles.seccion}>
+            {esPastor ? "TODAS LAS SALAS" : "OTROS GRUPOS"}
+          </Text>
+          {esPastor && (
+            <Pressable
+              onPress={() => setCreando(true)}
+              hitSlop={8}
+              style={({ pressed }) => [
+                styles.nueva,
+                pressed && styles.presionado,
+              ]}
+            >
+              <Octicons name="plus" size={12} color={DARK_BG} />
+              <Text style={styles.nuevaTexto}>Nueva sala</Text>
+            </Pressable>
+          )}
+        </View>
         <View style={styles.lista}>
           {otras.map((g, i) => (
-            <View
+            <Pressable
               key={g.id}
-              style={[styles.fila, i > 0 && styles.filaBorde]}
-              accessibilityLabel={`${g.label}, solo con invitación`}
+              onPress={() => abrir(g.id)}
+              disabled={!esPastor}
+              style={({ pressed }) => [
+                styles.fila,
+                i > 0 && styles.filaBorde,
+                pressed && styles.presionado,
+              ]}
+              accessibilityLabel={
+                esPastor ? g.label : `${g.label}, solo con invitación`
+              }
             >
               <View style={styles.icono}>
-                <Octicons name={g.icono} size={14} color={MUTED} />
+                <Octicons
+                  name={g.icono}
+                  size={14}
+                  color={esPastor ? (g.tono ?? TEXT) : MUTED}
+                />
               </View>
               <View style={styles.flex}>
                 <Text style={styles.filaTitulo}>{g.label}</Text>
@@ -204,14 +281,23 @@ export default function IglesiaView() {
                   {miembrosDe(g.id).length} miembros
                 </Text>
               </View>
-              <View style={styles.chip}>
-                <Octicons name="lock" size={11} color={MUTED} />
-                <Text style={styles.chipTexto}>Con invitación</Text>
-              </View>
-            </View>
+              {esPastor ? (
+                <>
+                  <Badge n={g.noLeidos} />
+                  <Octicons name="chevron-right" size={16} color={MUTED} />
+                </>
+              ) : (
+                <View style={styles.chip}>
+                  <Octicons name="lock" size={11} color={MUTED} />
+                  <Text style={styles.chipTexto}>Con invitación</Text>
+                </View>
+              )}
+            </Pressable>
           ))}
         </View>
       </View>
+
+      <ModalNuevaSala visible={creando} onCerrar={() => setCreando(false)} />
     </View>
   );
 }
@@ -220,6 +306,25 @@ const styles = StyleSheet.create({
   contenedor: {
     gap: SPACING * 2.4,
     paddingTop: SPACING,
+  },
+  seccionFila: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  nueva: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: TEXT,
+  },
+  nuevaTexto: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: DARK_BG,
   },
   bloque: {
     gap: SPACING,
@@ -267,6 +372,10 @@ const styles = StyleSheet.create({
     backgroundColor: SURFACE,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: BORDER,
+  },
+  bloqueada: {
+    backgroundColor: "transparent",
+    borderStyle: "dashed",
   },
   iconoGrande: {
     width: 48,

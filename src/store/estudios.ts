@@ -1,12 +1,24 @@
 import {
   EstudioGuardado,
+  Grupo,
   GrupoId,
   Mensaje,
   Publicacion,
   Revision,
   VersiculoGuardado,
 } from "@/types/typesComunidad";
-import { RolId, Turno } from "@/types/typesCronogramas";
+import { IGLESIA } from "@/assets/data/homeMocks";
+import { USUARIO } from "@/assets/data/perfilMocks";
+import { Iglesia } from "@/types/typesHome";
+import {
+  BIBLIA_VERSION,
+  CARGOS,
+  GRUPOS,
+  ROL_GENERICO,
+  ROLES,
+} from "@/constants/constans";
+import { CargoId, Permiso } from "@/types/typesCargos";
+import { Rol, RolId, Turno } from "@/types/typesCronogramas";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { sigueGuardada } from "@/utils/peticiones";
 import { unirTurnos } from "@/utils/turnos";
@@ -31,7 +43,30 @@ type Estado = {
   turnosEditados: Record<string, Turno[]>; // "YYYY-MM-DD" -> turnos que asigno el admin
   bienvenida?: boolean; // ya vio el onboarding (solo se muestra la primera vez)
   letra?: number; // tamaño de letra de la Biblia (1 = normal)
+  version?: string; // version de la Biblia elegida (RV1960, NTV, LBLA)
+  nombre?: string; // como quiere que la llamemos (onboarding)
+  motivos?: string[]; // que la trae a la app (onboarding)
+  rol?: RolIglesia; // quien es en la iglesia (el pastor administra)
+  cargos: Record<string, CargoId[]>; // nombre -> roles que le dio el pastor
+  salas: Grupo[]; // salas nuevas que creo el pastor (ademas de las de base)
+  iglesia?: Iglesia; // la puso el pastor, o llega al unirse con una invitacion
+  codigos: Partial<Record<GrupoId, CodigoInvitacion>>; // del pastor: "general" = iglesia
+  avisos: Partial<Record<TipoAviso, boolean>>; // notificaciones que quiere (sin dato = si)
+  invitados: string[]; // nombres agregados a mano en el cronograma (sin cuenta en la app)
+  rolesExtra: Record<string, Rol>; // casillas nuevas del cronograma (ej: Devocional)
 };
+
+// Notificaciones que la persona puede activar o apagar
+export type TipoAviso = "cultos" | "turnos" | "anuncios";
+
+// Codigo que reparte el pastor (de la iglesia o de una sala)
+export type CodigoInvitacion = {
+  codigo: string; // ej: "4K7Q" (se muestra como IMEP-4K7Q)
+  creado: string; // ISO
+  usos: number; // cuantos se unieron con el
+};
+
+export type RolIglesia = "pastor" | "hermano";
 
 // v2: se reinicio todo (sin grupo) para probar desde cero
 const CLAVE = "imep:estudios:v2";
@@ -53,59 +88,84 @@ const unir = <T extends { id: string }>(a: T[], b: T[]) => [
   ...b.filter((x) => !a.some((y) => y.id === x.id)),
 ];
 
+// Estado de una app recien instalada
+const inicial = (): Estado => ({
+  guardados: [],
+  publicaciones: [],
+  orando: [],
+  mensajes: [],
+  vistos: {},
+  habitos: {},
+  revisiones: {},
+  resaltados: {},
+  versiculos: [],
+  turnosEditados: {},
+  cargos: {},
+  salas: [],
+  codigos: {},
+  avisos: {},
+  invitados: [],
+  rolesExtra: {},
+});
+
 const useStore = create<Estado>()(
-  persist(
-    (): Estado => ({
-      guardados: [],
-      publicaciones: [],
-      orando: [],
-      mensajes: [],
-      vistos: {},
-      habitos: {},
-      revisiones: {},
-      resaltados: {},
-      versiculos: [],
-      turnosEditados: {},
-    }),
-    {
-      name: CLAVE,
-      storage: almacen,
-      // Carga lo guardado al abrir la app (sin pisar cambios hechos mientras cargaba)
-      merge: (guardado, estado) => {
-        const previo = (guardado ?? {}) as Partial<Estado>;
-        const revisiones = {
-          ...(previo.revisiones ?? {}),
-          ...estado.revisiones,
-        };
-        return {
-          ...estado,
-          guardados: unir(estado.guardados, previo.guardados ?? []),
-          revisiones,
-          // las peticiones vencidas (mas de 24 h) se borran del telefono
-          publicaciones: unir(
-            estado.publicaciones,
-            previo.publicaciones ?? [],
-          ).filter((p) => sigueGuardada(p, revisiones)),
-          orando: [...new Set([...estado.orando, ...(previo.orando ?? [])])],
-          mensajes: unir(estado.mensajes, previo.mensajes ?? []),
-          vistos: { ...(previo.vistos ?? {}), ...estado.vistos },
-          habitos: { ...(previo.habitos ?? {}), ...estado.habitos },
-          grupo: estado.grupo ?? previo.grupo,
-          bienvenida: estado.bienvenida || previo.bienvenida,
-          letra: estado.letra ?? previo.letra,
-          resaltados: { ...(previo.resaltados ?? {}), ...estado.resaltados },
-          versiculos: unir(estado.versiculos, previo.versiculos ?? []),
-          turnosEditados: {
-            ...(previo.turnosEditados ?? {}),
-            ...estado.turnosEditados,
-          },
-        };
-      },
+  persist(inicial, {
+    name: CLAVE,
+    storage: almacen,
+    // Carga lo guardado al abrir la app (sin pisar cambios hechos mientras cargaba)
+    merge: (guardado, estado) => {
+      const previo = (guardado ?? {}) as Partial<Estado>;
+      const revisiones = {
+        ...(previo.revisiones ?? {}),
+        ...estado.revisiones,
+      };
+      return {
+        ...estado,
+        guardados: unir(estado.guardados, previo.guardados ?? []),
+        revisiones,
+        // las peticiones vencidas (mas de 24 h) se borran del telefono
+        publicaciones: unir(
+          estado.publicaciones,
+          previo.publicaciones ?? [],
+        ).filter((p) => sigueGuardada(p, revisiones)),
+        orando: [...new Set([...estado.orando, ...(previo.orando ?? [])])],
+        mensajes: unir(estado.mensajes, previo.mensajes ?? []),
+        vistos: { ...(previo.vistos ?? {}), ...estado.vistos },
+        habitos: { ...(previo.habitos ?? {}), ...estado.habitos },
+        grupo: estado.grupo ?? previo.grupo,
+        bienvenida: estado.bienvenida || previo.bienvenida,
+        letra: estado.letra ?? previo.letra,
+        version: estado.version ?? previo.version,
+        nombre: estado.nombre ?? previo.nombre,
+        motivos: estado.motivos ?? previo.motivos,
+        rol: estado.rol ?? previo.rol,
+        cargos: { ...(previo.cargos ?? {}), ...estado.cargos },
+        salas: unir(estado.salas, previo.salas ?? []),
+        iglesia: estado.iglesia ?? previo.iglesia,
+        codigos: { ...(previo.codigos ?? {}), ...estado.codigos },
+        avisos: { ...(previo.avisos ?? {}), ...estado.avisos },
+        rolesExtra: { ...(previo.rolesExtra ?? {}), ...estado.rolesExtra },
+        invitados: [
+          ...new Set([...estado.invitados, ...(previo.invitados ?? [])]),
+        ],
+        resaltados: { ...(previo.resaltados ?? {}), ...estado.resaltados },
+        versiculos: unir(estado.versiculos, previo.versiculos ?? []),
+        turnosEditados: {
+          ...(previo.turnosEditados ?? {}),
+          ...estado.turnosEditados,
+        },
+      };
     },
-  ),
+  }),
 );
 
 const cambiar = useStore.setState;
+
+// Deja la app como recien instalada (rol, iglesia, mapa, salas, todo)
+// y vuelve a mostrar la bienvenida para elegir pastor o hermano
+export function reiniciarApp() {
+  useStore.setState(inicial(), true);
+}
 
 export function useEstudios() {
   return useStore();
@@ -127,6 +187,145 @@ export function fijarLetra(valor: number) {
   // pasos de 0.1, dentro del rango
   const nueva = Math.round(valor * 10) / 10;
   cambiar({ letra: Math.min(LETRA_MAX, Math.max(LETRA_MIN, nueva)) });
+}
+
+// Version de la Biblia que se lee en toda la app
+export function useVersion() {
+  return useStore((s) => s.version) ?? BIBLIA_VERSION;
+}
+export function elegirVersion(version: string) {
+  cambiar({ version });
+}
+
+// Datos del onboarding (luego iran a la cuenta en el backend)
+export function guardarPerfil(datos: {
+  nombre?: string;
+  motivos?: string[];
+  rol?: RolIglesia;
+}) {
+  cambiar(datos);
+}
+
+// El pastor administra la app (turnos, roles...). Mock: lo elige en el
+// onboarding; con backend habra que verificarlo
+export function useEsPastor() {
+  return useStore((s) => s.rol) === "pastor";
+}
+
+// ¿Esta persona puede editar esto? El pastor siempre; el resto si alguno
+// de sus roles lo permite. Mock: se revisa con el nombre de esta persona
+export function usePuede(permiso: Permiso) {
+  return useStore(
+    (s) =>
+      s.rol === "pastor" ||
+      (s.cargos[s.nombre ?? USUARIO.nombre] ?? []).some((c) =>
+        CARGOS[c].permisos.includes(permiso),
+      ),
+  );
+}
+
+// Iglesia de esta persona (sin iglesia = hermano que aun no se une)
+export function useIglesia() {
+  return useStore((s) => s.iglesia);
+}
+
+// El pastor guarda o cambia la ubicacion de su iglesia
+export function fijarIglesia(iglesia: Iglesia) {
+  cambiar({ iglesia });
+}
+
+// Un hermano se une con la invitacion del pastor: llega la iglesia (con la
+// ubicacion que marco el pastor) y, si la invitacion es de un grupo, su sala.
+// Mock: sin backend, la iglesia es la de ejemplo
+export function aceptarInvitacion(grupo?: GrupoId, codigo?: string) {
+  cambiar((s) => {
+    // suma un uso al codigo con el que entro (para el panel del pastor)
+    const usado = (Object.keys(s.codigos) as GrupoId[]).find(
+      (g) => s.codigos[g]?.codigo === codigo,
+    );
+    const actual = usado ? s.codigos[usado] : undefined;
+    return {
+      iglesia: s.iglesia ?? IGLESIA,
+      grupo: grupo ?? s.grupo,
+      codigos:
+        usado && actual
+          ? { ...s.codigos, [usado]: { ...actual, usos: actual.usos + 1 } }
+          : s.codigos,
+    };
+  });
+}
+
+// Sin letras que se confunden (0/O, 1/I/L)
+const LETRAS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+
+// El pastor crea (o renueva) el codigo de la iglesia ("general") o de una
+// sala. Renovar invalida el anterior. Mock: luego lo generara el servidor
+export function generarCodigo(grupo: GrupoId) {
+  cambiar((s) => {
+    const usados = Object.values(s.codigos).map((c) => c?.codigo);
+    let codigo = "";
+    do {
+      codigo = Array.from(
+        { length: 4 },
+        () => LETRAS[Math.floor(Math.random() * LETRAS.length)],
+      ).join("");
+    } while (usados.includes(codigo));
+    return {
+      codigos: {
+        ...s.codigos,
+        [grupo]: { codigo, creado: new Date().toISOString(), usos: 0 },
+      },
+    };
+  });
+}
+
+// Todas las salas: las de base y las que creo el pastor
+export function useGrupos(): Grupo[] {
+  const creadas = useStore((s) => s.salas);
+  return [...GRUPOS, ...creadas];
+}
+
+// El pastor crea una sala nueva (ej: "Alabanza", "Matrimonios")
+// "Matrimonios Jóvenes" -> "matrimonios-jovenes"
+const aSlug = (texto: string) =>
+  texto
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+export function crearSala(sala: Omit<Grupo, "id">) {
+  const base = aSlug(sala.label);
+  cambiar((s) => {
+    // id unico aunque se repita el nombre
+    const usados = [...GRUPOS, ...s.salas].map((g) => g.id);
+    let id = base || "sala";
+    for (let n = 2; usados.includes(id); n++) id = `${base}-${n}`;
+    return { salas: [...s.salas, { ...sala, id }] };
+  });
+}
+
+// El pastor da o quita un rol a un hermano (puede tener varios)
+export function alternarCargo(persona: string, cargo: CargoId) {
+  cambiar((s) => {
+    const actuales = s.cargos[persona] ?? [];
+    return {
+      cargos: {
+        ...s.cargos,
+        [persona]: actuales.includes(cargo)
+          ? actuales.filter((c) => c !== cargo)
+          : [...actuales, cargo],
+      },
+    };
+  });
+}
+
+// Prende o apaga un tipo de notificacion
+export function alternarAviso(tipo: TipoAviso) {
+  cambiar((s) => ({
+    avisos: { ...s.avisos, [tipo]: !(s.avisos[tipo] ?? true) },
+  }));
 }
 
 // Termina el onboarding (false = volver a verlo, para probar)
@@ -215,19 +414,97 @@ export function resaltar(claves: string[], color: string | null) {
 
 // El admin asigna (o quita, con null) a la persona de un rol en un culto.
 // Luego esto lo guardara la API para que lo vea toda la iglesia.
+// Casillas del cronograma: las de la app + las que agrego la iglesia
+export function useRoles() {
+  const extra = useStore((s) => s.rolesExtra);
+  const todos: Record<string, Rol> = { ...ROLES, ...extra };
+  return {
+    lista: Object.keys(todos) as RolId[],
+    de: (id: RolId) => todos[id] ?? ROL_GENERICO,
+    esNueva: (id: RolId) => id in extra, // solo esas se pueden borrar
+  };
+}
+
+// Agrega una casilla al cronograma de todos los cultos
+export function crearRol(rol: Rol) {
+  const base = aSlug(rol.label) || "casilla";
+  cambiar((s) => {
+    const usados = [...Object.keys(ROLES), ...Object.keys(s.rolesExtra)];
+    let id = base;
+    for (let n = 2; usados.includes(id); n++) id = `${base}-${n}`;
+    return { rolesExtra: { ...s.rolesExtra, [id]: rol } };
+  });
+}
+
+// Borra una casilla nueva y los turnos que tenia asignados
+export function quitarRol(id: RolId) {
+  cambiar((s) => {
+    const { [id]: _, ...resto } = s.rolesExtra;
+    const turnosEditados = Object.fromEntries(
+      Object.entries(s.turnosEditados).map(([f, ts]) => [
+        f,
+        ts.filter((t) => t.rol !== id),
+      ]),
+    );
+    return { rolesExtra: resto, turnosEditados };
+  });
+}
+
+// Guarda un nombre escrito a mano para volver a elegirlo despues
+export function agregarInvitado(nombre: string) {
+  const limpio = nombre.trim().replace(/\s+/g, " ");
+  if (!limpio) return;
+  cambiar((s) =>
+    s.invitados.includes(limpio) ? s : { invitados: [...s.invitados, limpio] },
+  );
+}
+
+export function quitarInvitado(nombre: string) {
+  cambiar((s) => ({ invitados: s.invitados.filter((n) => n !== nombre) }));
+}
+
 export function asignarTurno(
   fecha: string,
   rol: RolId,
   persona: string | null,
+  hora?: string, // sin hora: mantiene la que tenia (o la del culto)
 ) {
   cambiar((s) => {
-    const otros = unirTurnos(s.turnosEditados).filter(
-      (t) => t.fecha === fecha && t.rol !== rol,
+    const delDia = unirTurnos(s.turnosEditados).filter(
+      (t) => t.fecha === fecha,
     );
+    const otros = delDia.filter((t) => t.rol !== rol);
+    const antes = delDia.find((t) => t.rol === rol);
+    const nuevaHora = hora ?? antes?.hora;
     const turnos = persona
-      ? [...otros, { id: `${fecha}-${rol}`, fecha, rol, persona }]
+      ? [
+          ...otros,
+          {
+            id: `${fecha}-${rol}`,
+            fecha,
+            rol,
+            persona,
+            ...(nuevaHora ? { hora: nuevaHora } : {}),
+          },
+        ]
       : otros;
     return { turnosEditados: { ...s.turnosEditados, [fecha]: turnos } };
+  });
+}
+
+// Cambia solo la hora de un turno ya asignado
+export function fijarHoraTurno(fecha: string, rol: RolId, hora: string) {
+  cambiar((s) => {
+    const delDia = unirTurnos(s.turnosEditados).filter(
+      (t) => t.fecha === fecha,
+    );
+    if (!delDia.some((t) => t.rol === rol)) return s;
+    return {
+      turnosEditados: {
+        ...s.turnosEditados,
+        [fecha]: delDia.map((t) => (t.rol === rol ? { ...t, hora } : t)),
+      },
+    };
   });
 }
 

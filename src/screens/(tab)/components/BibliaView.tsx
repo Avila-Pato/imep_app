@@ -1,5 +1,4 @@
 import {
-  BIBLIA_VERSION,
   BORDER,
   CAPITULOS_BIBLIA,
   FUENTE,
@@ -12,10 +11,11 @@ import {
 } from "@/constants/constans";
 import { usePasaje } from "@/hooks/usePasaje";
 import { Verso } from "@/services/biblia";
-import { useEstudios } from "@/store/estudios";
+import { useEstudios, useVersion } from "@/store/estudios";
 import { claveVerso, SeleccionBiblia } from "./AccionesVersiculo";
 import TamanoLetra from "./TamanoLetra";
 import BotonLibro from "@/screens/biblia/BotonLibro";
+import BotonVersion from "@/screens/biblia/BotonVersion";
 import SelectorLibro from "@/screens/biblia/SelectorLibro";
 import Octicons from "@expo/vector-icons/Octicons";
 import { ReactNode, useCallback, useEffect, useState } from "react";
@@ -396,6 +396,7 @@ function Lectura({
   const nombre = LIBROS_BIBLIA[libro - 1];
   const total = CAPITULOS_BIBLIA[libro - 1];
   const { versos, cargando, error } = usePasaje(`${nombre} ${capitulo}`);
+  const version = useVersion();
 
   return (
     <View style={styles.contenedor}>
@@ -403,10 +404,14 @@ function Lectura({
         <View style={styles.hoja}>
           {/* Encabezado: solo el libro (el numero va grande junto al texto) */}
           {/* Libro y capitulo: tocar para cambiar */}
-          <BotonLibro
-            titulo={`${nombre} ${capitulo}`}
-            onPress={() => setEligiendo(true)}
-          />
+          {/* libro y version, uno al lado del otro */}
+          <View style={styles.titulos}>
+            <BotonLibro
+              titulo={`${nombre} ${capitulo}`}
+              onPress={() => setEligiendo(true)}
+            />
+            <BotonVersion />
+          </View>
           <SelectorLibro
             visible={eligiendo}
             libro={libro}
@@ -479,7 +484,7 @@ function Lectura({
 
           {/* Pie de pagina */}
           <Text style={styles.pie}>
-            — {capitulo} de {total} · {BIBLIA_VERSION} —
+            — {capitulo} de {total} · {version} —
           </Text>
         </View>
       </View>
@@ -702,6 +707,12 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   // boton de versiculos y nivelador de letra, siempre en una fila
+  titulos: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
   herramientas: {
     flexDirection: "row",
     alignItems: "center",

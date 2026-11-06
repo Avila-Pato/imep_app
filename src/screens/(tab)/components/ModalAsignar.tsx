@@ -5,12 +5,18 @@ import {
   DARK_BG,
   MUTED,
   PRIMARY,
-  ROLES,
   SPACING,
   SURFACE,
   TEXT,
 } from "@/constants/constans";
+import {
+  agregarInvitado,
+  quitarInvitado,
+  useEstudios,
+  useRoles,
+} from "@/store/estudios";
 import { RolId } from "@/types/typesCronogramas";
+import SelectorHora from "./SelectorHora";
 import Octicons from "@expo/vector-icons/Octicons";
 import { useState } from "react";
 import {
@@ -26,21 +32,21 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-// Toda la congregacion (sin repetir) para elegir quien sirve
-const PERSONAS = [
+// Toda la congregacion registrada (sin repetir) para elegir quien sirve
+const REGISTRADOS = [
   ...new Set([USUARIO.nombre, ...MIEMBROS.general.map((m) => m.nombre)]),
 ].sort((a, b) => a.localeCompare(b, "es"));
 
 const sinTildes = (s: string) =>
-  s
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "");
+  s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
 type Props = {
   rol: RolId | null; // null = cerrado
   fecha: string; // "Domingo, 1 de noviembre"
   actual?: string; // persona asignada ahora
+  hora?: string; // "HH:MM" del turno (o la del culto)
+  horaCulto?: string; // para mostrar si cambio respecto al culto
+  onHora: (hora: string) => void;
   onElegir: (persona: string | null) => void;
   onCerrar: () => void;
 };
@@ -50,20 +56,35 @@ export default function ModalAsignar({
   rol,
   fecha,
   actual,
+  hora,
+  horaCulto,
+  onHora,
   onElegir,
   onCerrar,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const { invitados } = useEstudios();
+  const roles = useRoles();
   const [busqueda, setBusqueda] = useState("");
-  const texto = busqueda.trim();
-  const lista = PERSONAS.filter((p) => sinTildes(p).includes(sinTildes(texto)));
-  // permite escribir a alguien que no esta en la lista (ej: predicador invitado)
+  const texto = busqueda.trim().replace(/\s+/g, " ");
+  // registrados + los que se agregaron a mano antes (sin cuenta en la app)
+  const sinCuenta = invitados.filter((n) => !REGISTRADOS.includes(n));
+  const personas = [...REGISTRADOS, ...sinCuenta].sort((a, b) =>
+    a.localeCompare(b, "es"),
+  );
+  const lista = personas.filter((p) => sinTildes(p).includes(sinTildes(texto)));
+  // alguien que no esta en la lista (ej: predicador invitado, hermano sin la app)
   const nuevo =
-    !!texto && !PERSONAS.some((p) => sinTildes(p) === sinTildes(texto));
+    !!texto && !personas.some((p) => sinTildes(p) === sinTildes(texto));
 
   const elegir = (persona: string | null) => {
     onElegir(persona);
     setBusqueda("");
+  };
+  const agregar = () => {
+    if (!nuevo) return;
+    agregarInvitado(texto); // queda guardado para la proxima vez
+    elegir(texto);
   };
   const cerrar = () => {
     onCerrar();
@@ -90,10 +111,10 @@ export default function ModalAsignar({
 
             <View style={styles.cabecera}>
               <View style={styles.icono}>
-                <Octicons name={ROLES[rol].icon} size={16} color={TEXT} />
+                <Octicons name={roles.de(rol).icon} size={16} color={TEXT} />
               </View>
               <View style={styles.flex}>
-                <Text style={styles.titulo}>{ROLES[rol].label}</Text>
+                <Text style={styles.titulo}>{roles.de(rol).label}</Text>
                 <Text style={styles.sub}>{fecha}</Text>
               </View>
               <Pressable
@@ -105,14 +126,32 @@ export default function ModalAsignar({
               </Pressable>
             </View>
 
+            {/* Hora exacta del turno (ej: 18:09) */}
+            {hora && (
+              <View style={styles.horaFila}>
+                <View style={styles.flex}>
+                  <Text style={styles.horaLabel}>HORA</Text>
+                  <Text style={styles.detalle}>
+                    {hora === horaCulto
+                      ? "La del culto"
+                      : `El culto es a las ${horaCulto ?? "—"}`}
+                  </Text>
+                </View>
+                <SelectorHora hora={hora} onCambiar={onHora} />
+              </View>
+            )}
+
             <View style={styles.buscador}>
               <Octicons name="search" size={14} color={MUTED} />
               <TextInput
                 value={busqueda}
                 onChangeText={setBusqueda}
-                placeholder="Buscar o escribir un nombre"
+                onSubmitEditing={agregar}
+                placeholder="Buscar o escribir un nombre nuevo"
                 placeholderTextColor={MUTED}
+                autoCapitalize="words"
                 autoCorrect={false}
+                returnKeyType="done"
                 style={styles.input}
               />
             </View>
@@ -122,22 +161,39 @@ export default function ModalAsignar({
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
-              {nuevo && (
+              {/* Agregar a alguien que no esta registrado */}
+              {nuevo ? (
                 <Pressable
-                  onPress={() => elegir(texto)}
+                  onPress={agregar}
                   style={({ pressed }) => [
-                    styles.fila,
+                    styles.agregar,
                     pressed && styles.presionado,
                   ]}
                 >
-                  <View style={styles.avatar}>
-                    <Octicons name="plus" size={14} color={TEXT} />
+                  <View style={[styles.avatar, styles.avatarSel]}>
+                    <Octicons name="plus" size={14} color={DARK_BG} />
                   </View>
-                  <Text style={styles.nombre}>Asignar a “{texto}”</Text>
+                  <View style={styles.flex}>
+                    <Text style={styles.nombre}>Agregar “{texto}”</Text>
+                    <Text style={styles.detalle}>
+                      No está en la app · quedará guardado
+                    </Text>
+                  </View>
                 </Pressable>
+              ) : (
+                !texto && (
+                  <View style={styles.pista}>
+                    <Octicons name="person-add" size={14} color={MUTED} />
+                    <Text style={styles.pistaTexto}>
+                      ¿No está en la lista? Escribe su nombre arriba para
+                      agregarlo.
+                    </Text>
+                  </View>
+                )
               )}
               {lista.map((p) => {
                 const elegido = p === actual;
+                const agregado = sinCuenta.includes(p);
                 return (
                   <Pressable
                     key={p}
@@ -158,9 +214,23 @@ export default function ModalAsignar({
                         {p.charAt(0)}
                       </Text>
                     </View>
-                    <Text style={styles.nombre}>{p}</Text>
+                    <View style={styles.flex}>
+                      <Text style={styles.nombre}>{p}</Text>
+                      {agregado && (
+                        <Text style={styles.detalle}>Agregado a mano</Text>
+                      )}
+                    </View>
                     {elegido && (
                       <Octicons name="check" size={16} color={TEXT} />
+                    )}
+                    {agregado && !elegido && (
+                      <Pressable
+                        onPress={() => quitarInvitado(p)}
+                        hitSlop={10}
+                        accessibilityLabel={`Quitar a ${p} de la lista`}
+                      >
+                        <Octicons name="trash" size={14} color={MUTED} />
+                      </Pressable>
                     )}
                   </Pressable>
                 );
@@ -241,6 +311,39 @@ const styles = StyleSheet.create({
     color: MUTED,
     marginTop: 2,
   },
+  horaFila: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING,
+    padding: SPACING,
+    paddingLeft: SPACING * 1.2,
+    borderRadius: 12,
+    backgroundColor: DARK_BG,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: BORDER,
+  },
+  horaLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.8,
+    color: MUTED,
+  },
+  horaBoton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: BORDER,
+  },
+  horaValor: {
+    minWidth: 52,
+    textAlign: "center",
+    fontSize: 17,
+    fontWeight: "700",
+    color: TEXT,
+  },
   buscador: {
     flexDirection: "row",
     alignItems: "center",
@@ -286,9 +389,36 @@ const styles = StyleSheet.create({
     color: DARK_BG,
   },
   nombre: {
-    flex: 1,
     fontSize: 15,
     color: TEXT,
+  },
+  detalle: {
+    fontSize: 11,
+    color: MUTED,
+    marginTop: 2,
+  },
+  agregar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING * 1.2,
+    padding: SPACING,
+    marginBottom: SPACING / 2,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: BORDER,
+  },
+  pista: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING,
+    paddingVertical: SPACING,
+  },
+  pistaTexto: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 17,
+    color: MUTED,
   },
   quitar: {
     height: 44,

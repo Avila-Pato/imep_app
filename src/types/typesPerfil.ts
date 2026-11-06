@@ -6,7 +6,6 @@ export type Usuario = {
   miembroDesde: number;
   turnosRealizados: number;
   estudios: number;
-  admin?: boolean; // puede asignar los turnos del cronograma
 };
 
 export type OpcionMenu = {

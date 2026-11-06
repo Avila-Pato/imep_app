@@ -7,5 +7,4 @@ export const USUARIO: Usuario = {
   miembroDesde: 2019,
   turnosRealizados: 24,
   estudios: 8,
-  admin: true, // para probar el modo de asignar turnos
 };

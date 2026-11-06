@@ -2,7 +2,6 @@ import { PUBLICACIONES } from "@/assets/data/comunidadMocks";
 import {
   BORDER,
   FUENTE,
-  GRUPOS,
   MUTED,
   NOTA_TINTA,
   NOTAS_COLORES,
@@ -11,7 +10,7 @@ import {
   SPACING,
   TEXT,
 } from "@/constants/constans";
-import { alternarOrando, useEstudios } from "@/store/estudios";
+import { alternarOrando, useEstudios, useGrupos } from "@/store/estudios";
 import { GrupoId, Publicacion } from "@/types/typesComunidad";
 import {
   enMuro,
@@ -44,6 +43,7 @@ type Props = {
 // Muro de peticiones de oracion, como papelitos pegados en una pared
 export default function MuroOracion({ grupo }: Props) {
   const { publicaciones, orando, revisiones, grupo: miGrupo } = useEstudios();
+  const grupos = useGrupos(); // incluye las salas que creo el pastor
   const [abiertaId, setAbiertaId] = useState<string | null>(null);
 
   // las publicaciones antiguas sin sala cuentan como "Iglesia"
@@ -76,7 +76,7 @@ export default function MuroOracion({ grupo }: Props) {
   const derecha = muro.filter((_, i) => i % 2 === 1);
 
   const salaDe = (p: Publicacion) =>
-    GRUPOS.find((g) => g.id === (p.grupo ?? "general"));
+    grupos.find((g) => g.id === (p.grupo ?? "general"));
   const colorDe = (p: Publicacion) =>
     NOTAS_COLORES[muro.indexOf(p) % NOTAS_COLORES.length];
 

@@ -307,7 +307,11 @@ export default function CompartirVersiculo({ sala, visible, onCerrar }: Props) {
                       >
                         <Octicons name="book" size={13} color={MUTED} />
                         <Text style={styles.sugerenciaTexto}>{c}</Text>
-                        <Octicons name="chevron-right" size={13} color={MUTED} />
+                        <Octicons
+                          name="chevron-right"
+                          size={13}
+                          color={MUTED}
+                        />
                       </Pressable>
                     ))}
                   </View>

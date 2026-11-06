@@ -1,27 +1,46 @@
 import { USUARIO } from "@/assets/data/perfilMocks";
 import {
   BORDER,
+  CARGOS,
   DARK_BG,
-  GRUPOS,
   HOME_PADDING as PADDING,
   MENU_PERFIL,
   MESES_CORTOS,
   MUTED,
   PRIMARY,
-  ROLES,
   SERIF,
   SPACING,
   SURFACE,
   TEXT,
 } from "@/constants/constans";
-import { useEstudios, verBienvenida } from "@/store/estudios";
-import { horaCulto } from "@/utils/cultos";
+import {
+  useEsPastor,
+  useEstudios,
+  useGrupos,
+  useIglesia,
+  reiniciarApp,
+  usePuede,
+  useRoles,
+  verBienvenida,
+} from "@/store/estudios";
+import { horaTurno } from "@/utils/cultos";
 import { haceCuanto } from "@/utils/tiempo";
 import { unirTurnos } from "@/utils/turnos";
 import Octicons from "@expo/vector-icons/Octicons";
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Alert,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import PanelAdmin from "@/screens/perfil/PanelAdmin";
+import { Href, router } from "expo-router";
+import ModalCodigo from "./components/ModalCodigo";
 import ModalEstudio from "./components/ModalEstudio";
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -56,8 +75,40 @@ const ESTADISTICAS = [
   { valor: hoy.getFullYear() - USUARIO.miembroDesde, label: "Años" },
 ];
 
+// Pide confirmacion antes de borrar todo (en web no hay Alert con botones)
+const confirmarReinicio = () => {
+  const titulo = "¿Reiniciar la app?";
+  const texto =
+    "Se borrará tu rol, la iglesia, el mapa, las salas y todo lo guardado. Volverás a la bienvenida para empezar de cero.";
+  if (Platform.OS === "web") {
+    if (
+      window.confirm(`${titulo}
+
+${texto}`)
+    )
+      reiniciarApp();
+    return;
+  }
+  Alert.alert(titulo, texto, [
+    { text: "Cancelar", style: "cancel" },
+    { text: "Reiniciar", style: "destructive", onPress: reiniciarApp },
+  ]);
+};
+
 export default function PerfilScreen() {
-  const { grupo, guardados, versiculos, turnosEditados } = useEstudios();
+  const { grupo, guardados, versiculos, turnosEditados, nombre, cargos } =
+    useEstudios();
+  const esPastor = useEsPastor();
+  const iglesia = useIglesia();
+  const miNombre = nombre ?? USUARIO.nombre;
+  const misCargos = cargos[miNombre] ?? [];
+  // panel de administracion: el pastor y quien tenga roles con permisos
+  const puedeCronograma = usePuede("cronograma");
+  const puedeAnuncios = usePuede("anuncios");
+  const puedeRoles = usePuede("roles");
+  const roles = useRoles();
+  const administra = esPastor || puedeCronograma || puedeAnuncios || puedeRoles;
+  const grupos = useGrupos();
   // Turnos del usuario desde hoy en adelante (incluye los que asigno el admin)
   const MIS_TURNOS = unirTurnos(turnosEditados)
     .filter((t) => t.persona === USUARIO.nombre && t.fecha >= HOY_KEY)
@@ -65,8 +116,10 @@ export default function PerfilScreen() {
     .slice(0, 3);
   // estudio abierto en el modal (sin cambiar de vista)
   const [abiertoId, setAbiertoId] = useState<string | null>(null);
+  // "Tengo un código": unirse a la iglesia con el codigo del pastor
+  const [conCodigo, setConCodigo] = useState(false);
   const abierto = guardados.find((e) => e.id === abiertoId) ?? null;
-  const miGrupo = GRUPOS.find((g) => g.id === grupo);
+  const miGrupo = grupos.find((g) => g.id === grupo);
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView
@@ -89,7 +142,7 @@ export default function PerfilScreen() {
         {/* Avatar y datos */}
         <View style={styles.perfil}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarTexto}>{iniciales(USUARIO.nombre)}</Text>
+            <Text style={styles.avatarTexto}>{iniciales(miNombre)}</Text>
             <Pressable
               style={styles.editar}
               hitSlop={6}
@@ -98,26 +151,36 @@ export default function PerfilScreen() {
               <Octicons name="pencil" size={12} color="#FFFFFF" />
             </Pressable>
           </View>
-          <Text style={styles.nombre}>{USUARIO.nombre}</Text>
+          <Text style={styles.nombre}>{miNombre}</Text>
           <Text style={styles.ministerio}>
-            {USUARIO.ministerio}
-            {miGrupo && ` · ${miGrupo.label}`}
+            {/* el rol en la iglesia: pastor, roles que le dieron o su ministerio */}
+            {esPastor
+              ? `Pastor${iglesia ? ` · ${iglesia.sede}` : ""}`
+              : misCargos.length > 0
+                ? misCargos.map((c) => CARGOS[c].label).join(" · ")
+                : USUARIO.ministerio}
+            {!esPastor && miGrupo && ` · ${miGrupo.label}`}
           </Text>
           <Text style={styles.meta}>MIEMBRO DESDE {USUARIO.miembroDesde}</Text>
         </View>
 
-        {/* Estadisticas */}
-        <View style={styles.stats}>
-          {ESTADISTICAS.map((s, i) => (
-            <View
-              key={s.label}
-              style={[styles.stat, i > 0 && styles.statLinea]}
-            >
-              <Text style={styles.statValor}>{s.valor}</Text>
-              <Text style={styles.statLabel}>{s.label}</Text>
-            </View>
-          ))}
-        </View>
+        {/* Pastor / secretaria: panel de administracion arriba */}
+        {administra && <PanelAdmin esPastor={esPastor} />}
+
+        {/* Estadisticas (el pastor ve su resumen en el panel) */}
+        {!esPastor && (
+          <View style={styles.stats}>
+            {ESTADISTICAS.map((s, i) => (
+              <View
+                key={s.label}
+                style={[styles.stat, i > 0 && styles.statLinea]}
+              >
+                <Text style={styles.statValor}>{s.valor}</Text>
+                <Text style={styles.statLabel}>{s.label}</Text>
+              </View>
+            ))}
+          </View>
+        )}
 
         {/* Estudios guardados desde el Estudio guiado */}
         <View style={styles.seccion}>
@@ -177,7 +240,7 @@ export default function PerfilScreen() {
             <Text style={styles.vacio}>No tienes turnos asignados</Text>
           ) : (
             MIS_TURNOS.map((t) => {
-              const rol = ROLES[t.rol];
+              const rol = roles.de(t.rol);
               const f = partesFecha(t.fecha);
               return (
                 <View key={t.id} style={styles.turno}>
@@ -195,7 +258,7 @@ export default function PerfilScreen() {
                         {rol.label.toUpperCase()}
                       </Text>
                       <Text style={styles.bloqueHora}>
-                        {horaCulto(t.fecha) ?? "—"} hrs
+                        {horaTurno(t) ?? "—"} hrs
                       </Text>
                     </View>
                   </View>
@@ -215,11 +278,17 @@ export default function PerfilScreen() {
               {grupo.opciones.map((op, i) => (
                 <Pressable
                   key={op.id}
-                  // por ahora solo "Ver bienvenida" hace algo
+                  // por ahora solo estas opciones hacen algo
                   onPress={
                     op.id === "bienvenida"
                       ? () => verBienvenida(false)
-                      : undefined
+                      : op.id === "codigo"
+                        ? () => setConCodigo(true)
+                        : op.id === "notificaciones"
+                          ? () => router.push("/notificaciones" as Href)
+                          : op.id === "reiniciar"
+                            ? confirmarReinicio
+                            : undefined
                   }
                   style={({ pressed }) => [
                     styles.opcion,
@@ -258,6 +327,7 @@ export default function PerfilScreen() {
       </ScrollView>
 
       <ModalEstudio estudio={abierto} onCerrar={() => setAbiertoId(null)} />
+      <ModalCodigo visible={conCodigo} onCerrar={() => setConCodigo(false)} />
     </SafeAreaView>
   );
 }

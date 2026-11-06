@@ -68,6 +68,7 @@ const limpiar = (texto: string) =>
     .replace(/<br\s*\/?>/gi, " ")
     .replace(/<S>\d+<\/S>/g, "")
     .replace(/<[^>]+>/g, "")
+    .replace(/•/g, "") // marcas de nota de la LBLA
     .replace(/\s+/g, " ")
     .trim();
 
@@ -78,10 +79,11 @@ const cache = new Map<string, Verso[]>();
 export async function obtenerPasaje(
   ref: Referencia, // referencia de la api ya tipada
   signal?: AbortSignal, // para cancelar la peticion
+  version = BIBLIA_VERSION, // RV1960, NTV, LBLA
 ): Promise<Verso[]> {
   // es una promise porque es asincrona osea espera a que se resuelva y despues devuelve el resultado
-  // construye la clave para buscar la referencia
-  const clave = `${ref.libro}-${ref.capitulo}-${ref.desde}-${ref.hasta}`;
+  // construye la clave para buscar la referencia (cada version por separado)
+  const clave = `${version}-${ref.libro}-${ref.capitulo}-${ref.desde}-${ref.hasta}`;
   // si lo encuentra lo devuelve
   const guardado = cache.get(clave);
   // busca el pasaje en el cache
@@ -89,7 +91,7 @@ export async function obtenerPasaje(
 
   // peticion a la API
   const res = await fetch(
-    `${BIBLIA_API}/get-text/${BIBLIA_VERSION}/${ref.libro}/${ref.capitulo}/`,
+    `${BIBLIA_API}/get-text/${version}/${ref.libro}/${ref.capitulo}/`,
     { signal },
   );
 
@@ -156,7 +158,9 @@ export function sugerirCitas(texto: string, max = 6): string[] {
     if (/:\d/.test(resto)) return []; // ya escribio el versiculo completo
     const capitulo = Number(resto.split(":")[0]) || 1;
     const total = CAPITULOS_BIBLIA[LIBROS_BIBLIA.indexOf(libro)];
-    return capitulo <= total ? [`${libro} ${resto.replace(/:$/, "") || 1}`] : [];
+    return capitulo <= total
+      ? [`${libro} ${resto.replace(/:$/, "") || 1}`]
+      : [];
   });
 
   return [...new Set(sugerencias)]

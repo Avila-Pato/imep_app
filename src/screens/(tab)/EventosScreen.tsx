@@ -14,6 +14,7 @@ import {
 import { Anuncio, CategoriaId } from "@/types/typesAnuncios";
 import { proximoCulto } from "@/utils/cultos";
 import Octicons from "@expo/vector-icons/Octicons";
+import { useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -110,7 +111,15 @@ function Fila({ a, onAbrir }: { a: Anuncio; onAbrir: () => void }) {
 }
 
 export default function EventosScreen() {
-  const [vista, setVista] = useState<Vista>("cronograma");
+  // ?vista=anuncios: abre esa vista (desde el panel de administracion)
+  const { vista: pedida } = useLocalSearchParams<{ vista?: Vista }>();
+  const [vista, setVista] = useState<Vista>(pedida ?? "cronograma");
+  const [ultimaPedida, setUltimaPedida] = useState(pedida);
+  // si llega otro pedido con la pestaña ya abierta, se cambia de vista
+  if (pedida !== ultimaPedida) {
+    setUltimaPedida(pedida);
+    if (pedida) setVista(pedida);
+  }
   const [filtro, setFiltro] = useState<Filtro>("todos");
   const [abierto, setAbierto] = useState<Anuncio | null>(null);
 

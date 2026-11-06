@@ -1,9 +1,4 @@
-import {
-  IGLESIA,
-  NOTIFICACIONES,
-  PALABRAS,
-  REDES,
-} from "@/assets/data/homeMocks";
+import { NOTIFICACIONES, PALABRAS, REDES } from "@/assets/data/homeMocks";
 import {
   BORDER,
   HOME_CARD_W as CARD_W,
@@ -16,15 +11,19 @@ import {
   SURFACE,
   TEXT,
 } from "@/constants/constans";
+import { useEsPastor, useIglesia } from "@/store/estudios";
 import { proximoCulto } from "@/utils/cultos";
 import { abrirComoLlegar } from "@/utils/mapa";
 import { iniciales, partirTitulo } from "@/utils/texto";
 import Octicons from "@expo/vector-icons/Octicons";
 import { Href, router } from "expo-router";
+import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import RedesSociales from "./components/RedesSociales";
 import MapaIglesia from "./components/MapaIglesia";
+import ModalIglesia from "./components/ModalIglesia";
+import SinIglesia from "./components/SinIglesia";
 import {
   fechaCorta,
   PREDICACIONES_PASADAS,
@@ -55,6 +54,11 @@ const FECHA_HOY = hoy.toLocaleDateString("es-ES", {
 });
 
 export default function HomeScreen() {
+  // la iglesia la ubica el pastor; el hermano la recibe al unirse
+  const iglesia = useIglesia();
+  const esPastor = useEsPastor();
+  const [editando, setEditando] = useState(false);
+
   return (
     //edges es para que no se muestre la barra de notificaciones
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -66,6 +70,7 @@ export default function HomeScreen() {
         </View>
 
         <Pressable
+          onPress={() => router.push("/notificaciones" as Href)}
           style={styles.campana}
           hitSlop={8}
           accessibilityLabel="Notificaciones"
@@ -88,42 +93,63 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Iglesia / proximo culto */}
-        <View style={styles.iglesiaCard}>
-          <MapaIglesia
-            lat={IGLESIA.lat}
-            lng={IGLESIA.lng}
-            ancho={CARD_W}
+        {/* Iglesia / proximo culto (sin iglesia: invitacion a ubicarla o unirse) */}
+        {iglesia ? (
+          <View style={styles.iglesiaCard}>
+            <MapaIglesia
+              lat={iglesia.lat}
+              lng={iglesia.lng}
+              ancho={CARD_W}
+              alto={IGLESIA_ALTO}
+              onComoLlegar={() =>
+                abrirComoLlegar(iglesia.lat, iglesia.lng, iglesia.direccion)
+              }
+            />
+
+            {/* el pastor toca el nombre para cambiar la ubicacion */}
+            <Pressable
+              onPress={() => setEditando(true)}
+              disabled={!esPastor}
+              style={({ pressed }) => [
+                styles.chip,
+                pressed && styles.presionado,
+              ]}
+              accessibilityLabel={
+                esPastor ? "Cambiar ubicación de la iglesia" : iglesia.sede
+              }
+            >
+              <Octicons name="location" size={12} color={TEXT} />
+              <Text style={styles.chipTexto}>{iglesia.sede}</Text>
+              {esPastor && <Octicons name="pencil" size={11} color={MUTED} />}
+            </Pressable>
+
+            <View style={styles.panel}>
+              <View style={styles.panelIcono}>
+                <Octicons name="bell" size={16} color="#FFFFFF" />
+              </View>
+              <View style={styles.flex}>
+                <Text style={styles.panelTitulo}>
+                  {(CULTO?.horario.nombre ?? "Culto").toUpperCase()}
+                </Text>
+                <Text style={styles.panelSub}>
+                  {CULTO ? `${CULTO.horario.hora} hrs · ` : ""}
+                  {iglesia.lugar}
+                </Text>
+              </View>
+              <View style={styles.panelEstado}>
+                <Text style={styles.estado}>PRÓXIMO</Text>
+                <Text style={styles.estadoSub}>{CULTO?.cuando}</Text>
+              </View>
+            </View>
+          </View>
+        ) : (
+          <SinIglesia
+            esPastor={esPastor}
             alto={IGLESIA_ALTO}
-            onComoLlegar={() =>
-              abrirComoLlegar(IGLESIA.lat, IGLESIA.lng, IGLESIA.direccion)
-            }
+            onAgregar={() => setEditando(true)}
           />
-
-          <View style={styles.chip}>
-            <Octicons name="location" size={12} color={TEXT} />
-            <Text style={styles.chipTexto}>{IGLESIA.sede}</Text>
-          </View>
-
-          <View style={styles.panel}>
-            <View style={styles.panelIcono}>
-              <Octicons name="bell" size={16} color="#FFFFFF" />
-            </View>
-            <View style={styles.flex}>
-              <Text style={styles.panelTitulo}>
-                {(CULTO?.horario.nombre ?? "Culto").toUpperCase()}
-              </Text>
-              <Text style={styles.panelSub}>
-                {CULTO ? `${CULTO.horario.hora} hrs · ` : ""}
-                {IGLESIA.lugar}
-              </Text>
-            </View>
-            <View style={styles.panelEstado}>
-              <Text style={styles.estado}>PRÓXIMO</Text>
-              <Text style={styles.estadoSub}>{CULTO?.cuando}</Text>
-            </View>
-          </View>
-        </View>
+        )}
+        <ModalIglesia visible={editando} onCerrar={() => setEditando(false)} />
 
         {/* Predicaciones: la ultima destacada + las anteriores */}
         {ULTIMA && (

@@ -1,7 +1,9 @@
 import { IconName } from "./typesCronogramas";
 
-// Salas de la comunidad (cada grupo de la iglesia)
-export type GrupoId = "general" | "jovenes" | "varones" | "dorcas" | "ninos";
+// Salas de la comunidad (cada grupo de la iglesia). Ademas de las de base,
+// el pastor puede crear otras (por eso tambien acepta cualquier texto)
+export type GrupoId =
+  "general" | "jovenes" | "varones" | "dorcas" | "ninos" | (string & {});
 
 export type Grupo = {
   id: GrupoId;

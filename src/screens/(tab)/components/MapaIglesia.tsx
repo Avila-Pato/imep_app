@@ -9,14 +9,20 @@ import {
 import { teselasVisibles } from "@/utils/mapa";
 import Octicons from "@expo/vector-icons/Octicons";
 import { Image } from "expo-image";
+import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  withTiming,
+} from "react-native-reanimated";
+import Esqueleto from "./Esqueleto";
 
 type Props = {
   lat: number;
   lng: number;
   ancho: number;
   alto: number;
-  onComoLlegar: () => void;
+  onComoLlegar?: () => void; // sin esto no se muestra el boton (vista previa)
 };
 
 // El pin queda un poco arriba del centro para que no lo tape el panel inferior
@@ -38,6 +44,16 @@ export default function MapaIglesia({
     alto,
     FOCO,
   );
+  // teselas que ya llegaron (si una falla tambien cuenta: no se queda cargando)
+  const [listas, setListas] = useState<Set<string>>(new Set());
+  const marcar = (clave: string) =>
+    setListas((l) => (l.has(clave) ? l : new Set(l).add(clave)));
+  const cargado = teselas.every((t) => listas.has(`${t.x}-${t.y}`));
+
+  // el esqueleto se desvanece cuando el mapa esta completo
+  const esqueletoStyle = useAnimatedStyle(() => ({
+    opacity: withTiming(cargado ? 0 : 1, { duration: 350 }),
+  }));
 
   return (
     <View style={StyleSheet.absoluteFill}>
@@ -53,9 +69,18 @@ export default function MapaIglesia({
             height: tamano,
           }}
           cachePolicy="disk"
-          transition={200}
+          onLoad={() => marcar(`${t.x}-${t.y}`)}
+          onError={() => marcar(`${t.x}-${t.y}`)}
         />
       ))}
+
+      {/* Mientras carga: esqueleto que late (sin pedazos apareciendo) */}
+      <Animated.View
+        pointerEvents="none"
+        style={[StyleSheet.absoluteFill, styles.esqueleto, esqueletoStyle]}
+      >
+        <Esqueleto alto="100%" radio={0} />
+      </Animated.View>
 
       {/* Pin de la iglesia */}
       <View
@@ -71,14 +96,16 @@ export default function MapaIglesia({
         </View>
       </View>
 
-      <Pressable
-        onPress={onComoLlegar}
-        style={({ pressed }) => [styles.boton, pressed && styles.presionado]}
-        accessibilityLabel="Cómo llegar a la iglesia"
-      >
-        <Octicons name="arrow-up-right" size={12} color={TEXT} />
-        <Text style={styles.botonTexto}>Cómo llegar</Text>
-      </Pressable>
+      {onComoLlegar && (
+        <Pressable
+          onPress={onComoLlegar}
+          style={({ pressed }) => [styles.boton, pressed && styles.presionado]}
+          accessibilityLabel="Cómo llegar a la iglesia"
+        >
+          <Octicons name="arrow-up-right" size={12} color={TEXT} />
+          <Text style={styles.botonTexto}>Cómo llegar</Text>
+        </Pressable>
+      )}
 
       <Text style={styles.atribucion}>{MAPA_ATRIBUCION}</Text>
     </View>
@@ -86,6 +113,9 @@ export default function MapaIglesia({
 }
 
 const styles = StyleSheet.create({
+  esqueleto: {
+    backgroundColor: "#202020",
+  },
   pin: {
     position: "absolute",
     width: PIN,

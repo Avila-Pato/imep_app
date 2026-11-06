@@ -5,17 +5,32 @@ import { Caveat_600SemiBold } from "@expo-google-fonts/caveat/600SemiBold";
 import { EBGaramond_400Regular } from "@expo-google-fonts/eb-garamond/400Regular";
 import { EBGaramond_400Regular_Italic } from "@expo-google-fonts/eb-garamond/400Regular_Italic";
 import { EBGaramond_600SemiBold } from "@expo-google-fonts/eb-garamond/600SemiBold";
-import { MOSTRAR_BIENVENIDA } from "@/constants/constans";
+import { DARK_BG, MOSTRAR_BIENVENIDA, TEXT } from "@/constants/constans";
+import { useRecordatorios } from "@/hooks/useRecordatorios";
 import { useCargado, useEstudios } from "@/store/estudios";
 import { useFonts } from "expo-font";
-import { Stack } from "expo-router";
+import { DarkTheme, Stack, ThemeProvider } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
+import * as SystemUI from "expo-system-ui";
 import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 // La pantalla de carga se queda hasta que esten las fuentes
 SplashScreen.preventAutoHideAsync();
+
+// Fondo oscuro detras de todas las vistas: al cambiar de pestaña o de
+// pantalla no se asoma el blanco por defecto
+SystemUI.setBackgroundColorAsync(DARK_BG).catch(() => {});
+const TEMA = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    background: DARK_BG,
+    card: DARK_BG,
+    text: TEXT,
+  },
+};
 
 export default function RootLayout() {
   const [fuentesListas, error] = useFonts({
@@ -30,6 +45,8 @@ export default function RootLayout() {
 
   // Lo guardado en el telefono (para saber si ya vio el onboarding)
   const cargado = useCargado();
+  // recordatorios de cultos, turnos y anuncios (notificaciones locales)
+  useRecordatorios();
   const { bienvenida: vista } = useEstudios();
   const bienvenida = vista || !MOSTRAR_BIENVENIDA;
   const listo = (fuentesListas || !!error) && cargado;
@@ -41,25 +58,35 @@ export default function RootLayout() {
   if (!listo) return null;
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      {/* Hora e iconos del celular en claro (la app es oscura) */}
-      <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false }}>
-        {/* Primera vez: solo el onboarding */}
-        <Stack.Protected guard={!bienvenida}>
-          <Stack.Screen name="(onboarding)" />
-        </Stack.Protected>
-        <Stack.Protected guard={!!bienvenida}>
-          <Stack.Screen name="(tab)" />
-          <Stack.Screen name="sala/[id]" />
-          <Stack.Screen name="predicacion" />
-          {/* entra y sale desde abajo, como una hoja */}
-          <Stack.Screen
-            name="versiculos"
-            options={{ animation: "slide_from_bottom" }}
-          />
-        </Stack.Protected>
-      </Stack>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: DARK_BG }}>
+      <ThemeProvider value={TEMA}>
+        {/* Hora e iconos del celular en claro (la app es oscura) */}
+        <StatusBar style="light" />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: DARK_BG },
+          }}
+        >
+          {/* Primera vez: solo el onboarding */}
+          <Stack.Protected guard={!bienvenida}>
+            <Stack.Screen name="(onboarding)" />
+          </Stack.Protected>
+          <Stack.Protected guard={!!bienvenida}>
+            <Stack.Screen name="(tab)" />
+            <Stack.Screen name="sala/[id]" />
+            <Stack.Screen name="predicacion" />
+            <Stack.Screen name="permisos" />
+            <Stack.Screen name="notificaciones" />
+            <Stack.Screen name="unirse/[codigo]" />
+            {/* entra y sale desde abajo, como una hoja */}
+            <Stack.Screen
+              name="versiculos"
+              options={{ animation: "slide_from_bottom" }}
+            />
+          </Stack.Protected>
+        </Stack>
+      </ThemeProvider>
     </GestureHandlerRootView>
   );
 }

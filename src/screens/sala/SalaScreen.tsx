@@ -1,14 +1,18 @@
 import {
   BORDER,
   DARK_BG,
-  GRUPOS,
   HOME_PADDING as PADDING,
   MUTED,
   SPACING,
   SURFACE,
   TEXT,
 } from "@/constants/constans";
-import { marcarVisto, useEstudios } from "@/store/estudios";
+import {
+  marcarVisto,
+  useEsPastor,
+  useEstudios,
+  useGrupos,
+} from "@/store/estudios";
 import { puedeVerSala } from "@/utils/peticiones";
 import { GrupoId } from "@/types/typesComunidad";
 import Octicons from "@expo/vector-icons/Octicons";
@@ -40,9 +44,11 @@ const VISTAS: { id: Vista; label: string }[] = [
 
 export default function SalaScreen() {
   const params = useLocalSearchParams<{ id: GrupoId; vista?: Vista }>();
-  const grupo = GRUPOS.find((g) => g.id === params.id) ?? GRUPOS[0];
+  const grupos = useGrupos(); // incluye las salas que creo el pastor
+  const grupo = grupos.find((g) => g.id === params.id) ?? grupos[0];
+  const esPastor = useEsPastor();
   const [vista, setVista] = useState<Vista>(params.vista ?? "chat");
-  const { grupo: miGrupo } = useEstudios();
+  const { grupo: miGrupo, iglesia } = useEstudios();
 
   // Al entrar y al salir, la sala queda como leida
   useEffect(() => {
@@ -52,8 +58,8 @@ export default function SalaScreen() {
 
   const cantidad = miembrosDe(grupo.id).length;
 
-  // Sala de otro grupo: bloqueada, vuelve a Comunidad
-  if (!puedeVerSala(grupo.id, miGrupo)) {
+  // Sin iglesia o sala de otro grupo: bloqueada, vuelve a Comunidad
+  if (!esPastor && (!iglesia || !puedeVerSala(grupo.id, miGrupo))) {
     return <Redirect href={"/comunidad" as Href} />;
   }
 

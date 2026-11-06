@@ -1,6 +1,7 @@
 import { Categoria, CategoriaId } from "@/types/typesAnuncios";
+import { Cargo, CargoId } from "@/types/typesCargos";
 import { Grupo } from "@/types/typesComunidad";
-import { Rol, RolId } from "@/types/typesCronogramas";
+import { Rol, RolBase } from "@/types/typesCronogramas";
 import { Habito } from "@/types/typesOraciones";
 import { OpcionMenu } from "@/types/typesPerfil";
 import { Dimensions, Platform } from "react-native";
@@ -47,15 +48,49 @@ export const SERIF = Platform.select({ ios: "Georgia", default: "serif" });
 export const HOME_PADDING = SPACING * 2.4;
 export const HOME_CARD_W = width - HOME_PADDING * 2;
 
+// Roles que asigna el pastor (cada uno con lo que puede editar)
+export const CARGOS: Record<CargoId, Cargo> = {
+  secretaria: {
+    label: "Secretario/a",
+    texto:
+      "Administra el cronograma (quién predica, pasillo, puerta, ofrenda…), publica los anuncios y eventos y asigna roles a los hermanos.",
+    icono: "briefcase",
+    permisos: ["cronograma", "anuncios", "roles"],
+  },
+  servicio: {
+    label: "Coordinador/a de servicio",
+    texto:
+      "Organiza los turnos del cronograma: quién sirve en cada culto y en qué lugar.",
+    icono: "calendar",
+    permisos: ["cronograma"],
+  },
+  comunicaciones: {
+    label: "Comunicaciones",
+    texto:
+      "Publica anuncios, eventos y avisos para que toda la iglesia esté informada.",
+    icono: "megaphone",
+    permisos: ["anuncios"],
+  },
+  lider: {
+    label: "Líder de sala",
+    texto:
+      "Guía a su grupo: aprueba las peticiones de oración y acompaña la conversación de la sala.",
+    icono: "people",
+    permisos: ["salas"],
+  },
+};
+
 // Cronogramas (turnos del ministerio)
 export const DIAS_SEMANA = ["L", "M", "M", "J", "V", "S", "D"];
-export const ROLES: Record<RolId, Rol> = {
+export const ROLES: Record<RolBase, Rol> = {
   palabra: { label: "Palabra", icon: "book" },
   pasillo: { label: "Pasillo", icon: "people" },
   alabanza: { label: "Alabanza", icon: "unmute" },
   ofrenda: { label: "Ofrenda", icon: "gift" },
   recepcion: { label: "Puerta", icon: "sign-in" },
 };
+// por si una casilla se borro y quedo algun turno viejo
+export const ROL_GENERICO: Rol = { label: "Turno", icon: "dot-fill" };
 
 // Anuncios (eventos de la iglesia y de cada grupo)
 export const MESES_CORTOS = [
@@ -79,9 +114,15 @@ export const CATEGORIAS: Record<CategoriaId, Categoria> = {
   ninos: { label: "Niños", icon: "smiley" },
 };
 
-// Biblia (API publica bolls.life, Reina-Valera 1960)
+// Biblia (API publica bolls.life). La persona elige la version; RV1960 por defecto
 export const BIBLIA_API = "https://bolls.life";
 export const BIBLIA_VERSION = "RV1960";
+// Las mas usadas. Ojo: NVI no se puede (Biblica la prohibio en esta API)
+export const VERSIONES_BIBLIA = [
+  { id: "RV1960", nombre: "Reina-Valera 1960" },
+  { id: "NTV", nombre: "Nueva Traducción Viviente" },
+  { id: "LBLA", nombre: "La Biblia de las Américas" },
+];
 // El indice + 1 es el id del libro en la API
 export const LIBROS_BIBLIA = [
   "Génesis",
@@ -190,6 +231,7 @@ export const MENU_PERFIL: { titulo: string; opciones: OpcionMenu[] }[] = [
     titulo: "Cuenta",
     opciones: [
       { id: "editar", label: "Editar perfil", icon: "pencil" },
+      { id: "codigo", label: "Tengo un código", icon: "key" },
       { id: "ministerios", label: "Mis ministerios", icon: "people" },
       { id: "notificaciones", label: "Notificaciones", icon: "bell" },
     ],
@@ -200,6 +242,7 @@ export const MENU_PERFIL: { titulo: string; opciones: OpcionMenu[] }[] = [
       { id: "privacidad", label: "Privacidad", icon: "lock" },
       { id: "ayuda", label: "Ayuda", icon: "question" },
       { id: "bienvenida", label: "Ver bienvenida", icon: "rocket" },
+      { id: "reiniciar", label: "Reiniciar app", icon: "sync", peligro: true },
       { id: "salir", label: "Cerrar sesión", icon: "sign-out", peligro: true },
     ],
   },

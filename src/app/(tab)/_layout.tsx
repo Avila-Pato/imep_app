@@ -2,6 +2,7 @@ import CustomBar from "@/screens/(tab)/components/CustomBar";
 import Octicons from "@expo/vector-icons/Octicons";
 import { Tabs } from "expo-router";
 import { BottomTabBarProps } from "@/types/typesBar";
+import { DARK_BG } from "@/constants/constans";
 
 export default function TabLayout() {
   return (
@@ -11,6 +12,8 @@ export default function TabLayout() {
         headerShown: false,
         // fundido al cambiar de pestaña (sin salto brusco)
         animation: "fade",
+        // fondo de cada pestaña oscuro (sin destello blanco durante el fundido)
+        sceneStyle: { backgroundColor: DARK_BG },
       }}
     >
       <Tabs.Screen

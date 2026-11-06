@@ -1,20 +1,26 @@
 import { HORARIOS_CULTO } from "@/assets/data/configMocks";
-import { USUARIO } from "@/assets/data/perfilMocks";
 import {
   BORDER,
   DARK_BG,
   DIAS_SEMANA,
   HOME_PADDING as PADDING,
   MUTED,
-  ROLES,
   SPACING,
   SURFACE,
   TEXT,
 } from "@/constants/constans";
 import Octicons from "@expo/vector-icons/Octicons";
-import { asignarTurno, useEstudios } from "@/store/estudios";
+import {
+  asignarTurno,
+  fijarHoraTurno,
+  quitarRol,
+  useEstudios,
+  usePuede,
+  useRoles,
+} from "@/store/estudios";
+import { confirmar } from "@/utils/confirmar";
 import { RolId, Turno } from "@/types/typesCronogramas";
-import { horaCulto } from "@/utils/cultos";
+import { horaCulto, horaTurno } from "@/utils/cultos";
 import { unirTurnos } from "@/utils/turnos";
 import { useState } from "react";
 import {
@@ -32,6 +38,7 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import ModalAsignar from "./ModalAsignar";
+import ModalNuevaCasilla from "./ModalNuevaCasilla";
 
 const RESORTE = { damping: 22, stiffness: 220 };
 
@@ -164,20 +171,34 @@ export default function CronogramaView() {
   // Modo admin: asigna quien sirve en cada rol (solo cultos que no pasaron)
   const [editando, setEditando] = useState(false);
   const [rolAbierto, setRolAbierto] = useState<RolId | null>(null);
-  const puedeEditar = !!USUARIO.admin && diasSel >= 0;
+  // hora elegida antes de asignar persona (el rol aun no tiene turno)
+  const [horaPendiente, setHoraPendiente] = useState<string | null>(null);
+  const abrirRol = (rol: RolId) => {
+    setHoraPendiente(null);
+    setRolAbierto(rol);
+  };
+  const puedeEditar = usePuede("cronograma") && diasSel >= 0;
   const enEdicion = editando && puedeEditar;
 
-  // Todos los turnos comienzan a la hora del culto (en el orden de los roles)
+  // Cada turno a su hora (o la del culto); por hora y luego por rol
   const hora = horaCulto(seleccionado);
-  const ordenRoles = Object.keys(ROLES) as RolId[];
-  const turnosDia = turnos.filter((t) => t.fecha === seleccionado).sort(
-    (a, b) => ordenRoles.indexOf(a.rol) - ordenRoles.indexOf(b.rol),
-  );
+  const roles = useRoles(); // las de la app + las que agrego la iglesia
+  const ordenRoles = roles.lista;
+  const [creandoCasilla, setCreandoCasilla] = useState(false);
+  const turnosDia = turnos
+    .filter((t) => t.fecha === seleccionado)
+    .sort(
+      (a, b) =>
+        (horaTurno(a) ?? "").localeCompare(horaTurno(b) ?? "") ||
+        ordenRoles.indexOf(a.rol) - ordenRoles.indexOf(b.rol),
+    );
+  const turnoAbierto = turnosDia.find((t) => t.rol === rolAbierto);
 
   // Linea "Ahora" (solo hoy): antes del culto arriba, despues abajo
   const ahora = hoy.getHours() * 60 + hoy.getMinutes();
   const esHoy = seleccionado === HOY_KEY && turnosDia.length > 0;
-  const yaComenzo = !!hora && ahora >= aMinutos(hora);
+  const primeraHora = turnosDia[0] ? horaTurno(turnosDia[0]) : hora;
+  const yaComenzo = !!primeraHora && ahora >= aMinutos(primeraHora);
 
   // Panel desplegable: "abajo" = bajo el calendario, "arriba" = tope de la vista
   const [listo, setListo] = useState(false);
@@ -225,15 +246,15 @@ export default function CronogramaView() {
 
   const panelStyle = useAnimatedStyle(() => ({ top: top.get() }));
 
-  // la hora solo se escribe en el primero: todos comienzan juntos
-  const filaTurno = (t: Turno, primero: boolean) => {
-    const rol = ROLES[t.rol];
+  // la hora se escribe solo cuando cambia respecto al turno anterior
+  const filaTurno = (t: Turno, mostrarHora: boolean) => {
+    const rol = roles.de(t.rol);
     return (
       <View style={styles.fila}>
         <View style={styles.horas}>
-          {primero && (
+          {mostrarHora && (
             <>
-              <Text style={styles.horaInicio}>{hora}</Text>
+              <Text style={styles.horaInicio}>{horaTurno(t)}</Text>
               <Text style={styles.horaFin}>hrs</Text>
             </>
           )}
@@ -257,12 +278,14 @@ export default function CronogramaView() {
 
   // En modo admin: todos los roles, con o sin persona
   const filaEditable = (rolId: RolId) => {
-    const rol = ROLES[rolId];
-    const persona = turnosDia.find((t) => t.rol === rolId)?.persona;
+    const rol = roles.de(rolId);
+    const turno = turnosDia.find((t) => t.rol === rolId);
+    const persona = turno?.persona;
+    const suHora = turno ? horaTurno(turno) : undefined;
     return (
       <Pressable
         key={rolId}
-        onPress={() => setRolAbierto(rolId)}
+        onPress={() => abrirRol(rolId)}
         style={({ pressed }) => [
           styles.bloque,
           !persona && styles.bloqueVacio,
@@ -282,11 +305,32 @@ export default function CronogramaView() {
             {persona ?? "Sin asignar"}
           </Text>
         </View>
-        <Octicons
-          name={persona ? "pencil" : "plus"}
-          size={14}
-          color={MUTED}
-        />
+        {suHora && (
+          <Text
+            style={[styles.horaChip, suHora !== hora && styles.horaChipCambio]}
+          >
+            {suHora}
+          </Text>
+        )}
+        <Octicons name={persona ? "pencil" : "plus"} size={14} color={MUTED} />
+        {/* las casillas que agrego la iglesia se pueden borrar */}
+        {roles.esNueva(rolId) && (
+          <Pressable
+            onPress={() =>
+              confirmar(
+                `¿Borrar "${rol.label}"?`,
+                "Se quitará esta casilla de todos los cultos, con sus turnos asignados.",
+                "Borrar",
+                () => quitarRol(rolId),
+              )
+            }
+            hitSlop={10}
+            style={styles.borrar}
+            accessibilityLabel={`Borrar casilla ${rol.label}`}
+          >
+            <Octicons name="trash" size={14} color={MUTED} />
+          </Pressable>
+        )}
       </Pressable>
     );
   };
@@ -510,9 +554,20 @@ export default function CronogramaView() {
             {enEdicion ? (
               <View style={styles.agenda}>
                 <Text style={styles.ayuda}>
-                  Toca un rol para elegir quién sirve ese día.
+                  Toca un rol para elegir quién sirve y a qué hora.
                 </Text>
                 {ordenRoles.map(filaEditable)}
+                {/* Casilla nueva (ej: Devocional, Sonido, Niños) */}
+                <Pressable
+                  onPress={() => setCreandoCasilla(true)}
+                  style={({ pressed }) => [
+                    styles.nuevaCasilla,
+                    pressed && styles.presionado,
+                  ]}
+                >
+                  <Octicons name="plus" size={14} color={TEXT} />
+                  <Text style={styles.nuevaCasillaTexto}>Agregar casilla</Text>
+                </Pressable>
               </View>
             ) : turnosDia.length === 0 ? (
               <View style={styles.vacio}>
@@ -523,7 +578,12 @@ export default function CronogramaView() {
               <View style={styles.agenda}>
                 {esHoy && !yaComenzo && lineaAhora}
                 {turnosDia.map((t, i) => (
-                  <View key={t.id}>{filaTurno(t, i === 0)}</View>
+                  <View key={t.id}>
+                    {filaTurno(
+                      t,
+                      i === 0 || horaTurno(t) !== horaTurno(turnosDia[i - 1]),
+                    )}
+                  </View>
                 ))}
                 {esHoy && yaComenzo && lineaAhora}
               </View>
@@ -535,12 +595,31 @@ export default function CronogramaView() {
       <ModalAsignar
         rol={rolAbierto}
         fecha={capitalizar(fechaLarga(seleccionado))}
-        actual={turnosDia.find((t) => t.rol === rolAbierto)?.persona}
+        actual={turnoAbierto?.persona}
+        hora={turnoAbierto ? horaTurno(turnoAbierto) : (horaPendiente ?? hora)}
+        horaCulto={hora}
+        onHora={(h) => {
+          if (!rolAbierto) return;
+          // ya tiene persona: se guarda al tiro; si no, al elegir a alguien
+          if (turnoAbierto) fijarHoraTurno(seleccionado, rolAbierto, h);
+          else setHoraPendiente(h);
+        }}
         onElegir={(persona) => {
-          if (rolAbierto) asignarTurno(seleccionado, rolAbierto, persona);
+          if (rolAbierto)
+            asignarTurno(
+              seleccionado,
+              rolAbierto,
+              persona,
+              horaPendiente ?? undefined,
+            );
           setRolAbierto(null);
         }}
         onCerrar={() => setRolAbierto(null)}
+      />
+
+      <ModalNuevaCasilla
+        visible={creandoCasilla}
+        onCerrar={() => setCreandoCasilla(false)}
       />
     </View>
   );
@@ -880,6 +959,33 @@ const styles = StyleSheet.create({
   bloqueVacio: {
     backgroundColor: "transparent",
     borderStyle: "dashed",
+  },
+  borrar: {
+    paddingLeft: SPACING / 2,
+  },
+  nuevaCasilla: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    height: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: BORDER,
+  },
+  nuevaCasillaTexto: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: TEXT,
+  },
+  horaChip: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: MUTED,
+  },
+  horaChipCambio: {
+    color: TEXT,
   },
   sinAsignar: {
     color: MUTED,
