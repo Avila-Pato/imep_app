@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "imep_app",
+    "name": "Congrega",
     "slug": "imep_app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "imepapp",
+    "scheme": "congrega",
     "userInterfaceStyle": "automatic",
     "backgroundColor": "#121212",
     "ios": {
@@ -19,7 +19,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.avilapato.imep_app"
+      "package": "com.avilapato.congrega"
     },
     "web": {
       "output": "static",
@@ -44,7 +44,7 @@
       [
         "expo-audio",
         {
-          "microphonePermission": "IMEP usa el micrófono para enviar notas de voz a tu grupo.",
+          "microphonePermission": "Congrega usa el micrófono para enviar notas de voz a tu grupo.",
           "recordAudioAndroid": true
         }
       ],

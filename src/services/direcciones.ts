@@ -19,7 +19,7 @@ export async function buscarDireccion(
   const res = await fetch(url, {
     signal,
     // en web el navegador no deja cambiar este encabezado (no pasa nada)
-    headers: { "User-Agent": "IMEPApp/1.0" },
+    headers: { "User-Agent": "CongregaApp/1.0" },
   });
   if (!res.ok) throw new Error(`Error ${res.status}`);
   const lugares: LugarApi[] = await res.json();

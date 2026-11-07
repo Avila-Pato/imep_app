@@ -136,7 +136,7 @@ export default function PasoHistorias({ onSeguir }: { onSeguir: () => void }) {
             <View style={styles.marcaIcono}>
               <Octicons name="home" size={12} color="#FFFFFF" />
             </View>
-            <Text style={styles.marcaTexto}>IMEP</Text>
+            <Text style={styles.marcaTexto}>CONGREGA</Text>
           </View>
           <Pressable
             onPress={onSeguir}

@@ -17,7 +17,7 @@ import { useEffect } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-// Se abre con el enlace del pastor: imepapp://unirse/4K7Q
+// Se abre con el enlace del pastor: congrega://unirse/4K7Q
 export default function UnirseScreen() {
   const { codigo } = useLocalSearchParams<{ codigo: string }>();
   const unirse = useUnirse();

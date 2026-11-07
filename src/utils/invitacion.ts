@@ -5,7 +5,7 @@ import { Grupo, GrupoId } from "@/types/typesComunidad";
 const limpiar = (texto: string) =>
   texto.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
-// Busca la sala dentro del enlace o codigo (ej: imepapp://sala/jovenes).
+// Busca la sala dentro del enlace o codigo (ej: congrega://sala/jovenes).
 // "grupos": todas las salas (las de base y las que creo el pastor).
 // Mock: luego el enlace lo valida el servidor.
 export function grupoDeInvitacion(
@@ -20,15 +20,15 @@ export function grupoDeInvitacion(
     .find((g) => limpio.includes(g.id))?.id;
 }
 
-// Invitacion del pastor: a la iglesia (ej: imepapp://iglesia) o a la iglesia
-// y un grupo (ej: imepapp://sala/jovenes). Mock: sin backend
+// Invitacion del pastor: a la iglesia (ej: congrega://iglesia) o a la iglesia
+// y un grupo (ej: congrega://sala/jovenes). Mock: sin backend
 export function leerInvitacion(
   texto: string,
   grupos: Grupo[] = GRUPOS,
   codigos: Partial<Record<GrupoId, CodigoInvitacion>> = {},
 ): { valida: boolean; grupo?: GrupoId; codigo?: string } {
-  // 1) codigo generado por el pastor: "IMEP-4K7Q", "4K7Q" o
-  //    "imepapp://unirse/4K7Q" (el de la iglesia no trae sala)
+  // 1) codigo generado por el pastor: "CONGREGA-4K7Q", "4K7Q" o
+  //    "congrega://unirse/4K7Q" (el de la iglesia no trae sala)
   const mayus = texto.toUpperCase();
   const deCodigo = (Object.keys(codigos) as GrupoId[]).find((g) => {
     const c = codigos[g]?.codigo;
@@ -47,10 +47,10 @@ export function leerInvitacion(
   const limpio = limpiar(texto);
   const valida =
     !!grupo ||
-    ["iglesia", "imep", "invitacion"].some((p) => limpio.includes(p));
+    ["iglesia", "congrega", "invitacion"].some((p) => limpio.includes(p));
   return { valida, grupo };
 }
 
 // Como se muestra y comparte un codigo
-export const codigoVisible = (codigo: string) => `IMEP-${codigo}`;
-export const enlaceDeCodigo = (codigo: string) => `imepapp://unirse/${codigo}`;
+export const codigoVisible = (codigo: string) => `CONGREGA-${codigo}`;
+export const enlaceDeCodigo = (codigo: string) => `congrega://unirse/${codigo}`;

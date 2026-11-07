@@ -75,7 +75,7 @@ export type TipoAviso = "cultos" | "turnos" | "anuncios" | "salas";
 
 // Codigo que reparte el pastor (de la iglesia o de una sala)
 export type CodigoInvitacion = {
-  codigo: string; // ej: "4K7Q" (se muestra como IMEP-4K7Q)
+  codigo: string; // ej: "4K7Q" (se muestra como CONGREGA-4K7Q)
   creado: string; // ISO
   usos: number; // cuantos se unieron con el
 };
