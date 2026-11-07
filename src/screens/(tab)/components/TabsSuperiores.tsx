@@ -1,5 +1,7 @@
 import {
   BORDER,
+  DARK_BG,
+  SURFACE,
   FUENTE,
   HOME_PADDING as PADDING,
   MUTED,
@@ -7,6 +9,8 @@ import {
   SPACING,
   TEXT,
 } from "@/constants/constans";
+import { IconName } from "@/types/typesCronogramas";
+import Octicons from "@expo/vector-icons/Octicons";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
@@ -17,9 +21,11 @@ import Animated, {
 } from "react-native-reanimated";
 
 type Props<T extends string> = {
-  opciones: { id: T; label: string }[];
+  opciones: { id: T; label: string; icono?: IconName }[];
   activo: T;
   onCambiar: (id: T) => void;
+  // pastilla: botones grandes con fondo que se desliza (mas notorio)
+  variante?: "linea" | "pastilla";
 };
 
 type Medida = { x: number; ancho: number };
@@ -32,7 +38,9 @@ export default function TabsSuperiores<T extends string>({
   opciones,
   activo,
   onCambiar,
+  variante = "linea",
 }: Props<T>) {
+  const pastilla = variante === "pastilla";
   // posicion y ancho de cada tab (se miden al dibujarse)
   const [medidas, setMedidas] = useState<Partial<Record<T, Medida>>>({});
   const x = useSharedValue(0);
@@ -56,7 +64,17 @@ export default function TabsSuperiores<T extends string>({
   }));
 
   return (
-    <View style={styles.tabs} accessibilityRole="tablist">
+    <View
+      style={pastilla ? styles.pastillas : styles.tabs}
+      accessibilityRole="tablist"
+    >
+      {/* fondo blanco que se desliza bajo la opcion activa */}
+      {pastilla && (
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.fondoActivo, lineaStyle]}
+        />
+      )}
       {opciones.map((o) => {
         const esActivo = o.id === activo;
         return (
@@ -72,17 +90,35 @@ export default function TabsSuperiores<T extends string>({
             }}
             // area de toque mas grande que el texto
             hitSlop={{ top: 6, bottom: 6, left: 12, right: 12 }}
-            style={styles.tab}
+            style={pastilla ? styles.pastilla : styles.tab}
             accessibilityRole="tab"
             accessibilityState={{ selected: esActivo }}
           >
-            <Text style={[styles.texto, esActivo && styles.textoActivo]}>
+            {pastilla && o.icono && (
+              <Octicons
+                name={o.icono}
+                size={16}
+                color={esActivo ? DARK_BG : MUTED}
+              />
+            )}
+            <Text
+              style={
+                pastilla
+                  ? [styles.pastillaTexto, esActivo && styles.pastillaActiva]
+                  : [styles.texto, esActivo && styles.textoActivo]
+              }
+            >
               {o.label}
             </Text>
           </Pressable>
         );
       })}
-      <Animated.View pointerEvents="none" style={[styles.linea, lineaStyle]} />
+      {!pastilla && (
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.linea, lineaStyle]}
+        />
+      )}
     </View>
   );
 }
@@ -111,6 +147,41 @@ const styles = StyleSheet.create({
   textoActivo: {
     fontFamily: FUENTE.semibold,
     color: TEXT,
+  },
+  pastillas: {
+    flexDirection: "row",
+    marginHorizontal: PADDING,
+    marginTop: SPACING / 2,
+    marginBottom: SPACING,
+    padding: 4,
+    borderRadius: 18,
+    backgroundColor: SURFACE,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: BORDER,
+  },
+  pastilla: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    height: 46,
+  },
+  fondoActivo: {
+    position: "absolute",
+    top: 4,
+    left: 0,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: TEXT,
+  },
+  pastillaTexto: {
+    fontFamily: FUENTE.semibold,
+    fontSize: 16,
+    color: MUTED,
+  },
+  pastillaActiva: {
+    color: DARK_BG,
   },
   // linea roja que se desliza (queda sobre la linea de base)
   linea: {

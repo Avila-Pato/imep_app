@@ -87,8 +87,8 @@ export default function ModalCodigo({
                     </View>
                     <Text style={styles.titulo}>¡Bienvenido!</Text>
                     <Text style={styles.texto}>
-                      Te uniste a {unido}. En Inicio ya puedes ver la ubicación
-                      de {iglesia?.sede ?? "tu iglesia"}.
+                      Te uniste a {unido}. En Anuncios ya puedes ver la
+                      ubicación de {iglesia?.sede ?? "tu iglesia"}.
                     </Text>
                     <Pressable
                       onPress={cerrar}

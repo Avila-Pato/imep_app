@@ -20,6 +20,7 @@ import {
 } from "@/constants/constans";
 import { CargoId, Permiso } from "@/types/typesCargos";
 import { Anuncio } from "@/types/typesAnuncios";
+import { Predicacion } from "@/types/typesOraciones";
 import { Rol, RolId, Turno } from "@/types/typesCronogramas";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { esLider, sigueGuardada } from "@/utils/peticiones";
@@ -60,6 +61,7 @@ type Estado = {
   invitados: string[]; // nombres agregados a mano en el cronograma (sin cuenta en la app)
   rolesExtra: Record<string, Rol>; // casillas nuevas del cronograma (ej: Devocional)
   anuncios: Anuncio[]; // los que publico el pastor / secretaria / comunicaciones
+  predicaciones: Predicacion[]; // las sube el pastor (o quien publica anuncios)
 };
 
 // Notificaciones que la persona puede activar o apagar
@@ -116,6 +118,7 @@ const inicial = (): Estado => ({
   invitados: [],
   rolesExtra: {},
   anuncios: [],
+  predicaciones: [],
 });
 
 const useStore = create<Estado>()(
@@ -162,6 +165,7 @@ const useStore = create<Estado>()(
         avisos: { ...(previo.avisos ?? {}), ...estado.avisos },
         rolesExtra: { ...(previo.rolesExtra ?? {}), ...estado.rolesExtra },
         anuncios: unir(estado.anuncios, previo.anuncios ?? []),
+        predicaciones: unir(estado.predicaciones, previo.predicaciones ?? []),
         invitados: [
           ...new Set([...estado.invitados, ...(previo.invitados ?? [])]),
         ],
@@ -498,6 +502,43 @@ export function guardarAnuncio(a: Omit<Anuncio, "id"> & { id?: string }) {
     }
     return { anuncios: [{ ...a, id: `a-${Date.now()}` }, ...s.anuncios] };
   });
+}
+
+// Predicaciones: las que ya ocurrieron, la mas reciente primero
+export function usePredicaciones() {
+  const todas = useStore((s) => s.predicaciones);
+  const hoy = aKeyHoy();
+  return [...todas]
+    .filter((p) => p.fecha <= hoy)
+    .sort((a, b) => b.fecha.localeCompare(a.fecha));
+}
+
+const aKeyHoy = () => {
+  const f = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${f.getFullYear()}-${p(f.getMonth() + 1)}-${p(f.getDate())}`;
+};
+
+export function guardarPredicacion(
+  p: Omit<Predicacion, "id"> & { id?: string },
+) {
+  cambiar((s) =>
+    p.id && s.predicaciones.some((x) => x.id === p.id)
+      ? {
+          predicaciones: s.predicaciones.map((x) =>
+            x.id === p.id ? { ...x, ...p, id: x.id } : x,
+          ),
+        }
+      : {
+          predicaciones: [{ ...p, id: `p-${Date.now()}` }, ...s.predicaciones],
+        },
+  );
+}
+
+export function borrarPredicacion(id: string) {
+  cambiar((s) => ({
+    predicaciones: s.predicaciones.filter((p) => p.id !== id),
+  }));
 }
 
 export function borrarAnuncio(id: string) {

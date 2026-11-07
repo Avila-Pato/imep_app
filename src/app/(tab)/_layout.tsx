@@ -4,6 +4,9 @@ import { Tabs } from "expo-router";
 import { BottomTabBarProps } from "@/types/typesBar";
 import { DARK_BG } from "@/constants/constans";
 
+// la app abre en Anuncios (Inicio se quito)
+export const unstable_settings = { initialRouteName: "eventos" };
+
 export default function TabLayout() {
   return (
     <Tabs
@@ -16,18 +19,8 @@ export default function TabLayout() {
         sceneStyle: { backgroundColor: DARK_BG },
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Inicio",
-          tabBarIcon: ({ color, focused, size }) =>
-            !focused ? (
-              <Octicons name="home" size={size} color={color} />
-            ) : (
-              <Octicons name="home-fill" size={size} color={color} />
-            ),
-        }}
-      />
+      {/* Inicio ya no es pestaña: lleva a Anuncios */}
+      <Tabs.Screen name="index" options={{ href: null }} />
 
       {/* Anuncios */}
 

@@ -5,6 +5,7 @@ import {
   GENEROS_BIBLIA,
   LIBROS_BIBLIA,
   MUTED,
+  PRIMARY,
   SPACING,
   SURFACE,
   TEXT,
@@ -386,7 +387,8 @@ function Lectura({
   const { resaltados, letra = 1 } = useEstudios();
   const [eligiendo, setEligiendo] = useState(false); // selector de libro abierto
   // tamaño elegido con A− / A+
-  const tamano = { fontSize: 20 * letra, lineHeight: 30 * letra };
+  // interlineado amplio (1.7) para leer sin cansarse
+  const tamano = { fontSize: 19 * letra, lineHeight: 32 * letra };
   // estilo de un versiculo: resaltado (color) y/o seleccionado (subrayado)
   // color del resaltado de un versiculo
   const colorDe = (n: number) =>
@@ -473,8 +475,9 @@ function Lectura({
                   onPress={() => onTocar(v)}
                   tamano={tamano}
                 >
-                  <Text style={[styles.numeroVerso, { fontSize: 11 * letra }]}>
-                    {v.numero}{" "}
+                  <Text style={[styles.numeroVerso, { fontSize: 12 * letra }]}>
+                    {v.numero}
+                    {"  "}
                   </Text>
                   <Text style={marca(v.numero)}>{v.texto}</Text>
                 </VersoTexto>
@@ -763,7 +766,7 @@ const styles = StyleSheet.create({
   },
   texto: {
     marginTop: SPACING * 1.6,
-    gap: SPACING * 0.8, // aire entre versiculos
+    gap: SPACING * 1.6, // aire entre versiculos: cada uno se lee aparte
   },
   inicio: {
     flexDirection: "row",
@@ -773,14 +776,15 @@ const styles = StyleSheet.create({
     fontFamily: FUENTE.biblia,
     fontSize: 62,
     lineHeight: 62,
-    color: TEXT,
+    color: PRIMARY,
     marginTop: -2,
   },
   parrafo: {
     fontFamily: FUENTE.biblia,
-    fontSize: 20,
-    lineHeight: 30,
-    color: TEXT,
+    fontSize: 19,
+    lineHeight: 32,
+    letterSpacing: 0.15,
+    color: "#E9E4DA", // blanco calido: cansa menos que el blanco puro
   },
   // franja de color detras de cada linea de un versiculo resaltado
   franja: {
@@ -792,10 +796,12 @@ const styles = StyleSheet.create({
     textDecorationStyle: "dotted",
     textDecorationColor: MUTED,
   },
+  // numero del versiculo en rojo suave: se ubica rapido sin estorbar
   numeroVerso: {
     fontFamily: FUENTE.semibold,
-    fontSize: 11,
-    color: MUTED,
+    fontSize: 12,
+    color: PRIMARY,
+    opacity: 0.85,
   },
   navegador: {
     flexDirection: "row",

@@ -13,6 +13,7 @@ import {
   TEXT,
 } from "@/constants/constans";
 import ModalFormAnuncio from "@/screens/(tab)/components/ModalFormAnuncio";
+import ModalFormPredicacion from "@/screens/predicacion/ModalFormPredicacion";
 import ModalIglesia from "@/screens/(tab)/components/ModalIglesia";
 import ModalNuevaSala from "@/screens/(tab)/components/ModalNuevaSala";
 import {
@@ -54,6 +55,7 @@ export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
   } = useEstudios();
   // anuncio nuevo directo desde el perfil
   const [escribiendo, setEscribiendo] = useState(false);
+  const [predicando, setPredicando] = useState(false);
   const grupos = useGrupos();
   const iglesia = useIglesia();
   const puedeCronograma = usePuede("cronograma");
@@ -357,6 +359,12 @@ export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
         onCerrar={() => setCreandoSala(false)}
       />
       <ModalIglesia visible={ubicando} onCerrar={() => setUbicando(false)} />
+      {predicando && (
+        <ModalFormPredicacion
+          predicador={nombre ?? USUARIO.nombre}
+          onCerrar={() => setPredicando(false)}
+        />
+      )}
       {escribiendo && (
         <ModalFormAnuncio
           autor={nombre ?? USUARIO.nombre}

@@ -22,6 +22,7 @@ import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import ModalAnuncio from "./ModalAnuncio";
 import ModalFormAnuncio from "./ModalFormAnuncio";
+import TarjetaIglesia from "./TarjetaIglesia";
 
 type Filtro = "todos" | CategoriaId;
 
@@ -108,7 +109,11 @@ function Fila({ a, onAbrir }: { a: Anuncio; onAbrir: () => void }) {
 
 // Anuncios de la iglesia: el proximo culto (sale del horario, igual que el
 // cronograma) y lo que publican el pastor, la secretaria o comunicaciones
-export default function AnunciosView() {
+export default function AnunciosView({
+  conIglesia,
+}: {
+  conIglesia?: boolean; // en la pestaña: el mapa y el proximo culto arriba
+}) {
   // espacio para la barra flotante y los botones del telefono
   const espacio = useEspacioBarra();
   const { anuncios, nombre } = useEstudios();
@@ -151,8 +156,11 @@ export default function AnunciosView() {
       contentContainerStyle={[styles.content, { paddingBottom: espacio }]}
       showsVerticalScrollIndicator={false}
     >
+      {/* La iglesia: mapa con el proximo culto encima */}
+      {conIglesia && <TarjetaIglesia />}
+
       {/* Proximo culto (horario de la iglesia, igual que el cronograma) */}
-      {culto && (
+      {!conIglesia && culto && (
         <View style={styles.culto}>
           <View style={styles.cultoIcono}>
             <Octicons name="bell" size={16} color={DARK_BG} />

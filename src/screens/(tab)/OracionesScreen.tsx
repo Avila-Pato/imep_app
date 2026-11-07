@@ -35,13 +35,14 @@ import {
 import AccionesVersiculo, {
   SeleccionBiblia,
 } from "./components/AccionesVersiculo";
+import PredicacionView from "./components/PredicacionView";
 import BibliaView from "./components/BibliaView";
 import ModalGuardado from "./components/ModalGuardado";
 import PasajeTexto from "./components/PasajeTexto";
 import TabsSuperiores from "./components/TabsSuperiores";
 
 type Paso = 1 | 2 | 3;
-type Vista = "estudio" | "biblia";
+type Vista = "estudio" | "biblia" | "predicaciones";
 type Modo = "estudio" | "oracion";
 
 // Dentro de "Guiado": estudiar un pasaje o pedir oracion
@@ -53,6 +54,7 @@ const MODOS: { id: Modo; label: string }[] = [
 const VISTAS: { id: Vista; label: string }[] = [
   { id: "estudio", label: "Mi estudio" },
   { id: "biblia", label: "Biblia" },
+  { id: "predicaciones", label: "Predicaciones" },
 ];
 
 // Encabezado: etiqueta pequeña + titulo serif con la ultima palabra en cursiva
@@ -229,6 +231,9 @@ export default function OracionesScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+          {/* Predicaciones que sube el pastor */}
+          {vista === "predicaciones" && <PredicacionView />}
+
           {/* Biblia completa */}
           {vista === "biblia" && (
             <BibliaView

@@ -24,10 +24,10 @@ type Props = {
   alto: number;
   onComoLlegar?: () => void; // sin esto no se muestra el boton (vista previa)
   etiqueta?: string; // nombre en un globo sobre el pin
+  focoY?: number; // altura del pin (0 arriba, 1 abajo)
 };
 
 // El pin queda un poco arriba del centro para que no lo tape el panel inferior
-const FOCO = { x: 0.5, y: 0.38 };
 const PIN = 44;
 
 export default function MapaIglesia({
@@ -37,7 +37,9 @@ export default function MapaIglesia({
   alto,
   onComoLlegar,
   etiqueta,
+  focoY = 0.38,
 }: Props) {
+  const FOCO = { x: 0.5, y: focoY };
   const { teselas, tamano } = teselasVisibles(
     lat,
     lng,

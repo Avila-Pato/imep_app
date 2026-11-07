@@ -1,6 +1,6 @@
-import { PREDICACIONES } from "@/assets/data/predicacionesMocks";
 import {
   BORDER,
+  DARK_BG,
   MESES_CORTOS,
   MUTED,
   SERIF,
@@ -8,7 +8,17 @@ import {
   SURFACE,
   TEXT,
 } from "@/constants/constans";
+import { USUARIO } from "@/assets/data/perfilMocks";
 import { usePasaje } from "@/hooks/usePasaje";
+import ModalFormPredicacion from "@/screens/predicacion/ModalFormPredicacion";
+import {
+  borrarPredicacion,
+  useEstudios,
+  usePredicaciones,
+  usePuede,
+} from "@/store/estudios";
+import { Predicacion } from "@/types/typesOraciones";
+import { confirmar } from "@/utils/confirmar";
 import { iniciales, partirTitulo } from "@/utils/texto";
 import Octicons from "@expo/vector-icons/Octicons";
 import { useState } from "react";
@@ -29,31 +39,50 @@ export const fechaCorta = (key: string) => {
   return `${dia} ${f.getDate()} ${MESES_CORTOS[f.getMonth()]}`.toUpperCase();
 };
 
-// Mas reciente primero, sin las que aun no ocurren
-const hoyKey = new Date().toISOString().slice(0, 10);
-export const PREDICACIONES_PASADAS = PREDICACIONES.filter(
-  (p) => p.fecha <= hoyKey,
-).sort((a, b) => b.fecha.localeCompare(a.fecha));
-
 export default function PredicacionView({ inicialId }: { inicialId?: string }) {
-  const [actualId, setActualId] = useState(
-    inicialId ?? PREDICACIONES_PASADAS[0]?.id,
-  );
-  const actual = PREDICACIONES_PASADAS.find((p) => p.id === actualId);
+  const lista = usePredicaciones();
+  // el pastor (o quien publica anuncios) sube, edita y borra
+  const puede = usePuede("anuncios");
+  const { nombre } = useEstudios();
+  const [actualId, setActualId] = useState(inicialId);
+  // null = cerrado; undefined dentro del objeto = nueva
+  const [form, setForm] = useState<{ p?: Predicacion } | null>(null);
+  const actual = lista.find((p) => p.id === actualId) ?? lista[0];
   const pasaje = usePasaje(actual?.cita ?? "");
+
+  const formulario = form && (
+    <ModalFormPredicacion
+      predicacion={form.p}
+      predicador={nombre ?? USUARIO.nombre}
+      onCerrar={() => setForm(null)}
+    />
+  );
 
   if (!actual) {
     return (
       <View style={styles.vacio}>
         <Octicons name="book" size={22} color={MUTED} />
         <Text style={styles.vacioTexto}>Aún no hay predicaciones</Text>
+        {puede && (
+          <Pressable
+            onPress={() => setForm({})}
+            style={({ pressed }) => [
+              styles.nueva,
+              pressed && styles.presionado,
+            ]}
+          >
+            <Octicons name="plus" size={14} color={DARK_BG} />
+            <Text style={styles.nuevaTexto}>Subir la primera</Text>
+          </Pressable>
+        )}
+        {formulario}
       </View>
     );
   }
 
-  const anteriores = PREDICACIONES_PASADAS.filter((p) => p.id !== actual.id);
+  const anteriores = lista.filter((p) => p.id !== actual.id);
   const { inicio, final } = partirTitulo(actual.titulo);
-  const esUltima = actual.id === PREDICACIONES_PASADAS[0]?.id;
+  const esUltima = actual.id === lista[0]?.id;
 
   return (
     <View style={styles.contenedor}>
@@ -83,6 +112,62 @@ export default function PredicacionView({ inicialId }: { inicialId?: string }) {
           </View>
         </View>
       </View>
+
+      {/* Pastor / admin: subir otra, editar o borrar esta */}
+      {puede && (
+        <View style={styles.acciones}>
+          <Pressable
+            onPress={() => setForm({})}
+            style={({ pressed }) => [
+              styles.nueva,
+              pressed && styles.presionado,
+            ]}
+          >
+            <Octicons name="plus" size={14} color={DARK_BG} />
+            <Text style={styles.nuevaTexto}>Nueva</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setForm({ p: actual })}
+            style={({ pressed }) => [
+              styles.accion,
+              pressed && styles.presionado,
+            ]}
+          >
+            <Octicons name="pencil" size={14} color={TEXT} />
+            <Text style={styles.accionTexto}>Editar</Text>
+          </Pressable>
+          <Pressable
+            onPress={() =>
+              confirmar(
+                "Borrar predicación",
+                `Se quitará «${actual.titulo}» para todos.`,
+                "Borrar",
+                () => {
+                  borrarPredicacion(actual.id);
+                  setActualId(undefined);
+                },
+              )
+            }
+            style={({ pressed }) => [
+              styles.accion,
+              pressed && styles.presionado,
+            ]}
+            accessibilityLabel="Borrar predicación"
+          >
+            <Octicons name="trash" size={14} color={TEXT} />
+          </Pressable>
+        </View>
+      )}
+
+      {/* Resumen que escribio el pastor */}
+      {!!actual.resumen && (
+        <View>
+          <Text style={styles.seccion}>RESUMEN</Text>
+          <View style={styles.card}>
+            <Text style={styles.resumen}>{actual.resumen}</Text>
+          </View>
+        </View>
+      )}
 
       {/* Pasaje (desde la API de la Biblia) */}
       <View>
@@ -135,6 +220,7 @@ export default function PredicacionView({ inicialId }: { inicialId?: string }) {
           </View>
         </View>
       )}
+      {formulario}
     </View>
   );
 }
@@ -269,6 +355,45 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
+  acciones: {
+    flexDirection: "row",
+    gap: SPACING,
+    marginTop: -SPACING,
+  },
+  nueva: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 14,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: TEXT,
+  },
+  nuevaTexto: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: DARK_BG,
+  },
+  accion: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    height: 38,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: BORDER,
+  },
+  accionTexto: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: TEXT,
+  },
+  resumen: {
+    fontSize: 15,
+    lineHeight: 23,
+    color: TEXT,
+  },
   vacio: {
     alignItems: "center",
     gap: 8,

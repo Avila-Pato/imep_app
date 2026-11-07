@@ -91,6 +91,7 @@ const TEMAS: Tema[] = [
       "Si quieres, agrega una imagen (o publica solo la imagen, como un afiche).",
       "Elige la fecha y la hora: siempre van, para que nadie se pierda.",
       "Para cambiarlo o borrarlo entra a Perfil › Anuncios.",
+      "Después de cada culto sube la predicación (Perfil › Predicación): título, pasaje y un resumen. Sale en Biblia › Predicaciones.",
     ],
   },
   {
@@ -125,7 +126,7 @@ const TEMAS: Tema[] = [
     icono: "location",
     tono: "#4C9AFF",
     titulo: "Ubicación de la iglesia",
-    que: "La dirección que pusiste antes. Los hermanos la ven en el mapa de Inicio para llegar.",
+    que: "La dirección que pusiste antes. Los hermanos la ven en el mapa, arriba de Anuncios.",
     donde: ["Perfil", "Ubicación"],
     pasos: [
       "Cámbiala cuando quieras desde el panel.",

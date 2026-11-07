@@ -16,6 +16,14 @@ export default function CustomBar({
     <View style={[styles.container, { paddingBottom: bottom + SPACING }]}>
       {state.routes.map((route, index) => {
         const { options } = descriptors[route.key];
+        // pestañas ocultas: Inicio (index, solo redirige a Anuncios) o las
+        // marcadas con href: null (expo-router las esconde con display none)
+        const oculta =
+          route.name === "index" ||
+          (options as { href?: unknown }).href === null ||
+          (options.tabBarItemStyle as { display?: string } | undefined)
+            ?.display === "none";
+        if (oculta) return null;
         const isFocused = state.index === index;
 
         const onPress = () => {

@@ -12,7 +12,7 @@ export default function PasoIglesia({ onSeguir }: { onSeguir: () => void }) {
       <Titulo texto="¿Dónde está tu " destacado="iglesia?" />
       <Subtitulo>
         Los hermanos verán aquí la ubicación al unirse. Podrás cambiarla cuando
-        quieras desde Inicio.
+        quieras desde Anuncios o tu Perfil.
       </Subtitulo>
       <FormIglesia
         inicial={iglesia}

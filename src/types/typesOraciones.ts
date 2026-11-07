@@ -18,6 +18,7 @@ export type Predicacion = {
   titulo: string;
   predicador: string;
   cita: string; // se carga el texto desde la API
+  resumen?: string; // notas del pastor: lo principal del mensaje
 };
 
 // Habito diario de "Tu dia con Dios"
