@@ -1,4 +1,4 @@
-import { DARK_BG, FUENTE, SURFACE, TEXT } from "@/constants/constans";
+import { DARK_BG, FUENTE, SURFACE, TEXT, LINEA } from "@/constants/constans";
 import Octicons from "@expo/vector-icons/Octicons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -38,7 +38,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: SURFACE,
     borderWidth: 1,
-    borderColor: "#3A3A3A",
+    borderColor: LINEA,
   },
   presionado: {
     opacity: 0.6,

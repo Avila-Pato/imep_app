@@ -10,6 +10,7 @@ import {
   SPACING,
   SURFACE,
   TEXT,
+  LINEA,
 } from "@/constants/constans";
 import { borrarAnuncio, useEstudios, usePuede } from "@/store/estudios";
 import { Anuncio, CategoriaId } from "@/types/typesAnuncios";
@@ -426,7 +427,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   tarjetaConImagen: {
-    borderColor: "#333333",
+    borderColor: LINEA,
   },
   imagen: {
     width: "100%",

@@ -10,6 +10,7 @@ import {
   SERIF,
   SPACING,
   TEXT,
+  primarioAlfa,
 } from "@/constants/constans";
 import { alternarOrando, useEstudios, useGrupos } from "@/store/estudios";
 import { GrupoId, Publicacion } from "@/types/typesComunidad";
@@ -417,7 +418,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   orarActivo: {
-    backgroundColor: "rgba(229, 72, 77, 0.12)",
+    backgroundColor: primarioAlfa(0.12),
     borderColor: PRIMARY,
   },
   presionado: {

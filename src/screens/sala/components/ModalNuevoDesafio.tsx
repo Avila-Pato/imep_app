@@ -7,6 +7,9 @@ import {
   SPACING,
   SURFACE,
   TEXT,
+  PLACEHOLDER,
+  LINEA,
+  RADIO_BORDE,
 } from "@/constants/constans";
 import { sugerirCitas } from "@/services/biblia";
 import { crearDesafio, enviarMensaje } from "@/store/estudios";
@@ -230,7 +233,7 @@ export default function ModalNuevoDesafio({
                       onChangeText={setNombre}
                       onSubmitEditing={agregar}
                       placeholder="Agregar otro nombre"
-                      placeholderTextColor="#555555"
+                      placeholderTextColor={PLACEHOLDER}
                       autoCapitalize="words"
                       returnKeyType="done"
                       style={[styles.input, styles.flex]}
@@ -318,7 +321,7 @@ export default function ModalNuevoDesafio({
                       setSugerir(true);
                     }}
                     placeholder="Vacío = cada uno elige el suyo"
-                    placeholderTextColor="#555555"
+                    placeholderTextColor={PLACEHOLDER}
                     style={styles.input}
                   />
                   {sugerencias.length > 0 && (
@@ -390,14 +393,14 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderTopWidth: 1,
-    borderColor: "#3A3A3A",
+    borderColor: LINEA,
   },
   asa: {
     alignSelf: "center",
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "#4A4A4A",
+    backgroundColor: RADIO_BORDE,
   },
   cabecera: {
     flexDirection: "row",

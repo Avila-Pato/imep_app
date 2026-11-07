@@ -265,7 +265,7 @@ export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
               <QRCode
                 value={enlaceDeCodigo(general.codigo)}
                 size={96}
-                color={DARK_BG}
+                color="#121212"
                 backgroundColor="#FFFFFF"
               />
             </View>

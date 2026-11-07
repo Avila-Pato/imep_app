@@ -7,6 +7,8 @@ import {
   SPACING,
   SURFACE,
   TEXT,
+  primarioAlfa,
+  RADIO_BORDE,
 } from "@/constants/constans";
 import { guardarPerfil, RolIglesia, useEstudios } from "@/store/estudios";
 import { IconName } from "@/types/typesCronogramas";
@@ -119,7 +121,7 @@ const styles = StyleSheet.create({
   },
   tarjetaActiva: {
     borderColor: PRIMARY,
-    backgroundColor: "rgba(229, 72, 77, 0.08)",
+    backgroundColor: primarioAlfa(0.08),
   },
   arriba: {
     flexDirection: "row",
@@ -145,7 +147,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1.5,
-    borderColor: "#4A4A4A",
+    borderColor: RADIO_BORDE,
   },
   radioActivo: {
     borderColor: TEXT,

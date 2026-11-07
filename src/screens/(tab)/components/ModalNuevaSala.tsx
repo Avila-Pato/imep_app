@@ -7,6 +7,8 @@ import {
   SPACING,
   SURFACE,
   TEXT,
+  PLACEHOLDER,
+  LINEA,
 } from "@/constants/constans";
 import { MIEMBROS } from "@/assets/data/comunidadMocks";
 import { USUARIO } from "@/assets/data/perfilMocks";
@@ -229,7 +231,7 @@ export default function ModalNuevaSala({
                     value={nombre}
                     onChangeText={setNombre}
                     placeholder="Ej: Alabanza, Matrimonios"
-                    placeholderTextColor="#555555"
+                    placeholderTextColor={PLACEHOLDER}
                     autoCapitalize="sentences"
                     style={styles.input}
                   />
@@ -239,7 +241,7 @@ export default function ModalNuevaSala({
                     value={descripcion}
                     onChangeText={setDescripcion}
                     placeholder="Ej: Equipo de música del culto"
-                    placeholderTextColor="#555555"
+                    placeholderTextColor={PLACEHOLDER}
                     style={styles.input}
                   />
 
@@ -314,7 +316,7 @@ export default function ModalNuevaSala({
                       setOtro("");
                     }}
                     placeholder="U escribe su nombre"
-                    placeholderTextColor="#555555"
+                    placeholderTextColor={PLACEHOLDER}
                     autoCapitalize="words"
                     returnKeyType="done"
                     style={styles.input}
@@ -421,7 +423,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "#3A3A3A",
+    backgroundColor: LINEA,
   },
   contenido: {
     paddingHorizontal: SPACING * 2,

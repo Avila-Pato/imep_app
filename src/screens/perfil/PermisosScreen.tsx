@@ -12,6 +12,7 @@ import {
   SPACING,
   SURFACE,
   TEXT,
+  primarioAlfa,
 } from "@/constants/constans";
 import {
   alternarCargo,
@@ -287,7 +288,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(229, 72, 77, 0.12)",
+    backgroundColor: primarioAlfa(0.12),
   },
   rolFila: {
     flexDirection: "row",

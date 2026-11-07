@@ -3,31 +3,39 @@ import {
   BORDER,
   CARGOS,
   DARK_BG,
-  HOME_PADDING as PADDING,
   MENU_PERFIL,
   MESES_CORTOS,
   MUTED,
+  HOME_PADDING as PADDING,
   PRIMARY,
   SERIF,
   SPACING,
   SURFACE,
   TEXT,
+  primarioAlfa,
+  ELEVADO,
+  LINEA,
 } from "@/constants/constans";
+import { useEspacioBarra } from "@/hooks/useEspacioBarra";
+import AvatarPersona from "@/components/AvatarPersona";
+import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
+import PanelAdmin from "@/screens/perfil/PanelAdmin";
 import {
+  reiniciarApp,
   useEsPastor,
   useEstudios,
   useGrupos,
   useIglesia,
-  reiniciarApp,
   usePuede,
   useRoles,
   verBienvenida,
+  guardarPerfil,
 } from "@/store/estudios";
 import { horaTurno } from "@/utils/cultos";
-import { haceCuanto } from "@/utils/tiempo";
 import { unirTurnos } from "@/utils/turnos";
-import { useEspacioBarra } from "@/hooks/useEspacioBarra";
 import Octicons from "@expo/vector-icons/Octicons";
+import { Href, router } from "expo-router";
 import { useState } from "react";
 import {
   Alert,
@@ -39,22 +47,13 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import PanelAdmin from "@/screens/perfil/PanelAdmin";
-import { Href, router } from "expo-router";
 import ModalCodigo from "./components/ModalCodigo";
+import { TEXTO_VERSION } from "@/utils/version";
 import ModalEstudio from "./components/ModalEstudio";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const hoy = new Date();
 const HOY_KEY = `${hoy.getFullYear()}-${pad(hoy.getMonth() + 1)}-${pad(hoy.getDate())}`;
-
-const iniciales = (nombre: string) =>
-  nombre
-    .split(" ")
-    .slice(0, 2)
-    .map((p) => p[0])
-    .join("")
-    .toUpperCase();
 
 // "2026-10-20" -> { dia: "Mar", numero: 20, mes: "oct" }
 const partesFecha = (key: string) => {
@@ -69,12 +68,6 @@ const partesFecha = (key: string) => {
     mes: MESES_CORTOS[m - 1].toLowerCase(),
   };
 };
-
-const ESTADISTICAS = [
-  { valor: USUARIO.turnosRealizados, label: "Turnos" },
-  { valor: USUARIO.estudios, label: "Estudios" },
-  { valor: hoy.getFullYear() - USUARIO.miembroDesde, label: "Años" },
-];
 
 // Pide confirmacion antes de borrar todo (en web no hay Alert con botones)
 const confirmarReinicio = () => {
@@ -99,8 +92,18 @@ ${texto}`)
 export default function PerfilScreen() {
   // espacio para la barra flotante y los botones del telefono
   const espacio = useEspacioBarra();
-  const { grupo, guardados, versiculos, turnosEditados, nombre, cargos } =
-    useEstudios();
+  const {
+    grupo,
+    guardados,
+    versiculos,
+    turnosEditados,
+    nombre,
+    cargos,
+    meGusta,
+    meGustaTextos,
+    avatar,
+    portada,
+  } = useEstudios();
   const esPastor = useEsPastor();
   const iglesia = useIglesia();
   const miNombre = nombre ?? USUARIO.nombre;
@@ -113,16 +116,52 @@ export default function PerfilScreen() {
   const administra = esPastor || puedeCronograma || puedeAnuncios || puedeRoles;
   const grupos = useGrupos();
   // Turnos del usuario desde hoy en adelante (incluye los que asigno el admin)
-  const MIS_TURNOS = unirTurnos(turnosEditados)
-    .filter((t) => t.persona === USUARIO.nombre && t.fecha >= HOY_KEY)
-    .sort((a, b) => a.fecha.localeCompare(b.fecha))
-    .slice(0, 3);
+  const proximos = unirTurnos(turnosEditados)
+    .filter((t) => t.persona === miNombre && t.fecha >= HOY_KEY)
+    .sort((a, b) => a.fecha.localeCompare(b.fecha));
+  const MIS_TURNOS = proximos.slice(0, 3);
+  // versiculos con "me gusta", el ultimo primero
+  const gustados = meGusta
+    .map((clave) => ({ clave, ...meGustaTextos[clave] }))
+    .filter((g) => !!g.texto)
+    .sort((a, b) => (b.fecha ?? "").localeCompare(a.fecha ?? ""));
+  // los 3 numeros del perfil: cada uno es una seccion de abajo
+  const ESTADISTICAS = [
+    {
+      valor: proximos.length,
+      label: "Turnos",
+      sub: "por servir",
+      ruta: undefined as string | undefined,
+    },
+    {
+      valor: gustados.length,
+      label: "Me gusta",
+      sub: "versículos",
+      ruta: "/megusta",
+    },
+    {
+      valor: versiculos.length,
+      label: "Guardados",
+      sub: "y oraciones",
+      ruta: "/guardados",
+    },
+  ];
   // estudio abierto en el modal (sin cambiar de vista)
   const [abiertoId, setAbiertoId] = useState<string | null>(null);
   // "Tengo un código": unirse a la iglesia con el codigo del pastor
   const [conCodigo, setConCodigo] = useState(false);
   const abierto = guardados.find((e) => e.id === abiertoId) ?? null;
   const miGrupo = grupos.find((g) => g.id === grupo);
+  // portada: imagen de la galeria (ancha); sin imagen quedan las formas de color
+  const cambiarPortada = async () => {
+    const r = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [16, 7],
+      quality: 0.8,
+    });
+    if (!r.canceled && r.assets[0]) guardarPerfil({ portada: r.assets[0].uri });
+  };
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView
@@ -131,29 +170,49 @@ export default function PerfilScreen() {
       >
         {/* Portada con forma decorativa */}
         <View style={styles.portada}>
-          <View style={styles.circuloGrande} />
-          <View style={styles.circuloChico} />
+          {/* imagen elegida en Editar perfil; sin imagen, las formas de color */}
+          {portada ? (
+            <Image
+              source={{ uri: portada }}
+              style={StyleSheet.absoluteFill}
+              contentFit="cover"
+            />
+          ) : (
+            <>
+              <View style={styles.circuloGrande} />
+              <View style={styles.circuloChico} />
+            </>
+          )}
+          {/* lapiz: cambiar la imagen de la portada (lo demas, en Editar perfil) */}
           <Pressable
-            style={styles.ajustes}
+            onPress={cambiarPortada}
+            style={({ pressed }) => [
+              styles.ajustes,
+              pressed && styles.presionado,
+            ]}
             hitSlop={8}
-            accessibilityLabel="Ajustes"
+            accessibilityLabel="Cambiar imagen de portada"
           >
-            <Octicons name="gear" size={18} color={TEXT} />
+            <Octicons name="pencil" size={16} color="#FFFFFF" />
           </Pressable>
         </View>
 
         {/* Avatar y datos */}
         <View style={styles.perfil}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarTexto}>{iniciales(miNombre)}</Text>
-            <Pressable
-              style={styles.editar}
-              hitSlop={6}
-              accessibilityLabel="Cambiar foto"
-            >
+          <Pressable
+            onPress={() => router.push("/editar-perfil" as Href)}
+            style={styles.avatar}
+            accessibilityLabel="Editar perfil"
+          >
+            <AvatarPersona
+              nombre={miNombre}
+              avatar={avatar}
+              tamano={AVATAR - 8}
+            />
+            <View style={styles.editar}>
               <Octicons name="pencil" size={12} color="#FFFFFF" />
-            </Pressable>
-          </View>
+            </View>
+          </Pressable>
           <Text style={styles.nombre}>{miNombre}</Text>
           <Text style={styles.ministerio}>
             {/* el rol en la iglesia: pastor, roles que le dieron o su ministerio */}
@@ -174,19 +233,26 @@ export default function PerfilScreen() {
         {!esPastor && (
           <View style={styles.stats}>
             {ESTADISTICAS.map((s, i) => (
-              <View
+              <Pressable
                 key={s.label}
-                style={[styles.stat, i > 0 && styles.statLinea]}
+                onPress={s.ruta ? () => router.push(s.ruta as Href) : undefined}
+                disabled={!s.ruta}
+                style={({ pressed }) => [
+                  styles.stat,
+                  i > 0 && styles.statLinea,
+                  pressed && styles.presionado,
+                ]}
               >
                 <Text style={styles.statValor}>{s.valor}</Text>
                 <Text style={styles.statLabel}>{s.label}</Text>
-              </View>
+                <Text style={styles.statSub}>{s.sub}</Text>
+              </Pressable>
             ))}
           </View>
         )}
 
         {/* Estudios guardados desde el Estudio guiado */}
-        <View style={styles.seccion}>
+        {/* <View style={styles.seccion}>
           <Text style={styles.seccionTitulo}>MIS ESTUDIOS</Text>
           {guardados.length === 0 ? (
             <Text style={styles.vacio}>Aún no guardas estudios</Text>
@@ -216,25 +282,51 @@ export default function PerfilScreen() {
               ))}
             </View>
           )}
-        </View>
+        </View> */}
 
-        {/* Versiculos guardados desde la Biblia */}
-        {versiculos.length > 0 && (
-          <View style={styles.seccion}>
-            <Text style={styles.seccionTitulo}>VERSÍCULOS Y ORACIONES</Text>
-            {versiculos.map((v) => (
-              <View key={v.id} style={styles.versiculo}>
-                <Text style={styles.versiculoTexto} numberOfLines={3}>
-                  «{v.texto}»
-                </Text>
-                <Text style={styles.versiculoCita}>{v.cita}</Text>
-                {v.oracion && (
-                  <Text style={styles.versiculoOracion}>🙏 {v.oracion}</Text>
-                )}
-              </View>
-            ))}
+        {/* Me gusta: un boton que lleva a la lista completa */}
+        <Pressable
+          onPress={() => router.push("/megusta" as Href)}
+          style={({ pressed }) => [
+            styles.botonGusta,
+            pressed && styles.presionado,
+          ]}
+        >
+          <View style={styles.botonGustaIcono}>
+            <Octicons name="heart-fill" size={18} color={PRIMARY} />
           </View>
-        )}
+          <View style={styles.flex}>
+            <Text style={styles.botonGustaTitulo}>Mis me gusta</Text>
+            <Text style={styles.botonGustaSub}>
+              {gustados.length === 0
+                ? "Doble toque a un versículo para guardarlo aquí"
+                : `Ver ${gustados.length === 1 ? "el versículo" : `los ${gustados.length} versículos`} que te gustaron`}
+            </Text>
+          </View>
+          <Octicons name="chevron-right" size={16} color={MUTED} />
+        </Pressable>
+
+        {/* Versiculos y oraciones: un boton que lleva a la lista completa */}
+        <Pressable
+          onPress={() => router.push("/guardados" as Href)}
+          style={({ pressed }) => [
+            styles.botonGusta,
+            pressed && styles.presionado,
+          ]}
+        >
+          <View style={styles.botonGustaIcono}>
+            <Octicons name="bookmark-filled" size={18} color={PRIMARY} />
+          </View>
+          <View style={styles.flex}>
+            <Text style={styles.botonGustaTitulo}>Versículos y oraciones</Text>
+            <Text style={styles.botonGustaSub}>
+              {versiculos.length === 0
+                ? "Guarda un versículo u ora con él desde la Biblia"
+                : `Ver ${versiculos.length === 1 ? "tu guardado" : `tus ${versiculos.length} guardados`}`}
+            </Text>
+          </View>
+          <Octicons name="chevron-right" size={16} color={MUTED} />
+        </Pressable>
 
         {/* Proximos turnos */}
         <View style={styles.seccion}>
@@ -283,15 +375,26 @@ export default function PerfilScreen() {
                   key={op.id}
                   // por ahora solo estas opciones hacen algo
                   onPress={
-                    op.id === "bienvenida"
-                      ? () => verBienvenida(false)
-                      : op.id === "codigo"
-                        ? () => setConCodigo(true)
-                        : op.id === "notificaciones"
-                          ? () => router.push("/notificaciones" as Href)
-                          : op.id === "reiniciar"
-                            ? confirmarReinicio
-                            : undefined
+                    op.id === "privacidad"
+                      ? () => router.push("/privacidad" as Href)
+                      : op.id === "ayuda"
+                        ? () => router.push("/ayuda" as Href)
+                        : op.id === "ministerios"
+                          ? // con iglesia: sus salas; sin iglesia: unirse con el codigo
+                            iglesia
+                            ? () => router.push("/comunidad" as Href)
+                            : () => setConCodigo(true)
+                          : op.id === "editar"
+                            ? () => router.push("/editar-perfil" as Href)
+                            : op.id === "bienvenida"
+                              ? () => verBienvenida(false)
+                              : op.id === "codigo"
+                                ? () => setConCodigo(true)
+                                : op.id === "notificaciones"
+                                  ? () => router.push("/notificaciones" as Href)
+                                  : op.id === "reiniciar"
+                                    ? confirmarReinicio
+                                    : undefined
                   }
                   style={({ pressed }) => [
                     styles.opcion,
@@ -311,14 +414,32 @@ export default function PerfilScreen() {
                       color={op.peligro ? PRIMARY : TEXT}
                     />
                   </View>
-                  <Text
-                    style={[
-                      styles.opcionTexto,
-                      op.peligro && styles.opcionTextoPeligro,
-                    ]}
-                  >
-                    {op.label}
-                  </Text>
+                  {op.id === "ministerios" ? (
+                    // su iglesia (es una sola) o el aviso de que aun no se une
+                    <View style={styles.flex}>
+                      <Text style={styles.ministerioLabel}>{op.label}</Text>
+                      <Text
+                        style={[
+                          styles.ministerioIglesia,
+                          !iglesia && styles.ministerioSin,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {iglesia
+                          ? iglesia.sede
+                          : "Aún no te has unido a tu ministerio"}
+                      </Text>
+                    </View>
+                  ) : (
+                    <Text
+                      style={[
+                        styles.opcionTexto,
+                        op.peligro && styles.opcionTextoPeligro,
+                      ]}
+                    >
+                      {op.label}
+                    </Text>
+                  )}
                   {!op.peligro && (
                     <Octicons name="chevron-right" size={16} color={MUTED} />
                   )}
@@ -327,6 +448,8 @@ export default function PerfilScreen() {
             </View>
           </View>
         ))}
+        {/* version de la app (la de Google Play) */}
+        <Text style={styles.version}>{TEXTO_VERSION}</Text>
       </ScrollView>
 
       <ModalEstudio estudio={abierto} onCerrar={() => setAbiertoId(null)} />
@@ -460,6 +583,11 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 12,
+    fontWeight: "600",
+    color: TEXT,
+  },
+  statSub: {
+    fontSize: 10,
     color: MUTED,
   },
 
@@ -544,9 +672,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING * 1.2,
     paddingVertical: SPACING * 1.2,
     borderRadius: 14,
-    backgroundColor: "#242424",
+    backgroundColor: ELEVADO,
     borderWidth: 1,
-    borderColor: "#333333",
+    borderColor: LINEA,
   },
   bloqueIcono: {
     width: 34,
@@ -554,7 +682,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#1A1A1A",
+    backgroundColor: ELEVADO,
   },
   bloqueRol: {
     fontSize: 10,
@@ -570,6 +698,39 @@ const styles = StyleSheet.create({
   },
 
   // Menu
+  botonGusta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING * 1.2,
+    marginHorizontal: PADDING,
+    padding: SPACING * 1.4,
+    borderRadius: 18,
+    backgroundColor: SURFACE,
+  },
+  botonGustaIcono: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: primarioAlfa(0.15),
+  },
+  botonGustaTitulo: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: TEXT,
+  },
+  botonGustaSub: {
+    fontSize: 12,
+    color: MUTED,
+    marginTop: 2,
+  },
+  version: {
+    marginTop: SPACING,
+    fontSize: 12,
+    color: MUTED,
+    textAlign: "center",
+  },
   opcion: {
     flexDirection: "row",
     alignItems: "center",
@@ -592,7 +753,19 @@ const styles = StyleSheet.create({
     backgroundColor: SURFACE,
   },
   opcionIconoPeligro: {
-    backgroundColor: "rgba(229, 72, 77, 0.15)",
+    backgroundColor: primarioAlfa(0.15),
+  },
+  ministerioLabel: {
+    fontSize: 15,
+    color: TEXT,
+  },
+  ministerioIglesia: {
+    fontSize: 12,
+    color: MUTED,
+    marginTop: 1,
+  },
+  ministerioSin: {
+    color: PRIMARY,
   },
   opcionTexto: {
     flex: 1,

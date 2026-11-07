@@ -47,7 +47,8 @@
           "microphonePermission": "IMEP usa el micrófono para enviar notas de voz a tu grupo.",
           "recordAudioAndroid": true
         }
-      ]
+      ],
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true,

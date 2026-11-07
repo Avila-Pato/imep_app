@@ -6,6 +6,7 @@ import {
   SERIF,
   SPACING,
   TEXT,
+  LINEA,
 } from "@/constants/constans";
 import { useUnirse } from "@/hooks/useUnirse";
 import { useEstudios, useGrupos, useIglesia } from "@/store/estudios";
@@ -82,7 +83,7 @@ const styles = StyleSheet.create({
     marginBottom: SPACING,
   },
   iconoError: {
-    backgroundColor: "#3A3A3A",
+    backgroundColor: LINEA,
   },
   titulo: {
     fontFamily: SERIF,

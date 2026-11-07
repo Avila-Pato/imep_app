@@ -7,6 +7,8 @@ import {
   SPACING,
   SURFACE,
   TEXT,
+  LINEA,
+  RADIO_BORDE,
 } from "@/constants/constans";
 import { useEsPastor, useEstudios, useGrupos } from "@/store/estudios";
 import { Grupo } from "@/types/typesComunidad";
@@ -103,14 +105,14 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderTopWidth: 1,
-    borderColor: "#3A3A3A",
+    borderColor: LINEA,
   },
   asa: {
     alignSelf: "center",
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "#4A4A4A",
+    backgroundColor: RADIO_BORDE,
   },
   titulo: {
     fontFamily: FUENTE.bibliaFuerte,

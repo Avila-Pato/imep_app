@@ -1,3 +1,5 @@
+import { conAlfa, MODO_ACTUAL, PALETAS, TEMA_ACTUAL, TEMAS } from "./tema";
+
 import { Categoria, CategoriaId } from "@/types/typesAnuncios";
 import { Cargo, CargoId } from "@/types/typesCargos";
 import { Grupo } from "@/types/typesComunidad";
@@ -7,6 +9,10 @@ import { OpcionMenu } from "@/types/typesPerfil";
 import { Dimensions, Platform } from "react-native";
 
 const { width } = Dimensions.get("window");
+
+// colores base segun el fondo elegido (oscuro o claro)
+const PALETA = PALETAS[MODO_ACTUAL];
+export const ES_CLARO = MODO_ACTUAL === "claro";
 
 export const TABBAR_WIDTH = width * 0.8; // espaciado de la barra de navegacion
 export const SPACING = 10;
@@ -22,10 +28,8 @@ export const ACCENT = "#8980B8";
 export const TEXT_COLOR = "#464343ff";
 export const BG_COLOR = "#edf2f5";
 export const GREEN = "#34D59A";
-export const ACTIVE_COLOR = "#FFFFFF";
-export const INACTIVE_COLOR = "#7A7A7A";
-export const TABBAR_BG = "#161616";
-export const TABBAR_BORDER = "#262626";
+export const TABBAR_BG: string = PALETA.barra;
+export const TABBAR_BORDER: string = PALETA.barraBorde;
 
 export const BACKGROUND_TRANSLATE_Y = -2;
 export const BADGE_HEIGHT = 44;
@@ -33,12 +37,24 @@ export const BADGE_WIDTH = 120;
 export const INACTIVE_ROTATION = "8deg";
 
 // Paleta oscura
-export const DARK_BG = "#121212";
-export const SURFACE = "#1E1E1E";
-export const BORDER = "#2A2A2A";
-export const TEXT = "#F2F2F2";
-export const MUTED = "#9A9A9A";
-export const PRIMARY = "#E5484D";
+export const DARK_BG: string = PALETA.fondo;
+export const SURFACE: string = PALETA.superficie;
+export const ELEVADO: string = PALETA.elevado;
+export const LECTURA: string = PALETA.lectura;
+export const BORDER: string = PALETA.borde;
+export const TEXT: string = PALETA.texto;
+export const MUTED: string = PALETA.tenue;
+// color principal segun el tema elegido (Editar perfil)
+export const PRIMARY: string = TEMAS[TEMA_ACTUAL].primario;
+// el principal transparente (fondos suaves, bordes)
+export const primarioAlfa = (alfa: number) => conAlfa(PRIMARY, alfa);
+// barra de pestañas: en oscuro el icono activo es blanco; en claro, del color
+export const ACTIVE_COLOR: string = ES_CLARO ? PRIMARY : "#FFFFFF";
+export const INACTIVE_COLOR: string = PALETA.inactivo;
+// grises que cambian con el fondo
+export const LINEA: string = PALETA.linea;
+export const RADIO_BORDE: string = PALETA.radio;
+export const PLACEHOLDER: string = PALETA.placeholder;
 
 // Onboarding: false = no se muestra nunca (mientras se termina la app)
 export const MOSTRAR_BIENVENIDA = true;
@@ -232,7 +248,7 @@ export const MENU_PERFIL: { titulo: string; opciones: OpcionMenu[] }[] = [
     opciones: [
       { id: "editar", label: "Editar perfil", icon: "pencil" },
       { id: "codigo", label: "Tengo un código", icon: "key" },
-      { id: "ministerios", label: "Mis ministerios", icon: "people" },
+      { id: "ministerios", label: "Mi ministerio", icon: "people" },
       { id: "notificaciones", label: "Notificaciones", icon: "bell" },
     ],
   },

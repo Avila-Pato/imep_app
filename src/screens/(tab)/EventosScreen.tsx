@@ -1,10 +1,13 @@
 import { DARK_BG } from "@/constants/constans";
 import { IconName } from "@/types/typesCronogramas";
 import { useLocalSearchParams } from "expo-router";
-import { useState } from "react";
-import { StyleSheet } from "react-native";
+import { useRef, useState } from "react";
+import { StyleSheet, View } from "react-native";
+import { BlurTargetView } from "expo-blur";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AnunciosView from "./components/AnunciosView";
+import AyudaAnuncios from "./components/AyudaAnuncios";
+import AyudaCronograma from "./components/AyudaCronograma";
 import CabeceraHoy from "./components/CabeceraHoy";
 import CronogramaView from "./components/CronogramaView";
 import TabsSuperiores from "./components/TabsSuperiores";
@@ -28,23 +31,45 @@ export default function EventosScreen() {
     if (pedida) setVista(pedida);
   }
 
+  // Pop up de ayuda del cronograma (sale solo la primera vez)
+  // lo de abajo de las pestañas (se ve borroso detras del pop up)
+  const objetivo = useRef<View>(null);
+  const [arriba, setArriba] = useState(0);
+
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <CabeceraHoy />
-      <TabsSuperiores
-        opciones={VISTAS}
-        activo={vista}
-        onCambiar={setVista}
-        variante="pastilla"
-      />
+      {/* cabecera y pestañas: quedan nitidas sobre el pop up */}
+      <View
+        onLayout={(e) =>
+          setArriba(e.nativeEvent.layout.y + e.nativeEvent.layout.height)
+        }
+      >
+        <CabeceraHoy />
+        <TabsSuperiores
+          opciones={VISTAS}
+          activo={vista}
+          onCambiar={setVista}
+          variante="pastilla"
+        />
+      </View>
 
-      <VistaAnimada vista={vista} style={styles.flex}>
-        {vista === "cronograma" ? (
-          <CronogramaView />
+      <BlurTargetView ref={objetivo} style={styles.flex}>
+        <VistaAnimada vista={vista} style={styles.flex}>
+          {vista === "cronograma" ? (
+            <CronogramaView />
+          ) : (
+            <AnunciosView conIglesia />
+          )}
+        </VistaAnimada>
+      </BlurTargetView>
+
+      {/* ayuda de cada pestaña (solo la primera vez) */}
+      {arriba > 0 &&
+        (vista === "cronograma" ? (
+          <AyudaCronograma objetivo={objetivo} arriba={arriba} />
         ) : (
-          <AnunciosView conIglesia />
-        )}
-      </VistaAnimada>
+          <AyudaAnuncios objetivo={objetivo} arriba={arriba} />
+        ))}
     </SafeAreaView>
   );
 }

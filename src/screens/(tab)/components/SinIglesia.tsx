@@ -8,6 +8,7 @@ import {
   SPACING,
   SURFACE,
   TEXT,
+  PLACEHOLDER,
 } from "@/constants/constans";
 import { useUnirse } from "@/hooks/useUnirse";
 import Octicons from "@expo/vector-icons/Octicons";
@@ -95,7 +96,7 @@ export default function SinIglesia({
               }}
               onSubmitEditing={usar}
               placeholder="Pega el enlace o código"
-              placeholderTextColor="#555555"
+              placeholderTextColor={PLACEHOLDER}
               autoCapitalize="none"
               autoCorrect={false}
               autoFocus

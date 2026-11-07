@@ -5,11 +5,24 @@ import { Caveat_600SemiBold } from "@expo-google-fonts/caveat/600SemiBold";
 import { EBGaramond_400Regular } from "@expo-google-fonts/eb-garamond/400Regular";
 import { EBGaramond_400Regular_Italic } from "@expo-google-fonts/eb-garamond/400Regular_Italic";
 import { EBGaramond_600SemiBold } from "@expo-google-fonts/eb-garamond/600SemiBold";
-import { DARK_BG, MOSTRAR_BIENVENIDA, TEXT } from "@/constants/constans";
+import {
+  DARK_BG,
+  MOSTRAR_BIENVENIDA,
+  TEXT,
+  ES_CLARO,
+} from "@/constants/constans";
 import { useRecordatorios } from "@/hooks/useRecordatorios";
 import { useCargado, useEstudios } from "@/store/estudios";
 import { useFonts } from "expo-font";
-import { DarkTheme, Stack, ThemeProvider } from "expo-router";
+import {
+  DarkTheme,
+  DefaultTheme,
+  Href,
+  router,
+  Stack,
+  ThemeProvider,
+} from "expo-router";
+import { escucharToques } from "@/services/notificaciones";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
@@ -22,10 +35,11 @@ SplashScreen.preventAutoHideAsync();
 // Fondo oscuro detras de todas las vistas: al cambiar de pestaña o de
 // pantalla no se asoma el blanco por defecto
 SystemUI.setBackgroundColorAsync(DARK_BG).catch(() => {});
+const BASE = ES_CLARO ? DefaultTheme : DarkTheme;
 const TEMA = {
-  ...DarkTheme,
+  ...BASE,
   colors: {
-    ...DarkTheme.colors,
+    ...BASE.colors,
     background: DARK_BG,
     card: DARK_BG,
     text: TEXT,
@@ -52,8 +66,15 @@ export default function RootLayout() {
   const listo = (fuentesListas || !!error) && cargado;
 
   useEffect(() => {
-    if (listo) SplashScreen.hideAsync();
+    if (!listo) return;
+    SplashScreen.hideAsync();
   }, [listo]);
+
+  // Tocar una notificacion abre su pantalla (cuando la app ya esta lista)
+  useEffect(() => {
+    if (!listo || !bienvenida) return;
+    return escucharToques((url) => router.push(url as Href));
+  }, [listo, bienvenida]);
 
   if (!listo) return null;
 
@@ -61,7 +82,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: DARK_BG }}>
       <ThemeProvider value={TEMA}>
         {/* Hora e iconos del celular en claro (la app es oscura) */}
-        <StatusBar style="light" />
+        <StatusBar style={ES_CLARO ? "dark" : "light"} />
         <Stack
           screenOptions={{
             headerShown: false,
@@ -80,6 +101,11 @@ export default function RootLayout() {
             <Stack.Screen name="permisos" />
             <Stack.Screen name="gestion/[tipo]" />
             <Stack.Screen name="notificaciones" />
+            <Stack.Screen name="megusta" />
+            <Stack.Screen name="guardados" />
+            <Stack.Screen name="privacidad" />
+            <Stack.Screen name="ayuda" />
+            <Stack.Screen name="editar-perfil" />
             <Stack.Screen name="unirse/[codigo]" />
             {/* entra y sale desde abajo, como una hoja */}
             <Stack.Screen

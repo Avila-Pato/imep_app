@@ -9,6 +9,10 @@ import {
   SPACING,
   SURFACE,
   TEXT,
+  primarioAlfa,
+  PLACEHOLDER,
+  LINEA,
+  RADIO_BORDE,
 } from "@/constants/constans";
 import { sugerirCitas } from "@/services/biblia";
 import { publicar, useEsLider, useEstudios, useGrupos } from "@/store/estudios";
@@ -150,7 +154,7 @@ export default function ModalPedirOracion({
                         value={texto}
                         onChangeText={setTexto}
                         placeholder="Ej: Pido oración por la salud de mi mamá…"
-                        placeholderTextColor="#555555"
+                        placeholderTextColor={PLACEHOLDER}
                         autoCapitalize="sentences"
                         multiline
                         autoFocus
@@ -207,7 +211,7 @@ export default function ModalPedirOracion({
                           setSugerir(true);
                         }}
                         placeholder="Ej: Filipenses 4:6"
-                        placeholderTextColor="#555555"
+                        placeholderTextColor={PLACEHOLDER}
                         style={styles.input}
                       />
                       {sugerencias.length > 0 && (
@@ -293,14 +297,14 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderTopWidth: 1,
-    borderColor: "#3A3A3A",
+    borderColor: LINEA,
   },
   asa: {
     alignSelf: "center",
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "#4A4A4A",
+    backgroundColor: RADIO_BORDE,
   },
   cabecera: {
     flexDirection: "row",
@@ -425,7 +429,7 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(229, 72, 77, 0.12)",
+    backgroundColor: primarioAlfa(0.12),
   },
   listoTitulo: {
     fontFamily: FUENTE.semibold,

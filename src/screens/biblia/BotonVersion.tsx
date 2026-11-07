@@ -7,6 +7,7 @@ import {
   SURFACE,
   TEXT,
   VERSIONES_BIBLIA,
+  LINEA,
 } from "@/constants/constans";
 import { elegirVersion, useVersion } from "@/store/estudios";
 import Octicons from "@expo/vector-icons/Octicons";
@@ -113,7 +114,7 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: "#3A3A3A",
+    borderColor: LINEA,
   },
   codigo: {
     fontFamily: FUENTE.semibold,
@@ -144,7 +145,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "#3A3A3A",
+    backgroundColor: LINEA,
   },
   titulo: {
     fontFamily: FUENTE.bibliaFuerte,

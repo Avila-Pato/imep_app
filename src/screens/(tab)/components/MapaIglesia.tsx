@@ -5,6 +5,7 @@ import {
   PRIMARY,
   SPACING,
   TEXT,
+  ELEVADO,
 } from "@/constants/constans";
 import { teselasVisibles } from "@/utils/mapa";
 import Octicons from "@expo/vector-icons/Octicons";
@@ -134,7 +135,7 @@ export default function MapaIglesia({
 
 const styles = StyleSheet.create({
   esqueleto: {
-    backgroundColor: "#202020",
+    backgroundColor: ELEVADO,
   },
   pin: {
     position: "absolute",

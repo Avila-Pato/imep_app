@@ -8,6 +8,9 @@ import {
   SPACING,
   SURFACE,
   TEXT,
+  ELEVADO,
+  LINEA,
+  RADIO_BORDE,
 } from "@/constants/constans";
 import { useEspacioBarra } from "@/hooks/useEspacioBarra";
 import Octicons from "@expo/vector-icons/Octicons";
@@ -748,7 +751,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "#3A3A3A",
+    backgroundColor: LINEA,
     marginBottom: 4,
   },
   fondo: {
@@ -781,7 +784,7 @@ const styles = StyleSheet.create({
     height: 2,
     borderWidth: 1,
     borderStyle: "dashed",
-    borderColor: "#3A3A3A",
+    borderColor: LINEA,
   },
 
   // Calendario
@@ -850,7 +853,7 @@ const styles = StyleSheet.create({
     color: TEXT,
   },
   diaTextoApagado: {
-    color: "#4A4A4A",
+    color: RADIO_BORDE,
   },
   diaTextoActivo: {
     fontWeight: "700",
@@ -954,9 +957,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING * 1.2,
     paddingVertical: SPACING * 1.2,
     borderRadius: 14,
-    backgroundColor: "#242424",
+    backgroundColor: ELEVADO,
     borderWidth: 1,
-    borderColor: "#333333",
+    borderColor: LINEA,
   },
   bloqueVacio: {
     backgroundColor: "transparent",
@@ -999,7 +1002,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#1A1A1A",
+    backgroundColor: ELEVADO,
   },
   bloqueRol: {
     fontSize: 10,

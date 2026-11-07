@@ -9,10 +9,13 @@ import {
   SPACING,
   SURFACE,
   TEXT,
+  LECTURA,
+  PLACEHOLDER,
+  primarioAlfa,
 } from "@/constants/constans";
 import { usePasaje } from "@/hooks/usePasaje";
 import { Verso } from "@/services/biblia";
-import { useEstudios, useVersion } from "@/store/estudios";
+import { useEstudios, useFuenteBiblia, useVersion } from "@/store/estudios";
 import { claveVerso, SeleccionBiblia } from "./AccionesVersiculo";
 import TamanoLetra from "./TamanoLetra";
 import BotonLibro from "@/screens/biblia/BotonLibro";
@@ -83,6 +86,8 @@ function VersoTexto({
   tamano?: { fontSize: number; lineHeight: number }; // letra elegida
   children: ReactNode;
 }) {
+  // letra elegida en Editar perfil (clasica o moderna)
+  const fuente = useFuenteBiblia();
   const [lineas, setLineas] = useState<Linea[]>([]);
   // en web no se miden las lineas: se pinta el bloque completo
   const sinLineas = !!color && lineas.length === 0;
@@ -113,7 +118,7 @@ function VersoTexto({
           />
         ))}
       <Text
-        style={[styles.parrafo, tamano]}
+        style={[styles.parrafo, { fontFamily: fuente.normal }, tamano]}
         onTextLayout={(e) =>
           setLineas(
             e.nativeEvent.lines.map((l) => ({
@@ -314,7 +319,7 @@ export default function BibliaView({
           value={busqueda}
           onChangeText={setBusqueda}
           placeholder="Buscar libro"
-          placeholderTextColor="#555555"
+          placeholderTextColor={PLACEHOLDER}
           style={styles.input}
         />
       </View>
@@ -386,6 +391,7 @@ function Lectura({
 }) {
   const { resaltados, letra = 1 } = useEstudios();
   const [eligiendo, setEligiendo] = useState(false); // selector de libro abierto
+  const fuente = useFuenteBiblia();
   // tamaño elegido con A− / A+
   // interlineado amplio (1.7) para leer sin cansarse
   const tamano = { fontSize: 19 * letra, lineHeight: 32 * letra };
@@ -421,20 +427,30 @@ function Lectura({
             onElegir={onElegir}
             onCerrar={() => setEligiendo(false)}
           />
-          <View style={styles.herramientas}>
-            <Pressable
-              onPress={() => abrirVersiculos(libro, capitulo)}
-              hitSlop={6}
-              style={({ pressed }) => [
-                styles.modoVersos,
-                pressed && styles.presionado,
-              ]}
-            >
-              <Octicons name="versions" size={13} color={TEXT} />
-              <Text style={styles.modoVersosTexto}>
+          {/* Versiculo por versiculo: tarjeta destacada (leer de a uno) */}
+          <Pressable
+            onPress={() => abrirVersiculos(libro, capitulo)}
+            style={({ pressed }) => [
+              styles.modoVersos,
+              pressed && styles.presionado,
+            ]}
+            accessibilityLabel="Leer versículo por versículo"
+          >
+            <View style={styles.modoVersosIcono}>
+              <Octicons name="versions" size={16} color={PRIMARY} />
+            </View>
+            <View style={styles.flex}>
+              <Text style={styles.modoVersosTitulo}>
                 Versículo por versículo
               </Text>
-            </Pressable>
+              <Text style={styles.modoVersosSub}>
+                Lee de a un versículo, deslizando
+              </Text>
+            </View>
+            <Octicons name="chevron-right" size={16} color={PRIMARY} />
+          </Pressable>
+
+          <View style={styles.herramientas}>
             <TamanoLetra />
           </View>
 
@@ -452,6 +468,7 @@ function Lectura({
                 <Text
                   style={[
                     styles.capitular,
+                    { fontFamily: fuente.normal },
                     { fontSize: 62 * letra, lineHeight: 62 * letra },
                   ]}
                 >
@@ -726,17 +743,32 @@ const styles = StyleSheet.create({
   modoVersos: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: BORDER,
+    gap: SPACING * 1.2,
+    marginTop: SPACING * 1.4,
+    paddingHorizontal: SPACING * 1.4,
+    paddingVertical: SPACING * 1.1,
+    borderRadius: 16,
+    backgroundColor: primarioAlfa(0.08),
+    borderWidth: 1,
+    borderColor: primarioAlfa(0.35),
   },
-  modoVersosTexto: {
-    fontFamily: FUENTE.medium,
-    fontSize: 12,
+  modoVersosIcono: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: primarioAlfa(0.15),
+  },
+  modoVersosTitulo: {
+    fontFamily: FUENTE.semibold,
+    fontSize: 14,
     color: TEXT,
+  },
+  modoVersosSub: {
+    fontSize: 12,
+    color: MUTED,
+    marginTop: 1,
   },
   adorno: {
     flexDirection: "row",
@@ -784,7 +816,7 @@ const styles = StyleSheet.create({
     fontSize: 19,
     lineHeight: 32,
     letterSpacing: 0.15,
-    color: "#E9E4DA", // blanco calido: cansa menos que el blanco puro
+    color: LECTURA, // blanco calido (o tinta en modo claro)
   },
   // franja de color detras de cada linea de un versiculo resaltado
   franja: {

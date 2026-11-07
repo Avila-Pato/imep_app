@@ -1,4 +1,11 @@
-import { BORDER, DARK_BG, MUTED, SPACING, TEXT } from "@/constants/constans";
+import {
+  BORDER,
+  DARK_BG,
+  MUTED,
+  SPACING,
+  TEXT,
+  PLACEHOLDER,
+} from "@/constants/constans";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import Octicons from "@expo/vector-icons/Octicons";
 import { useState } from "react";
@@ -29,7 +36,7 @@ export default function PasoCuenta({ onSeguir }: { onSeguir: () => void }) {
             value={correo}
             onChangeText={setCorreo}
             placeholder="hola@ejemplo.com"
-            placeholderTextColor="#555555"
+            placeholderTextColor={PLACEHOLDER}
             keyboardType="email-address"
             autoCapitalize="none"
             autoComplete="email"
@@ -44,7 +51,7 @@ export default function PasoCuenta({ onSeguir }: { onSeguir: () => void }) {
               value={clave}
               onChangeText={setClave}
               placeholder="Mínimo 6 caracteres"
-              placeholderTextColor="#555555"
+              placeholderTextColor={PLACEHOLDER}
               secureTextEntry={!verClave}
               autoCapitalize="none"
               autoComplete="new-password"
@@ -159,7 +166,7 @@ const styles = StyleSheet.create({
   googleTexto: {
     fontSize: 15,
     fontWeight: "600",
-    color: DARK_BG,
+    color: "#121212",
   },
   invitado: {
     flexDirection: "row",

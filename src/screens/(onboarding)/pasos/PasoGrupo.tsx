@@ -5,6 +5,7 @@ import {
   SPACING,
   SURFACE,
   TEXT,
+  PLACEHOLDER,
 } from "@/constants/constans";
 import { useUnirse } from "@/hooks/useUnirse";
 import { useEstudios, useGrupos } from "@/store/estudios";
@@ -71,7 +72,7 @@ export default function PasoGrupo({ onSeguir }: { onSeguir: () => void }) {
           }}
           onSubmitEditing={usar}
           placeholder="Pega el enlace o código"
-          placeholderTextColor="#555555"
+          placeholderTextColor={PLACEHOLDER}
           autoCapitalize="none"
           autoCorrect={false}
           style={styles.inputTexto}

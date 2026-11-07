@@ -1,6 +1,11 @@
+import { tomarRegreso } from "@/constants/tema";
 import { Href, Redirect } from "expo-router";
 
-// Inicio se quito: su contenido (versiculo, mapa y proximo culto) esta en Anuncios
+// Despues de cambiar el color la app se reinicia: se abre donde estaba
+// (ej. el Perfil). Se lee una sola vez al cargar la app
+const REGRESO = tomarRegreso();
+
+// Inicio se quito: lleva a Anuncios (o a la pantalla pendiente del reinicio)
 export default function Inicio() {
-  return <Redirect href={"/eventos" as Href} />;
+  return <Redirect href={(REGRESO ?? "/eventos") as Href} />;
 }

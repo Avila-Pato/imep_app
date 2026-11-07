@@ -6,6 +6,10 @@ import {
   SPACING,
   SURFACE,
   TEXT,
+  PRIMARY,
+  ELEVADO,
+  PLACEHOLDER,
+  LINEA,
 } from "@/constants/constans";
 import { crearRol, useRoles } from "@/store/estudios";
 import { IconName } from "@/types/typesCronogramas";
@@ -133,7 +137,7 @@ export default function ModalNuevaCasilla({
                     onChangeText={setNombre}
                     onSubmitEditing={crear}
                     placeholder="Ej: Devocional, Sonido, Niños"
-                    placeholderTextColor="#555555"
+                    placeholderTextColor={PLACEHOLDER}
                     autoCapitalize="sentences"
                     autoFocus
                     style={[styles.input, repetida && styles.inputError]}
@@ -213,7 +217,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "#3A3A3A",
+    backgroundColor: LINEA,
   },
   contenido: {
     paddingHorizontal: SPACING * 2,
@@ -244,7 +248,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     borderStyle: "dashed",
-    borderColor: "#333333",
+    borderColor: LINEA,
   },
   previaIcono: {
     width: 34,
@@ -252,7 +256,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#1A1A1A",
+    backgroundColor: ELEVADO,
   },
   previaRol: {
     fontSize: 10,
@@ -284,11 +288,11 @@ const styles = StyleSheet.create({
     color: TEXT,
   },
   inputError: {
-    borderColor: "#E5484D",
+    borderColor: PRIMARY,
   },
   error: {
     fontSize: 12,
-    color: "#E5484D",
+    color: PRIMARY,
   },
   opciones: {
     flexDirection: "row",

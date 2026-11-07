@@ -7,6 +7,8 @@ import {
   SPACING,
   SURFACE,
   TEXT,
+  PLACEHOLDER,
+  LINEA,
 } from "@/constants/constans";
 import { useUnirse } from "@/hooks/useUnirse";
 import { useIglesia } from "@/store/estudios";
@@ -128,7 +130,7 @@ export default function ModalCodigo({
                         }}
                         onSubmitEditing={usar}
                         placeholder="Código o enlace"
-                        placeholderTextColor="#555555"
+                        placeholderTextColor={PLACEHOLDER}
                         autoCapitalize="none"
                         autoCorrect={false}
                         autoFocus
@@ -190,7 +192,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "#3A3A3A",
+    backgroundColor: LINEA,
   },
   cabecera: {
     flexDirection: "row",

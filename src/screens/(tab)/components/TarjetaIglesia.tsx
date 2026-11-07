@@ -1,9 +1,9 @@
 import {
-  DARK_BG,
   HOME_CARD_W as ANCHO,
   PRIMARY,
   SPACING,
   TEXT,
+  ELEVADO,
 } from "@/constants/constans";
 import { useEsPastor, useIglesia } from "@/store/estudios";
 import { proximoCulto } from "@/utils/cultos";
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
     height: ALTO,
     borderRadius: 22,
     overflow: "hidden",
-    backgroundColor: "#262626", // mientras cargan las teselas del mapa
+    backgroundColor: ELEVADO, // mientras cargan las teselas del mapa
   },
   flex: {
     flex: 1,
@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
   fichaHora: {
     fontSize: 22,
     fontWeight: "700",
-    color: DARK_BG,
+    color: "#121212",
   },
   fichaEtiqueta: {
     fontSize: 9,
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
   fichaLugar: {
     fontSize: 13,
     fontWeight: "600",
-    color: DARK_BG,
+    color: "#121212",
     marginTop: 1,
   },
 });

@@ -7,6 +7,7 @@ import {
   SPACING,
   SURFACE,
   TEXT,
+  PLACEHOLDER,
 } from "@/constants/constans";
 import Octicons from "@expo/vector-icons/Octicons";
 import { useState } from "react";
@@ -98,7 +99,7 @@ export default function ModalOracion({
                     value={oracion}
                     onChangeText={setOracion}
                     placeholder="Señor, hoy te pido…"
-                    placeholderTextColor="#555555"
+                    placeholderTextColor={PLACEHOLDER}
                     multiline
                     style={styles.input}
                   />

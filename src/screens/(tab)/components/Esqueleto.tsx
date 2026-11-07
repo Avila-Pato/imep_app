@@ -1,3 +1,4 @@
+import { ELEVADO } from "@/constants/constans";
 import { useEffect } from "react";
 import { DimensionValue, StyleProp, View, ViewStyle } from "react-native";
 import Animated, {
@@ -42,7 +43,7 @@ export default function Esqueleto({
             width: ancho,
             height: alto,
             borderRadius: radio,
-            backgroundColor: "#2C2C2C",
+            backgroundColor: ELEVADO,
           },
           estilo,
         ]}

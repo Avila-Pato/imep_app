@@ -8,6 +8,8 @@ import {
   SPACING,
   SURFACE,
   TEXT,
+  PLACEHOLDER,
+  LINEA,
 } from "@/constants/constans";
 import { guardarAnuncio } from "@/store/estudios";
 import { Anuncio, CategoriaId } from "@/types/typesAnuncios";
@@ -267,7 +269,7 @@ export default function ModalFormAnuncio({ anuncio, autor, onCerrar }: Props) {
                     value={titulo}
                     onChangeText={setTitulo}
                     placeholder="Ej: Noche de alabanza"
-                    placeholderTextColor="#555555"
+                    placeholderTextColor={PLACEHOLDER}
                     autoCapitalize="sentences"
                     maxLength={60}
                     style={styles.input}
@@ -280,7 +282,7 @@ export default function ModalFormAnuncio({ anuncio, autor, onCerrar }: Props) {
                     value={descripcion}
                     onChangeText={setDescripcion}
                     placeholder="Una línea que se ve en la lista"
-                    placeholderTextColor="#555555"
+                    placeholderTextColor={PLACEHOLDER}
                     autoCapitalize="sentences"
                     maxLength={120}
                     style={styles.input}
@@ -350,7 +352,7 @@ export default function ModalFormAnuncio({ anuncio, autor, onCerrar }: Props) {
                     onChangeText={setLugar}
                     onFocus={mostrarAbajo}
                     placeholder="Ej: Templo principal"
-                    placeholderTextColor="#555555"
+                    placeholderTextColor={PLACEHOLDER}
                     autoCapitalize="sentences"
                     style={styles.input}
                   />
@@ -361,7 +363,7 @@ export default function ModalFormAnuncio({ anuncio, autor, onCerrar }: Props) {
                     onChangeText={setDetalle}
                     onFocus={mostrarAbajo}
                     placeholder="Todo lo que los hermanos deben saber: qué llevar, a quién preguntar…"
-                    placeholderTextColor="#555555"
+                    placeholderTextColor={PLACEHOLDER}
                     autoCapitalize="sentences"
                     multiline
                     textAlignVertical="top"
@@ -422,7 +424,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "#3A3A3A",
+    backgroundColor: LINEA,
   },
   cabecera: {
     flexDirection: "row",

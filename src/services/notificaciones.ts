@@ -10,7 +10,22 @@ export const NOTIS_DISPONIBLES = Platform.OS !== "web";
 const CANAL = "iglesia";
 const MAXIMO = 40; // iOS permite 64 programadas: dejamos margen
 
-export type Aviso = { titulo: string; cuerpo: string; fecha: Date };
+// url: pantalla que se abre al tocar la notificacion (ej. "/eventos")
+export type Aviso = {
+  titulo: string;
+  cuerpo: string;
+  fecha: Date;
+  url?: string;
+};
+
+// Quien quiera enterarse cuando se activa el permiso (para programar ya)
+const oyentesPermiso = new Set<() => void>();
+export function alActivarPermiso(f: () => void) {
+  oyentesPermiso.add(f);
+  return () => {
+    oyentesPermiso.delete(f);
+  };
+}
 
 // Una vez al abrir la app: como mostrarlas y el canal de Android
 export async function configurarNotificaciones() {
@@ -38,7 +53,9 @@ export async function tienePermiso() {
 
 export async function pedirPermiso() {
   if (!NOTIS_DISPONIBLES) return false;
-  return (await Notifications.requestPermissionsAsync()).granted;
+  const ok = (await Notifications.requestPermissionsAsync()).granted;
+  if (ok) oyentesPermiso.forEach((f) => f());
+  return ok;
 }
 
 // Reemplaza todos los recordatorios por estos (solo los que aun no pasan)
@@ -52,7 +69,11 @@ export async function programarAvisos(avisos: Aviso[]) {
     .slice(0, MAXIMO);
   for (const a of futuros) {
     await Notifications.scheduleNotificationAsync({
-      content: { title: a.titulo, body: a.cuerpo },
+      content: {
+        title: a.titulo,
+        body: a.cuerpo,
+        data: a.url ? { url: a.url } : {},
+      },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DATE,
         date: a.fecha,
@@ -64,10 +85,14 @@ export async function programarAvisos(avisos: Aviso[]) {
 
 // Aviso inmediato (ej: el lider publica un aviso o devocional).
 // Sin backend llega solo a este telefono; con push llegara a todo el grupo
-export async function avisarAhora(titulo: string, cuerpo: string) {
+export async function avisarAhora(
+  titulo: string,
+  cuerpo: string,
+  url?: string,
+) {
   if (!(await tienePermiso())) return;
   await Notifications.scheduleNotificationAsync({
-    content: { title: titulo, body: cuerpo },
+    content: { title: titulo, body: cuerpo, data: url ? { url } : {} },
     trigger: null,
   });
 }
@@ -78,7 +103,7 @@ export async function enviarPrueba() {
   await Notifications.scheduleNotificationAsync({
     content: {
       title: "¡Así te avisaremos! 🔔",
-      body: "Recibirás recordatorios de cultos, turnos y anuncios.",
+      body: "Recibirás recordatorios de cultos, turnos, anuncios y tu sala.",
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
@@ -86,4 +111,29 @@ export async function enviarPrueba() {
       channelId: CANAL,
     },
   });
+}
+
+// Al tocar una notificacion se abre su pantalla (tambien si la app estaba
+// cerrada). Devuelve la funcion para dejar de escuchar
+export function escucharToques(abrir: (url: string) => void) {
+  if (!NOTIS_DISPONIBLES) return () => {};
+  const urlDe = (r: Notifications.NotificationResponse | null) => {
+    const url = r?.notification.request.content.data?.url;
+    return typeof url === "string" ? url : null;
+  };
+  // la app se abrio desde una notificacion
+  Notifications.getLastNotificationResponseAsync()
+    .then((r) => {
+      const url = urlDe(r);
+      if (url) {
+        abrir(url);
+        Notifications.clearLastNotificationResponseAsync?.().catch(() => {});
+      }
+    })
+    .catch(() => {});
+  const sub = Notifications.addNotificationResponseReceivedListener((r) => {
+    const url = urlDe(r);
+    if (url) abrir(url);
+  });
+  return () => sub.remove();
 }

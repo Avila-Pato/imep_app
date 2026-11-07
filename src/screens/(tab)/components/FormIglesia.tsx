@@ -7,6 +7,8 @@ import {
   SPACING,
   SURFACE,
   TEXT,
+  ELEVADO,
+  PLACEHOLDER,
 } from "@/constants/constans";
 import { buscarDireccion, Lugar } from "@/services/direcciones";
 import { Iglesia } from "@/types/typesHome";
@@ -80,7 +82,7 @@ export default function FormIglesia({
           value={nombre}
           onChangeText={setNombre}
           placeholder="Ej: Iglesia Central"
-          placeholderTextColor="#555555"
+          placeholderTextColor={PLACEHOLDER}
           autoCapitalize="words"
           style={styles.input}
         />
@@ -97,7 +99,7 @@ export default function FormIglesia({
               if (elegido && t !== elegido.direccion) setElegido(null);
             }}
             placeholder="Calle, número y comuna"
-            placeholderTextColor="#555555"
+            placeholderTextColor={PLACEHOLDER}
             autoCorrect={false}
             style={styles.buscadorInput}
           />
@@ -250,7 +252,7 @@ const styles = StyleSheet.create({
     height: PREVIA_ALTO,
     borderRadius: 18,
     overflow: "hidden",
-    backgroundColor: "#262626",
+    backgroundColor: ELEVADO,
   },
   previaChip: {
     position: "absolute",

@@ -8,6 +8,9 @@ import {
   SPACING,
   SURFACE,
   TEXT,
+  PLACEHOLDER,
+  LINEA,
+  RADIO_BORDE,
 } from "@/constants/constans";
 import { sugerirCitas } from "@/services/biblia";
 import { avisarAhora } from "@/services/notificaciones";
@@ -74,6 +77,7 @@ export default function ModalPublicarLider({
           ? `Devocional en ${sala.label}: ${titulo.trim()} 📖`
           : `Aviso de ${sala.label} 📣`,
         esDevocional ? cita.trim() || texto.trim() : texto.trim(),
+        `/sala/${sala.id}`, // al tocarla se abre la sala
       ).catch(() => {});
     }
     onCerrar();
@@ -159,7 +163,7 @@ export default function ModalPublicarLider({
                         value={titulo}
                         onChangeText={setTitulo}
                         placeholder="Ej: Confiar en medio de la tormenta"
-                        placeholderTextColor="#555555"
+                        placeholderTextColor={PLACEHOLDER}
                         autoCapitalize="sentences"
                         maxLength={70}
                         style={styles.input}
@@ -173,7 +177,7 @@ export default function ModalPublicarLider({
                           setSugerir(true);
                         }}
                         placeholder="Ej: Marcos 4:39"
-                        placeholderTextColor="#555555"
+                        placeholderTextColor={PLACEHOLDER}
                         style={styles.input}
                       />
                       {sugerencias.length > 0 && (
@@ -207,7 +211,7 @@ export default function ModalPublicarLider({
                         ? "Ej: Este jueves la reunión es a las 20:00"
                         : "Escribe la reflexión para el grupo…"
                     }
-                    placeholderTextColor="#555555"
+                    placeholderTextColor={PLACEHOLDER}
                     autoCapitalize="sentences"
                     multiline
                     textAlignVertical="top"
@@ -293,14 +297,14 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderTopWidth: 1,
-    borderColor: "#3A3A3A",
+    borderColor: LINEA,
   },
   asa: {
     alignSelf: "center",
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "#4A4A4A",
+    backgroundColor: RADIO_BORDE,
   },
   cabecera: {
     flexDirection: "row",

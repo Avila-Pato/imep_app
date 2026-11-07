@@ -1,3 +1,14 @@
+import { IGLESIA } from "@/assets/data/homeMocks";
+import { USUARIO } from "@/assets/data/perfilMocks";
+import {
+  BIBLIA_VERSION,
+  CARGOS,
+  GRUPOS,
+  ROL_GENERICO,
+  ROLES,
+} from "@/constants/constans";
+import { Anuncio } from "@/types/typesAnuncios";
+import { CargoId, Permiso } from "@/types/typesCargos";
 import {
   Desafio,
   EstudioGuardado,
@@ -8,26 +19,15 @@ import {
   Revision,
   VersiculoGuardado,
 } from "@/types/typesComunidad";
-import { IGLESIA } from "@/assets/data/homeMocks";
-import { USUARIO } from "@/assets/data/perfilMocks";
-import { Iglesia } from "@/types/typesHome";
-import {
-  BIBLIA_VERSION,
-  CARGOS,
-  GRUPOS,
-  ROL_GENERICO,
-  ROLES,
-} from "@/constants/constans";
-import { CargoId, Permiso } from "@/types/typesCargos";
-import { Anuncio } from "@/types/typesAnuncios";
-import { Predicacion } from "@/types/typesOraciones";
 import { Rol, RolId, Turno } from "@/types/typesCronogramas";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Iglesia } from "@/types/typesHome";
+import { Predicacion } from "@/types/typesOraciones";
 import { esLider, sigueGuardada } from "@/utils/peticiones";
 import { unirTurnos } from "@/utils/turnos";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSyncExternalStore } from "react";
 import { create } from "zustand";
-import { PersistStorage, persist } from "zustand/middleware";
+import { persist, PersistStorage } from "zustand/middleware";
 
 // Estado compartido entre pantallas (Estudio y Comunidad), guardado en el telefono.
 // Cuando exista un backend, "publicar" y "alternarOrando" deberan llamar a la API.
@@ -40,6 +40,9 @@ type Estado = {
   desafios: Desafio[]; // "Palabra de la semana" de cada sala
   salasEditadas: Record<string, Partial<Grupo>>; // cambios a las salas de base (Iglesia)
   meGusta: string[]; // versiculos con "me gusta" ("libro-capitulo-verso")
+  meGustaTextos: Record<string, MeGustaInfo>; // cita y texto de cada uno (para el perfil)
+  ayudasVistas: string[]; // explicaciones que ya vio (salen solo una vez)
+  turnosAvisados?: string[]; // turnos suyos ya avisados (sin dato = primera vez)
   vistos: Partial<Record<GrupoId, string>>; // ultima vez que abrio cada sala (ISO)
   habitos: Record<string, string[]>; // "YYYY-MM-DD" -> ids de habitos cumplidos
   revisiones: Record<string, Revision>; // decisiones del lider sobre peticiones
@@ -51,6 +54,9 @@ type Estado = {
   letra?: number; // tamaño de letra de la Biblia (1 = normal)
   version?: string; // version de la Biblia elegida (RV1960, NTV, LBLA)
   nombre?: string; // como quiere que la llamemos (onboarding)
+  avatar?: AvatarElegido; // chibi o foto (Editar perfil); sin esto, sus iniciales
+  portada?: string; // imagen de fondo arriba del perfil (galeria)
+  fuenteBiblia?: FuenteBiblia; // letra para leer la Biblia
   motivos?: string[]; // que la trae a la app (onboarding)
   rol?: RolIglesia; // quien es en la iglesia (el pastor administra)
   cargos: Record<string, CargoId[]>; // nombre -> roles que le dio el pastor
@@ -65,7 +71,7 @@ type Estado = {
 };
 
 // Notificaciones que la persona puede activar o apagar
-export type TipoAviso = "cultos" | "turnos" | "anuncios";
+export type TipoAviso = "cultos" | "turnos" | "anuncios" | "salas";
 
 // Codigo que reparte el pastor (de la iglesia o de una sala)
 export type CodigoInvitacion = {
@@ -105,6 +111,8 @@ const inicial = (): Estado => ({
   desafios: [],
   salasEditadas: {},
   meGusta: [],
+  meGustaTextos: {},
+  ayudasVistas: [],
   vistos: {},
   habitos: {},
   revisiones: {},
@@ -145,6 +153,14 @@ const useStore = create<Estado>()(
         mensajes: unir(estado.mensajes, previo.mensajes ?? []),
         desafios: unir(estado.desafios, previo.desafios ?? []),
         meGusta: [...new Set([...estado.meGusta, ...(previo.meGusta ?? [])])],
+        meGustaTextos: {
+          ...(previo.meGustaTextos ?? {}),
+          ...estado.meGustaTextos,
+        },
+        turnosAvisados: estado.turnosAvisados ?? previo.turnosAvisados,
+        ayudasVistas: [
+          ...new Set([...estado.ayudasVistas, ...(previo.ayudasVistas ?? [])]),
+        ],
         salasEditadas: {
           ...(previo.salasEditadas ?? {}),
           ...estado.salasEditadas,
@@ -156,6 +172,9 @@ const useStore = create<Estado>()(
         letra: estado.letra ?? previo.letra,
         version: estado.version ?? previo.version,
         nombre: estado.nombre ?? previo.nombre,
+        avatar: estado.avatar ?? previo.avatar,
+        portada: estado.portada ?? previo.portada,
+        fuenteBiblia: estado.fuenteBiblia ?? previo.fuenteBiblia,
         motivos: estado.motivos ?? previo.motivos,
         rol: estado.rol ?? previo.rol,
         cargos: { ...(previo.cargos ?? {}), ...estado.cargos },
@@ -223,8 +242,39 @@ export function guardarPerfil(datos: {
   nombre?: string;
   motivos?: string[];
   rol?: RolIglesia;
+  avatar?: AvatarElegido;
+  portada?: string;
+  fuenteBiblia?: FuenteBiblia;
 }) {
   cambiar(datos);
+}
+
+// Foto del perfil: un chibi (por su semilla) o una foto de la galeria
+export type AvatarElegido =
+  | { tipo: "chibi"; semilla: string; estilo?: string } // estilo de DiceBear
+  | { tipo: "foto"; uri: string };
+
+// Letra para leer la Biblia (Editar perfil)
+export type FuenteBiblia = "clasica" | "moderna";
+export const FUENTES_BIBLIA: Record<
+  FuenteBiblia,
+  { label: string; sub: string; normal: string; fuerte: string }
+> = {
+  clasica: {
+    label: "Clásica",
+    sub: "Como una Biblia impresa",
+    normal: "EBGaramond_400Regular",
+    fuerte: "EBGaramond_600SemiBold",
+  },
+  moderna: {
+    label: "Moderna",
+    sub: "Limpia, como en el celular",
+    normal: "Inter_500Medium",
+    fuerte: "Inter_600SemiBold",
+  },
+};
+export function useFuenteBiblia() {
+  return FUENTES_BIBLIA[useStore((s) => s.fuenteBiblia) ?? "clasica"];
 }
 
 // El pastor administra la app (turnos, roles...). Mock: lo elige en el
@@ -641,17 +691,62 @@ export function fijarHoraTurno(fecha: string, rol: RolId, hora: string) {
 
 // Guarda un versiculo (o varios seguidos) en el perfil
 // "Me gusta" de un versiculo: el doble toque solo lo da; el boton lo quita
-export function darMeGusta(clave: string) {
+// (se guarda la cita y el texto para mostrarlos en el Perfil)
+export type MeGustaInfo = { cita: string; texto: string; fecha: string };
+
+export function darMeGusta(clave: string, info: Omit<MeGustaInfo, "fecha">) {
   cambiar((s) =>
-    s.meGusta.includes(clave) ? s : { meGusta: [...s.meGusta, clave] },
+    s.meGusta.includes(clave)
+      ? s
+      : {
+          meGusta: [...s.meGusta, clave],
+          meGustaTextos: {
+            ...s.meGustaTextos,
+            [clave]: { ...info, fecha: new Date().toISOString() },
+          },
+        },
   );
 }
-export function alternarMeGusta(clave: string) {
+export function alternarMeGusta(
+  clave: string,
+  info: Omit<MeGustaInfo, "fecha">,
+) {
+  cambiar((s) => {
+    if (!s.meGusta.includes(clave)) {
+      return {
+        meGusta: [...s.meGusta, clave],
+        meGustaTextos: {
+          ...s.meGustaTextos,
+          [clave]: { ...info, fecha: new Date().toISOString() },
+        },
+      };
+    }
+    const resto = { ...s.meGustaTextos };
+    delete resto[clave];
+    return {
+      meGusta: s.meGusta.filter((c) => c !== clave),
+      meGustaTextos: resto,
+    };
+  });
+}
+
+// Turnos suyos que ya se avisaron (para no repetir el "te asignaron")
+export function marcarTurnosAvisados(claves: string[]) {
   cambiar((s) => ({
-    meGusta: s.meGusta.includes(clave)
-      ? s.meGusta.filter((c) => c !== clave)
-      : [...s.meGusta, clave],
+    turnosAvisados: [...new Set([...(s.turnosAvisados ?? []), ...claves])],
   }));
+}
+
+// Una explicacion ya vista (no vuelve a salir)
+export function marcarAyuda(id: string) {
+  cambiar((s) =>
+    s.ayudasVistas.includes(id) ? s : { ayudasVistas: [...s.ayudasVistas, id] },
+  );
+}
+
+// Quita un versiculo (y su oracion) de los guardados del perfil
+export function borrarVersiculo(id: string) {
+  cambiar((s) => ({ versiculos: s.versiculos.filter((v) => v.id !== id) }));
 }
 
 export function guardarVersiculo(v: VersiculoGuardado) {

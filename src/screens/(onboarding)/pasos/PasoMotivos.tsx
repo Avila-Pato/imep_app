@@ -8,6 +8,8 @@ import {
   SPACING,
   SURFACE,
   TEXT,
+  primarioAlfa,
+  RADIO_BORDE,
 } from "@/constants/constans";
 import { guardarPerfil, useEstudios } from "@/store/estudios";
 import Octicons from "@expo/vector-icons/Octicons";
@@ -111,7 +113,7 @@ const styles = StyleSheet.create({
   },
   tarjetaActiva: {
     borderColor: PRIMARY,
-    backgroundColor: "rgba(229, 72, 77, 0.08)",
+    backgroundColor: primarioAlfa(0.08),
   },
   icono: {
     width: 42,
@@ -142,7 +144,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1.5,
-    borderColor: "#4A4A4A",
+    borderColor: RADIO_BORDE,
   },
   checkActivo: {
     backgroundColor: TEXT,

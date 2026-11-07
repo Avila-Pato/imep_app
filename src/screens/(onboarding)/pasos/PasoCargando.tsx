@@ -5,6 +5,7 @@ import {
   PRIMARY,
   SPACING,
   TEXT,
+  primarioAlfa,
 } from "@/constants/constans";
 import Octicons from "@expo/vector-icons/Octicons";
 import { useEffect, useState } from "react";
@@ -119,7 +120,7 @@ const styles = StyleSheet.create({
     borderRadius: 65,
     borderWidth: 2,
     borderStyle: "dashed",
-    borderColor: "rgba(229, 72, 77, 0.5)",
+    borderColor: primarioAlfa(0.5),
   },
   logo: {
     width: 92,

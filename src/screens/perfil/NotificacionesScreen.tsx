@@ -47,14 +47,21 @@ const TIPOS: {
   {
     id: "turnos",
     titulo: "Mis turnos",
-    texto: "El día anterior a las 19:00, cuando te toca servir",
+    texto:
+      "Cuando te asignan un turno, el día anterior a las 19:00 y 2 horas antes",
     icono: "calendar",
   },
   {
     id: "anuncios",
     titulo: "Anuncios y eventos",
-    texto: "La mañana del día de cada actividad",
+    texto: "2 horas antes (o a las 9:00 si no tiene hora)",
     icono: "megaphone",
+  },
+  {
+    id: "salas",
+    titulo: "Mi sala",
+    texto: "Tu día de la Palabra de la semana y avisos de tu líder",
+    icono: "comment-discussion",
   },
 ];
 
@@ -102,8 +109,8 @@ export default function NotificacionesScreen() {
             Que nada se te <Text style={styles.cursiva}>pase</Text>
           </Text>
           <Text style={styles.sub}>
-            Te recordamos los cultos, cuándo te toca servir y las actividades de
-            la iglesia.
+            Te recordamos los cultos, cuándo te toca servir, las actividades de
+            la iglesia y lo de tu sala. Toca un aviso para ir directo a él.
           </Text>
         </View>
 

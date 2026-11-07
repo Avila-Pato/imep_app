@@ -9,6 +9,7 @@ import {
   SERIF,
   SPACING,
   TEXT,
+  PLACEHOLDER,
 } from "@/constants/constans";
 import { USUARIO } from "@/assets/data/perfilMocks";
 import { usePasaje } from "@/hooks/usePasaje";
@@ -307,7 +308,7 @@ export default function OracionesScreen() {
                   value={peticion}
                   onChangeText={setPeticion}
                   placeholder="Escribe tu petición…"
-                  placeholderTextColor="#555555"
+                  placeholderTextColor={PLACEHOLDER}
                   multiline
                   style={[styles.inputRespuesta, styles.inputPeticion]}
                 />
@@ -437,7 +438,7 @@ export default function OracionesScreen() {
                         value={cita}
                         onChangeText={setCita}
                         placeholder="Ej: Juan 3:16"
-                        placeholderTextColor="#555555"
+                        placeholderTextColor={PLACEHOLDER}
                         style={styles.inputCita}
                       />
                     </View>
@@ -502,7 +503,7 @@ export default function OracionesScreen() {
                             setRespuestas((r) => ({ ...r, [q.id]: txt }))
                           }
                           placeholder="Escribe aquí…"
-                          placeholderTextColor="#555555"
+                          placeholderTextColor={PLACEHOLDER}
                           multiline
                           style={styles.inputRespuesta}
                         />
@@ -957,7 +958,7 @@ const styles = StyleSheet.create({
     lineHeight: 26,
   },
   sinRespuesta: {
-    color: "#555555",
+    color: PLACEHOLDER,
     fontStyle: "italic",
   },
 });

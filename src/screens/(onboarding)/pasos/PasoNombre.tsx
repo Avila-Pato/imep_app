@@ -1,4 +1,4 @@
-import { BORDER, SPACING, TEXT } from "@/constants/constans";
+import { BORDER, SPACING, TEXT, PLACEHOLDER } from "@/constants/constans";
 import { guardarPerfil, useEstudios } from "@/store/estudios";
 import { useState } from "react";
 import { StyleSheet, TextInput } from "react-native";
@@ -35,7 +35,7 @@ export default function PasoNombre({ onSeguir }: { onSeguir: () => void }) {
         onChangeText={setNombre}
         onSubmitEditing={seguir}
         placeholder="Tu nombre…"
-        placeholderTextColor="#555555"
+        placeholderTextColor={PLACEHOLDER}
         autoCapitalize="words"
         autoComplete="name"
         returnKeyType="next"

@@ -19,6 +19,8 @@ import { Verso } from "@/services/biblia";
 import {
   alternarMeGusta,
   darMeGusta,
+  marcarAyuda,
+  useFuenteBiblia,
   guardarVersiculo,
   resaltar,
   useEstudios,
@@ -39,6 +41,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import AyudaVersiculos from "./AyudaVersiculos";
 import BotonLibro from "./BotonLibro";
 import BotonVersion from "./BotonVersion";
 import CorazonMeGusta, { DURACION_CORAZON } from "./CorazonMeGusta";
@@ -225,6 +228,9 @@ export default function VersiculosScreen() {
           </View>
         )}
 
+        {/* La primera vez: como funciona esta vista */}
+        <AyudaVersiculos />
+
         {/* Aviso corto (guardado, resaltado...) */}
         {aviso && (
           <View style={styles.aviso} pointerEvents="none">
@@ -300,14 +306,27 @@ function Pagina({
   onOrar,
   onSiguiente,
 }: PaginaProps) {
-  const { resaltados, versiculos, meGusta, letra = 1 } = useEstudios();
+  const {
+    resaltados,
+    versiculos,
+    meGusta,
+    ayudasVistas = [],
+    letra = 1,
+  } = useEstudios();
   const version = useVersion();
   const tamanoTexto = tamanoVerso(verso.texto, letra);
+  const fuente = useFuenteBiblia(); // letra elegida en Editar perfil
   const clave = claveVerso(libro, capitulo, verso.numero);
   const cita = `${LIBROS_BIBLIA[libro - 1]} ${capitulo}:${verso.numero}`;
   const color = resaltados[clave];
   const guardado = versiculos.some((v) => v.id === clave);
   const gusta = meGusta.includes(clave);
+  // donde quedo el "me gusta": se avisa solo la primera vez
+  const avisarMeGusta = () => {
+    if (ayudasVistas.includes("aviso-megusta")) return;
+    onAviso("❤ Guardado en tu Perfil › Mis me gusta");
+    marcarAyuda("aviso-megusta");
+  };
   // corazones que estan saltando (uno por cada doble toque)
   const [corazones, setCorazones] = useState<
     { id: number; x: number; y: number; giro: number }[]
@@ -329,7 +348,9 @@ function Pagina({
   const tocar = (e: GestureResponderEvent) => {
     const ahora = Date.now();
     if (ahora - ultimoToque.current < 300) {
-      darMeGusta(clave);
+      // la primera vez avisa donde quedo
+      if (!gusta) avisarMeGusta();
+      darMeGusta(clave, { cita, texto: verso.texto });
       const id = ahora;
       const { locationX: x, locationY: y } = e.nativeEvent;
       const giro = Math.round(Math.random() * 40 - 20);
@@ -351,7 +372,10 @@ function Pagina({
       label: "Me gusta",
       icono: gusta ? ("heart-fill" as const) : ("heart" as const),
       color: gusta ? PRIMARY : TEXT,
-      onPress: () => alternarMeGusta(clave),
+      onPress: () => {
+        if (!gusta) avisarMeGusta();
+        alternarMeGusta(clave, { cita, texto: verso.texto });
+      },
     },
     {
       id: "guardar",
@@ -384,6 +408,7 @@ function Pagina({
         <Text
           style={[
             styles.verso,
+            { fontFamily: fuente.normal },
             {
               fontSize: tamanoTexto,
               lineHeight: tamanoTexto * 1.3,

@@ -9,6 +9,9 @@ import {
   SPACING,
   SURFACE,
   TEXT,
+  PLACEHOLDER,
+  LINEA,
+  RADIO_BORDE,
 } from "@/constants/constans";
 import { usePasaje } from "@/hooks/usePasaje";
 import { sugerirCitas, versiculoAlAzar } from "@/services/biblia";
@@ -252,7 +255,7 @@ export default function CompartirVersiculo({
                           setSugerir(true);
                         }}
                         placeholder="Ej: Juan 3:16"
-                        placeholderTextColor="#555555"
+                        placeholderTextColor={PLACEHOLDER}
                         style={styles.inputCita}
                       />
                     </View>
@@ -333,7 +336,7 @@ export default function CompartirVersiculo({
                           onChangeText={setTexto}
                           onFocus={mostrarAbajo}
                           placeholder="Escribe lo que entendiste…"
-                          placeholderTextColor="#555555"
+                          placeholderTextColor={PLACEHOLDER}
                           multiline
                           style={styles.inputTexto}
                         />
@@ -453,7 +456,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderLeftWidth: StyleSheet.hairlineWidth,
     borderRightWidth: StyleSheet.hairlineWidth,
-    borderColor: "#3A3A3A",
+    borderColor: LINEA,
     boxShadow: "0px -12px 32px rgba(0,0,0,0.6)",
   },
   asa: {
@@ -461,7 +464,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "#4A4A4A",
+    backgroundColor: RADIO_BORDE,
     marginTop: SPACING,
     marginBottom: SPACING * 1.4,
   },

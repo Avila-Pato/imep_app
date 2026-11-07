@@ -10,6 +10,8 @@ import {
   SPACING,
   SURFACE,
   TEXT,
+  ELEVADO,
+  LINEA,
 } from "@/constants/constans";
 import { enviarMensaje, useEsLider, useEstudios } from "@/store/estudios";
 import { Grupo, Mensaje } from "@/types/typesComunidad";
@@ -269,7 +271,7 @@ const styles = StyleSheet.create({
   },
   burbujaMia: {
     alignSelf: "flex-end",
-    backgroundColor: "#2C2C2C",
+    backgroundColor: ELEVADO,
     borderBottomRightRadius: 4,
   },
   burbujaOtra: {
@@ -313,7 +315,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: SURFACE,
     borderWidth: 1,
-    borderColor: "#3A3A3A",
+    borderColor: LINEA,
   },
   liderDevocional: {
     borderColor: PRIMARY,

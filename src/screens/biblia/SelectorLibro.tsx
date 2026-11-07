@@ -8,6 +8,7 @@ import {
   SPACING,
   SURFACE,
   TEXT,
+  LINEA,
 } from "@/constants/constans";
 import Octicons from "@expo/vector-icons/Octicons";
 import { useState } from "react";
@@ -234,7 +235,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "#3A3A3A",
+    backgroundColor: LINEA,
   },
   cabecera: {
     flexDirection: "row",
