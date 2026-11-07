@@ -30,6 +30,7 @@ export default function ModalGuardado({
 }: Props) {
   return (
     <Modal
+      navigationBarTranslucent
       visible={visible}
       transparent
       animationType="fade"

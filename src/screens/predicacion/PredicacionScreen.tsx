@@ -16,7 +16,7 @@ export default function PredicacionScreen() {
   // ?id=... abre una predicacion anterior (sin id = la ultima)
   const { id } = useLocalSearchParams<{ id?: string }>();
   return (
-    <SafeAreaView style={styles.safe} edges={["top"]}>
+    <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       <View style={styles.cabecera}>
         <Pressable
           // si se entro directo (sin historial), vuelve a Inicio

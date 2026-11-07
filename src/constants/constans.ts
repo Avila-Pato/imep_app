@@ -270,40 +270,13 @@ export const NOTAS_COLORES = ["#E9E3D6", "#D9DFE4", "#DCE3D7", "#E6DCDA"];
 export const NOTA_TINTA = "#2A2A2A";
 
 // Comunidad: salas por grupo
+// Solo la sala de toda la iglesia; las de cada grupo las crea el pastor
 export const GRUPOS: Grupo[] = [
   {
     id: "general",
     label: "Iglesia",
     descripcion: "Toda la congregación",
     icono: "home",
-  },
-  {
-    id: "jovenes",
-    label: "Jóvenes",
-    descripcion: "Grupo de jóvenes",
-    icono: "flame",
-    tono: "#D8C8A8",
-  },
-  {
-    id: "varones",
-    label: "Varones",
-    descripcion: "Hermanos varones",
-    icono: "shield",
-    tono: "#B8C4CC",
-  },
-  {
-    id: "dorcas",
-    label: "Dorcas",
-    descripcion: "Hermanas de Dorcas",
-    icono: "heart",
-    tono: "#D5C1BF",
-  },
-  {
-    id: "ninos",
-    label: "Niños",
-    descripcion: "Escuela dominical",
-    icono: "smiley",
-    tono: "#C2CCB6",
   },
 ];
 

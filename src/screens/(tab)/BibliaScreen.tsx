@@ -1,3 +1,4 @@
+import { useEspacioBarra } from "@/hooks/useEspacioBarra";
 import {
   DARK_BG,
   HOME_PADDING as PADDING,
@@ -19,6 +20,8 @@ import BibliaView from "./components/BibliaView";
 // Sin titulo arriba: el tabbar ya dice "Biblia".
 // El estudio guiado y lo guardado van en el Perfil.
 export default function BibliaScreen() {
+  // espacio para la barra flotante y los botones del telefono
+  const espacio = useEspacioBarra();
   const insets = useSafeAreaInsets();
   // ?libro=1&capitulo=3: abre ese capitulo (al venir de "Leer capítulo completo").
   // Sin parametros empieza en Génesis 1
@@ -35,7 +38,7 @@ export default function BibliaScreen() {
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView
         ref={scrollRef}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: espacio }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -72,7 +75,6 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: PADDING,
     paddingTop: SPACING,
-    paddingBottom: 120, // espacio para el tabbar flotante
   },
   barra: {
     position: "absolute",

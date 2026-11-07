@@ -75,8 +75,10 @@ export default function RootLayout() {
           <Stack.Protected guard={!!bienvenida}>
             <Stack.Screen name="(tab)" />
             <Stack.Screen name="sala/[id]" />
+            <Stack.Screen name="privado/[persona]" />
             <Stack.Screen name="predicacion" />
             <Stack.Screen name="permisos" />
+            <Stack.Screen name="gestion/[tipo]" />
             <Stack.Screen name="notificaciones" />
             <Stack.Screen name="unirse/[codigo]" />
             {/* entra y sale desde abajo, como una hoja */}

@@ -1,4 +1,5 @@
 import {
+  Desafio,
   EstudioGuardado,
   Grupo,
   GrupoId,
@@ -18,9 +19,10 @@ import {
   ROLES,
 } from "@/constants/constans";
 import { CargoId, Permiso } from "@/types/typesCargos";
+import { Anuncio } from "@/types/typesAnuncios";
 import { Rol, RolId, Turno } from "@/types/typesCronogramas";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { sigueGuardada } from "@/utils/peticiones";
+import { esLider, sigueGuardada } from "@/utils/peticiones";
 import { unirTurnos } from "@/utils/turnos";
 import { useSyncExternalStore } from "react";
 import { create } from "zustand";
@@ -34,12 +36,15 @@ type Estado = {
   publicaciones: Publicacion[]; // las que compartio esta persona
   orando: string[]; // ids de publicaciones donde marco "Orando"
   mensajes: Mensaje[]; // los que envio esta persona en los chats
+  desafios: Desafio[]; // "Palabra de la semana" de cada sala
+  salasEditadas: Record<string, Partial<Grupo>>; // cambios a las salas de base (Iglesia)
+  meGusta: string[]; // versiculos con "me gusta" ("libro-capitulo-verso")
   vistos: Partial<Record<GrupoId, string>>; // ultima vez que abrio cada sala (ISO)
   habitos: Record<string, string[]>; // "YYYY-MM-DD" -> ids de habitos cumplidos
   revisiones: Record<string, Revision>; // decisiones del lider sobre peticiones
   resaltados: Record<string, string>; // "libro-capitulo-verso" -> color
   versiculos: VersiculoGuardado[]; // guardados desde la Biblia
-  grupo?: GrupoId; // grupo al que se unio (varones, jovenes, dorcas, ninos)
+  grupo?: GrupoId; // sala de grupo a la que se unio (una que creo el pastor)
   turnosEditados: Record<string, Turno[]>; // "YYYY-MM-DD" -> turnos que asigno el admin
   bienvenida?: boolean; // ya vio el onboarding (solo se muestra la primera vez)
   letra?: number; // tamaño de letra de la Biblia (1 = normal)
@@ -54,6 +59,7 @@ type Estado = {
   avisos: Partial<Record<TipoAviso, boolean>>; // notificaciones que quiere (sin dato = si)
   invitados: string[]; // nombres agregados a mano en el cronograma (sin cuenta en la app)
   rolesExtra: Record<string, Rol>; // casillas nuevas del cronograma (ej: Devocional)
+  anuncios: Anuncio[]; // los que publico el pastor / secretaria / comunicaciones
 };
 
 // Notificaciones que la persona puede activar o apagar
@@ -94,6 +100,9 @@ const inicial = (): Estado => ({
   publicaciones: [],
   orando: [],
   mensajes: [],
+  desafios: [],
+  salasEditadas: {},
+  meGusta: [],
   vistos: {},
   habitos: {},
   revisiones: {},
@@ -106,6 +115,7 @@ const inicial = (): Estado => ({
   avisos: {},
   invitados: [],
   rolesExtra: {},
+  anuncios: [],
 });
 
 const useStore = create<Estado>()(
@@ -130,6 +140,12 @@ const useStore = create<Estado>()(
         ).filter((p) => sigueGuardada(p, revisiones)),
         orando: [...new Set([...estado.orando, ...(previo.orando ?? [])])],
         mensajes: unir(estado.mensajes, previo.mensajes ?? []),
+        desafios: unir(estado.desafios, previo.desafios ?? []),
+        meGusta: [...new Set([...estado.meGusta, ...(previo.meGusta ?? [])])],
+        salasEditadas: {
+          ...(previo.salasEditadas ?? {}),
+          ...estado.salasEditadas,
+        },
         vistos: { ...(previo.vistos ?? {}), ...estado.vistos },
         habitos: { ...(previo.habitos ?? {}), ...estado.habitos },
         grupo: estado.grupo ?? previo.grupo,
@@ -145,6 +161,7 @@ const useStore = create<Estado>()(
         codigos: { ...(previo.codigos ?? {}), ...estado.codigos },
         avisos: { ...(previo.avisos ?? {}), ...estado.avisos },
         rolesExtra: { ...(previo.rolesExtra ?? {}), ...estado.rolesExtra },
+        anuncios: unir(estado.anuncios, previo.anuncios ?? []),
         invitados: [
           ...new Set([...estado.invitados, ...(previo.invitados ?? [])]),
         ],
@@ -224,6 +241,21 @@ export function usePuede(permiso: Permiso) {
   );
 }
 
+// ¿Maneja esta sala? (palabra de la semana, aprobar peticiones)
+// El pastor, los administradores (quien asigna roles) y el lider de la sala
+export function useEsLider(grupo: GrupoId) {
+  const esPastor = useEsPastor();
+  const admin = usePuede("roles");
+  const yo = useStore((s) => s.nombre ?? USUARIO.nombre);
+  const lider = useStore((s) => s.salas.find((g) => g.id === grupo)?.lider);
+  return (
+    esPastor ||
+    admin ||
+    (!!lider && (lider === yo || lider === USUARIO.nombre)) ||
+    esLider(USUARIO.nombre, grupo)
+  );
+}
+
 // Iglesia de esta persona (sin iglesia = hermano que aun no se une)
 export function useIglesia() {
   return useStore((s) => s.iglesia);
@@ -282,7 +314,33 @@ export function generarCodigo(grupo: GrupoId) {
 // Todas las salas: las de base y las que creo el pastor
 export function useGrupos(): Grupo[] {
   const creadas = useStore((s) => s.salas);
-  return [...GRUPOS, ...creadas];
+  const editadas = useStore((s) => s.salasEditadas);
+  return [...GRUPOS.map((g) => ({ ...g, ...editadas[g.id] })), ...creadas];
+}
+
+// El pastor cambia una sala ya creada (nombre, lider, que tiene...)
+export function editarSala(id: GrupoId, cambios: Partial<Omit<Grupo, "id">>) {
+  cambiar((s) =>
+    s.salas.some((g) => g.id === id)
+      ? {
+          salas: s.salas.map((g) => (g.id === id ? { ...g, ...cambios } : g)),
+        }
+      : {
+          salasEditadas: {
+            ...s.salasEditadas,
+            [id]: { ...s.salasEditadas[id], ...cambios },
+          },
+        },
+  );
+}
+
+// Borra una sala creada (la de toda la iglesia no se puede borrar)
+export function borrarSala(id: GrupoId) {
+  cambiar((s) => ({
+    salas: s.salas.filter((g) => g.id !== id),
+    desafios: s.desafios.filter((d) => d.grupo !== id),
+    grupo: s.grupo === id ? undefined : s.grupo,
+  }));
 }
 
 // El pastor crea una sala nueva (ej: "Alabanza", "Matrimonios")
@@ -362,6 +420,20 @@ export function enviarMensaje(m: Mensaje) {
   cambiar((s) => ({ mensajes: [...s.mensajes, m] }));
 }
 
+// El lider da la "Palabra de la semana" (reemplaza la que hubiera en la sala)
+export function crearDesafio(d: Omit<Desafio, "id" | "desde">) {
+  cambiar((s) => ({
+    desafios: [
+      ...s.desafios.filter((x) => x.grupo !== d.grupo),
+      { ...d, id: `d-${Date.now()}`, desde: new Date().toISOString() },
+    ],
+  }));
+}
+
+export function terminarDesafio(id: string) {
+  cambiar((s) => ({ desafios: s.desafios.filter((d) => d.id !== id) }));
+}
+
 // Marca la sala como leida (para el contador de no leidos)
 export function marcarVisto(grupo: GrupoId) {
   cambiar((s) => ({
@@ -414,6 +486,24 @@ export function resaltar(claves: string[], color: string | null) {
 
 // El admin asigna (o quita, con null) a la persona de un rol en un culto.
 // Luego esto lo guardara la API para que lo vea toda la iglesia.
+// Publica un anuncio nuevo o guarda los cambios de uno existente
+export function guardarAnuncio(a: Omit<Anuncio, "id"> & { id?: string }) {
+  cambiar((s) => {
+    if (a.id && s.anuncios.some((x) => x.id === a.id)) {
+      return {
+        anuncios: s.anuncios.map((x) =>
+          x.id === a.id ? { ...a, id: x.id } : x,
+        ),
+      };
+    }
+    return { anuncios: [{ ...a, id: `a-${Date.now()}` }, ...s.anuncios] };
+  });
+}
+
+export function borrarAnuncio(id: string) {
+  cambiar((s) => ({ anuncios: s.anuncios.filter((a) => a.id !== id) }));
+}
+
 // Casillas del cronograma: las de la app + las que agrego la iglesia
 export function useRoles() {
   const extra = useStore((s) => s.rolesExtra);
@@ -509,6 +599,20 @@ export function fijarHoraTurno(fecha: string, rol: RolId, hora: string) {
 }
 
 // Guarda un versiculo (o varios seguidos) en el perfil
+// "Me gusta" de un versiculo: el doble toque solo lo da; el boton lo quita
+export function darMeGusta(clave: string) {
+  cambiar((s) =>
+    s.meGusta.includes(clave) ? s : { meGusta: [...s.meGusta, clave] },
+  );
+}
+export function alternarMeGusta(clave: string) {
+  cambiar((s) => ({
+    meGusta: s.meGusta.includes(clave)
+      ? s.meGusta.filter((c) => c !== clave)
+      : [...s.meGusta, clave],
+  }));
+}
+
 export function guardarVersiculo(v: VersiculoGuardado) {
   cambiar((s) => ({
     versiculos: [v, ...s.versiculos.filter((x) => x.id !== v.id)],

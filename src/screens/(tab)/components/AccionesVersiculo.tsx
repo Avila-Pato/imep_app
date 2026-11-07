@@ -12,12 +12,16 @@ import { Verso } from "@/services/biblia";
 import {
   guardarVersiculo,
   resaltar,
+  useEsPastor,
   useEstudios,
   useVersion,
 } from "@/store/estudios";
 import Octicons from "@expo/vector-icons/Octicons";
 import * as Clipboard from "expo-clipboard";
 import { useEffect, useState } from "react";
+import CompartirVersiculo from "@/screens/sala/components/CompartirVersiculo";
+import ElegirSala from "@/screens/sala/components/ElegirSala";
+import { Grupo } from "@/types/typesComunidad";
 import ModalOracion from "./ModalOracion";
 import {
   Pressable,
@@ -58,7 +62,11 @@ type Props = {
 
 // Barra que aparece al tocar versiculos: resaltar, guardar, copiar, compartir, orar
 export default function AccionesVersiculo({ seleccion, onListo }: Props) {
-  const { resaltados } = useEstudios();
+  const { resaltados, iglesia } = useEstudios();
+  const esPastor = useEsPastor();
+  // mandar el versiculo a un chat: primero se elige la sala
+  const [eligiendo, setEligiendo] = useState(false);
+  const [sala, setSala] = useState<Grupo | null>(null);
   const version = useVersion();
   // aviso corto en lugar de la cita (la barra no se cierra)
   const [aviso, setAviso] = useState<string | null>(null);
@@ -98,7 +106,8 @@ export default function AccionesVersiculo({ seleccion, onListo }: Props) {
   const acciones: {
     id: string;
     label: string;
-    icono: "bookmark" | "copy" | "share-android" | "heart";
+    icono:
+      "bookmark" | "copy" | "share-android" | "heart" | "comment-discussion";
     onPress: () => void;
   }[] = [
     {
@@ -114,6 +123,15 @@ export default function AccionesVersiculo({ seleccion, onListo }: Props) {
         });
         avisar("Guardado en tu perfil");
       },
+    },
+    {
+      id: "chat",
+      label: "A mi sala",
+      icono: "comment-discussion",
+      onPress: () =>
+        iglesia || esPastor
+          ? setEligiendo(true)
+          : avisar("Únete a tu iglesia para compartir"),
     },
     {
       id: "copiar",
@@ -235,6 +253,26 @@ export default function AccionesVersiculo({ seleccion, onListo }: Props) {
           </Pressable>
         ))}
       </ScrollView>
+
+      {/* Al chat de una sala: se elige la sala y se abre compartir versiculo */}
+      {eligiendo && (
+        <ElegirSala
+          titulo={cita}
+          onElegir={(g) => {
+            setEligiendo(false);
+            setSala(g);
+          }}
+          onCerrar={() => setEligiendo(false)}
+        />
+      )}
+      {sala && (
+        <CompartirVersiculo
+          sala={sala}
+          visible
+          citaInicial={cita}
+          onCerrar={() => setSala(null)}
+        />
+      )}
 
       {/* Orar con el versiculo: guardar en el perfil o compartir */}
       <ModalOracion

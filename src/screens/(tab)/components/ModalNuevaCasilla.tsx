@@ -14,7 +14,6 @@ import { useState } from "react";
 import {
   KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -22,7 +21,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import ConBordes from "@/components/ConBordes";
 
 const ICONOS: IconName[] = [
   "flame",
@@ -47,7 +46,6 @@ export default function ModalNuevaCasilla({
   visible: boolean;
   onCerrar: () => void;
 }) {
-  const insets = useSafeAreaInsets();
   const roles = useRoles();
   const [nombre, setNombre] = useState("");
   const [icono, setIcono] = useState<IconName>(ICONOS[0]);
@@ -72,99 +70,116 @@ export default function ModalNuevaCasilla({
 
   return (
     <Modal
+      navigationBarTranslucent
+      statusBarTranslucent
       visible={visible}
       transparent
       animationType="slide"
       onRequestClose={cerrar}
     >
-      <Pressable style={styles.fondo} onPress={cerrar} />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={styles.zona}
-        pointerEvents="box-none"
-      >
-        <View style={[styles.hoja, { paddingBottom: insets.bottom + SPACING }]}>
-          <View style={styles.asa} />
-          <ScrollView
-            contentContainerStyle={styles.contenido}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.cabecera}>
-              <Text style={styles.titulo}>Nueva casilla</Text>
-              <Pressable
-                onPress={cerrar}
-                hitSlop={10}
-                accessibilityLabel="Cerrar"
-              >
-                <Octicons name="x" size={18} color={MUTED} />
-              </Pressable>
-            </View>
-            <Text style={styles.sub}>
-              Aparecerá en el cronograma de todos los cultos. Los días que no
-              haya, déjala sin asignar.
-            </Text>
-
-            {/* Vista previa, igual que en el cronograma */}
-            <View style={styles.previa}>
-              <View style={styles.previaIcono}>
-                <Octicons name={icono} size={16} color={TEXT} />
-              </View>
-              <View style={styles.flex}>
-                <Text style={styles.previaRol}>
-                  {(limpio || "Devocional").toUpperCase()}
-                </Text>
-                <Text style={styles.previaPersona}>Sin asignar</Text>
-              </View>
-            </View>
-
-            <Text style={styles.etiqueta}>NOMBRE</Text>
-            <TextInput
-              value={nombre}
-              onChangeText={setNombre}
-              onSubmitEditing={crear}
-              placeholder="Ej: Devocional, Sonido, Niños"
-              placeholderTextColor="#555555"
-              autoCapitalize="sentences"
-              autoFocus
-              style={[styles.input, repetida && styles.inputError]}
-            />
-            {repetida && (
-              <Text style={styles.error}>Esa casilla ya existe.</Text>
-            )}
-
-            <Text style={styles.etiqueta}>ÍCONO</Text>
-            <View style={styles.opciones}>
-              {ICONOS.map((i) => (
-                <Pressable
-                  key={i}
-                  onPress={() => setIcono(i)}
-                  style={[styles.opcion, i === icono && styles.opcionActiva]}
-                  accessibilityState={{ selected: i === icono }}
-                >
-                  <Octicons
-                    name={i}
-                    size={18}
-                    color={i === icono ? DARK_BG : TEXT}
-                  />
-                </Pressable>
-              ))}
-            </View>
-
-            <Pressable
-              onPress={crear}
-              disabled={!listo}
-              style={({ pressed }) => [
-                styles.boton,
-                !listo && styles.botonApagado,
-                pressed && styles.presionado,
-              ]}
+      <ConBordes>
+        {(insets) => (
+          <>
+            <Pressable style={styles.fondo} onPress={cerrar} />
+            <KeyboardAvoidingView
+              // en Android la hoja (pantalla completa) no se achica sola: se sube aqui
+              behavior="padding"
+              style={styles.zona}
+              pointerEvents="box-none"
             >
-              <Text style={styles.botonTexto}>Agregar casilla</Text>
-            </Pressable>
-          </ScrollView>
-        </View>
-      </KeyboardAvoidingView>
+              <View
+                style={[
+                  styles.hoja,
+                  { paddingBottom: insets.bottom + SPACING },
+                ]}
+              >
+                <View style={styles.asa} />
+                <ScrollView
+                  contentContainerStyle={styles.contenido}
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={false}
+                >
+                  <View style={styles.cabecera}>
+                    <Text style={styles.titulo}>Nueva casilla</Text>
+                    <Pressable
+                      onPress={cerrar}
+                      hitSlop={10}
+                      accessibilityLabel="Cerrar"
+                    >
+                      <Octicons name="x" size={18} color={MUTED} />
+                    </Pressable>
+                  </View>
+                  <Text style={styles.sub}>
+                    Aparecerá en el cronograma de todos los cultos. Los días que
+                    no haya, déjala sin asignar.
+                  </Text>
+
+                  {/* Vista previa, igual que en el cronograma */}
+                  <View style={styles.previa}>
+                    <View style={styles.previaIcono}>
+                      <Octicons name={icono} size={16} color={TEXT} />
+                    </View>
+                    <View style={styles.flex}>
+                      <Text style={styles.previaRol}>
+                        {(limpio || "Devocional").toUpperCase()}
+                      </Text>
+                      <Text style={styles.previaPersona}>Sin asignar</Text>
+                    </View>
+                  </View>
+
+                  <Text style={styles.etiqueta}>NOMBRE</Text>
+                  <TextInput
+                    value={nombre}
+                    onChangeText={setNombre}
+                    onSubmitEditing={crear}
+                    placeholder="Ej: Devocional, Sonido, Niños"
+                    placeholderTextColor="#555555"
+                    autoCapitalize="sentences"
+                    autoFocus
+                    style={[styles.input, repetida && styles.inputError]}
+                  />
+                  {repetida && (
+                    <Text style={styles.error}>Esa casilla ya existe.</Text>
+                  )}
+
+                  <Text style={styles.etiqueta}>ÍCONO</Text>
+                  <View style={styles.opciones}>
+                    {ICONOS.map((i) => (
+                      <Pressable
+                        key={i}
+                        onPress={() => setIcono(i)}
+                        style={[
+                          styles.opcion,
+                          i === icono && styles.opcionActiva,
+                        ]}
+                        accessibilityState={{ selected: i === icono }}
+                      >
+                        <Octicons
+                          name={i}
+                          size={18}
+                          color={i === icono ? DARK_BG : TEXT}
+                        />
+                      </Pressable>
+                    ))}
+                  </View>
+
+                  <Pressable
+                    onPress={crear}
+                    disabled={!listo}
+                    style={({ pressed }) => [
+                      styles.boton,
+                      !listo && styles.botonApagado,
+                      pressed && styles.presionado,
+                    ]}
+                  >
+                    <Text style={styles.botonTexto}>Agregar casilla</Text>
+                  </Pressable>
+                </ScrollView>
+              </View>
+            </KeyboardAvoidingView>
+          </>
+        )}
+      </ConBordes>
     </Modal>
   );
 }

@@ -65,7 +65,7 @@ export default function PermisosScreen() {
   const esYo = (n: string) => !esPastor && n === (nombre ?? USUARIO.nombre);
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top"]}>
+    <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       <View style={styles.cabecera}>
         <Pressable
           onPress={() =>

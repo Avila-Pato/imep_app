@@ -4,6 +4,7 @@ import {
   DARK_BG,
   HOME_PADDING as PADDING,
   MUTED,
+  PRIMARY,
   SERIF,
   SPACING,
   SURFACE,
@@ -21,11 +22,14 @@ import {
   Text,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import ConBordes from "@/components/ConBordes";
 
 type Props = {
   anuncio: Anuncio | null; // null = cerrado
   onCerrar: () => void;
+  // solo para quien puede publicar
+  onEditar?: () => void;
+  onBorrar?: () => void;
 };
 
 // "2026-10-25" -> "Sábado 25 de octubre"
@@ -56,81 +60,153 @@ const Dato = ({
 );
 
 // Detalle de un anuncio: imagen (si tiene) y toda la informacion
-export default function ModalAnuncio({ anuncio, onCerrar }: Props) {
-  const insets = useSafeAreaInsets();
-
+export default function ModalAnuncio({
+  anuncio,
+  onCerrar,
+  onEditar,
+  onBorrar,
+}: Props) {
   return (
     <Modal
+      navigationBarTranslucent
       visible={!!anuncio}
       transparent
       animationType="slide"
       onRequestClose={onCerrar}
       statusBarTranslucent
     >
-      <View style={styles.fondo}>
-        <Pressable style={styles.cerrarFondo} onPress={onCerrar} />
-        <View style={[styles.hoja, { paddingBottom: insets.bottom + SPACING }]}>
-          {anuncio && (
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {anuncio.imagen ? (
-                <Image
-                  source={{ uri: anuncio.imagen }}
-                  style={styles.imagen}
-                  contentFit="cover"
-                  transition={200}
-                />
-              ) : (
-                <View style={styles.asa} />
-              )}
-
-              <Pressable
-                onPress={onCerrar}
-                hitSlop={10}
-                style={[styles.cerrar, anuncio.imagen && styles.cerrarSobre]}
-                accessibilityLabel="Cerrar"
+      <ConBordes>
+        {(insets) => (
+          <>
+            <View style={styles.fondo}>
+              <Pressable style={styles.cerrarFondo} onPress={onCerrar} />
+              <View
+                style={[
+                  styles.hoja,
+                  { paddingBottom: insets.bottom + SPACING },
+                ]}
               >
-                <Octicons name="x" size={16} color={TEXT} />
-              </Pressable>
+                {anuncio && (
+                  <ScrollView showsVerticalScrollIndicator={false}>
+                    {anuncio.imagen ? (
+                      <Image
+                        source={{ uri: anuncio.imagen }}
+                        // completa (si es un afiche se lee entero)
+                        style={[
+                          styles.imagen,
+                          !!anuncio.imagenAspecto && {
+                            aspectRatio: anuncio.imagenAspecto,
+                          },
+                        ]}
+                        contentFit="contain"
+                        transition={200}
+                      />
+                    ) : (
+                      <View style={styles.asa} />
+                    )}
 
-              <View style={styles.cuerpo}>
-                <View style={styles.etiquetas}>
-                  <View style={styles.categoria}>
-                    <Octicons
-                      name={CATEGORIAS[anuncio.categoria].icon}
-                      size={11}
-                      color={MUTED}
-                    />
-                    <Text style={styles.categoriaTexto}>
-                      {CATEGORIAS[anuncio.categoria].label.toUpperCase()}
-                    </Text>
-                  </View>
-                </View>
+                    <Pressable
+                      onPress={onCerrar}
+                      hitSlop={10}
+                      style={[
+                        styles.cerrar,
+                        anuncio.imagen && styles.cerrarSobre,
+                      ]}
+                      accessibilityLabel="Cerrar"
+                    >
+                      <Octicons name="x" size={16} color={TEXT} />
+                    </Pressable>
 
-                <Text style={styles.titulo}>
-                  {partirTitulo(anuncio.titulo).inicio}
-                  <Text style={styles.cursiva}>
-                    {partirTitulo(anuncio.titulo).final}
-                  </Text>
-                </Text>
+                    <View style={styles.cuerpo}>
+                      <View style={styles.etiquetas}>
+                        <View style={styles.categoria}>
+                          <Octicons
+                            name={CATEGORIAS[anuncio.categoria].icon}
+                            size={11}
+                            color={MUTED}
+                          />
+                          <Text style={styles.categoriaTexto}>
+                            {CATEGORIAS[anuncio.categoria].label.toUpperCase()}
+                          </Text>
+                        </View>
+                      </View>
 
-                <View style={styles.datos}>
-                  <Dato icono="calendar" texto={fechaLarga(anuncio.fecha)} />
-                  {anuncio.hora && (
-                    <Dato icono="clock" texto={`${anuncio.hora} hrs`} />
-                  )}
-                  {anuncio.lugar && (
-                    <Dato icono="location" texto={anuncio.lugar} />
-                  )}
-                </View>
+                      {!!anuncio.titulo && (
+                        <Text style={styles.titulo}>
+                          {partirTitulo(anuncio.titulo).inicio}
+                          <Text style={styles.cursiva}>
+                            {partirTitulo(anuncio.titulo).final}
+                          </Text>
+                        </Text>
+                      )}
 
-                <Text style={styles.texto}>
-                  {anuncio.detalle ?? anuncio.descripcion}
-                </Text>
+                      <View style={styles.datos}>
+                        <Dato
+                          icono="calendar"
+                          texto={fechaLarga(anuncio.fecha)}
+                        />
+                        {anuncio.hora && (
+                          <Dato icono="clock" texto={`${anuncio.hora} hrs`} />
+                        )}
+                        {anuncio.lugar && (
+                          <Dato icono="location" texto={anuncio.lugar} />
+                        )}
+                      </View>
+
+                      {!!(anuncio.detalle || anuncio.descripcion) && (
+                        <Text style={styles.texto}>
+                          {anuncio.detalle ?? anuncio.descripcion}
+                        </Text>
+                      )}
+
+                      {anuncio.autor && (
+                        <Text style={styles.autor}>
+                          Publicado por {anuncio.autor}
+                        </Text>
+                      )}
+
+                      {/* Administrar (pastor, secretaria, comunicaciones) */}
+                      {(onEditar || onBorrar) && (
+                        <View style={styles.botones}>
+                          {onEditar && (
+                            <Pressable
+                              onPress={onEditar}
+                              style={({ pressed }) => [
+                                styles.boton,
+                                styles.flex,
+                                pressed && styles.presionado,
+                              ]}
+                            >
+                              <Octicons name="pencil" size={14} color={TEXT} />
+                              <Text style={styles.botonTexto}>Editar</Text>
+                            </Pressable>
+                          )}
+                          {onBorrar && (
+                            <Pressable
+                              onPress={onBorrar}
+                              style={({ pressed }) => [
+                                styles.boton,
+                                pressed && styles.presionado,
+                              ]}
+                              accessibilityLabel="Borrar anuncio"
+                            >
+                              <Octicons
+                                name="trash"
+                                size={14}
+                                color={PRIMARY}
+                              />
+                            </Pressable>
+                          )}
+                        </View>
+                      )}
+                    </View>
+                  </ScrollView>
+                )}
               </View>
-            </ScrollView>
-          )}
-        </View>
-      </View>
+            </View>
+          </>
+        )}
+      </ConBordes>
     </Modal>
   );
 }
@@ -245,6 +321,37 @@ const styles = StyleSheet.create({
   texto: {
     fontSize: 15,
     lineHeight: 23,
+    color: TEXT,
+  },
+  autor: {
+    fontSize: 12,
+    color: MUTED,
+  },
+  flex: {
+    flex: 1,
+  },
+  presionado: {
+    opacity: 0.6,
+  },
+  botones: {
+    flexDirection: "row",
+    gap: SPACING,
+    marginTop: SPACING / 2,
+  },
+  boton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    height: 46,
+    paddingHorizontal: SPACING * 1.6,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: BORDER,
+  },
+  botonTexto: {
+    fontSize: 14,
+    fontWeight: "600",
     color: TEXT,
   },
 });

@@ -2,8 +2,7 @@ import { IconName } from "./typesCronogramas";
 
 // Salas de la comunidad (cada grupo de la iglesia). Ademas de las de base,
 // el pastor puede crear otras (por eso tambien acepta cualquier texto)
-export type GrupoId =
-  "general" | "jovenes" | "varones" | "dorcas" | "ninos" | (string & {});
+export type GrupoId = "general" | (string & {}); // "general" = toda la iglesia; el resto, salas creadas
 
 export type Grupo = {
   id: GrupoId;
@@ -11,7 +10,12 @@ export type Grupo = {
   descripcion: string;
   icono: IconName;
   tono?: string; // color suave del gajo en la rueda de salas
+  lider?: string; // lo elige el pastor/administrador al crear la sala
+  // que tiene la sala (sin dato = si). Miembros siempre esta
+  funciones?: Partial<Record<FuncionSala, boolean>>;
 };
+
+export type FuncionSala = "chat" | "oracion" | "palabra";
 
 export type Miembro = {
   nombre: string;
@@ -28,6 +32,23 @@ export type Mensaje = {
   cita?: string; // versiculo sobre el que se comparte
   versiculo?: string; // texto de ese versiculo
   audio?: NotaDeVoz;
+  desafio?: string; // id de la "Palabra de la semana" que responde
+  tipo?: "aviso" | "devocional"; // publicado por el lider para todo el grupo
+  titulo?: string; // titulo del devocional
+};
+
+// "Palabra de la semana": el lider elige hermanos de su sala para que cada
+// uno elija un versiculo (o uno fijo) y cuente en el chat que le enseño
+export type Desafio = {
+  id: string;
+  grupo: GrupoId;
+  autor: string; // el lider que lo dio
+  consigna: string;
+  cita?: string; // versiculo fijo; sin cita = cada uno elige el suyo
+  elegidos: string[];
+  dias?: Record<string, string>; // el dia que le toca a cada uno ("YYYY-MM-DD")
+  desde: string; // ISO
+  hasta: string; // "YYYY-MM-DD" (ultimo dia para responder)
 };
 
 export type NotaDeVoz = {

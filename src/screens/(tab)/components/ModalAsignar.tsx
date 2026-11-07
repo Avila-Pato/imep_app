@@ -22,7 +22,6 @@ import { useState } from "react";
 import {
   KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -30,7 +29,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import ConBordes from "@/components/ConBordes";
 
 // Toda la congregacion registrada (sin repetir) para elegir quien sirve
 const REGISTRADOS = [
@@ -62,7 +61,6 @@ export default function ModalAsignar({
   onElegir,
   onCerrar,
 }: Props) {
-  const insets = useSafeAreaInsets();
   const { invitados } = useEstudios();
   const roles = useRoles();
   const [busqueda, setBusqueda] = useState("");
@@ -93,164 +91,184 @@ export default function ModalAsignar({
 
   return (
     <Modal
+      navigationBarTranslucent
+      statusBarTranslucent
       visible={!!rol}
       transparent
       animationType="slide"
       onRequestClose={cerrar}
     >
-      <Pressable style={styles.fondo} onPress={cerrar} />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={styles.hojaZona}
-      >
-        {rol && (
-          <View
-            style={[styles.hoja, { paddingBottom: insets.bottom + SPACING }]}
-          >
-            <View style={styles.asa} />
-
-            <View style={styles.cabecera}>
-              <View style={styles.icono}>
-                <Octicons name={roles.de(rol).icon} size={16} color={TEXT} />
-              </View>
-              <View style={styles.flex}>
-                <Text style={styles.titulo}>{roles.de(rol).label}</Text>
-                <Text style={styles.sub}>{fecha}</Text>
-              </View>
-              <Pressable
-                onPress={cerrar}
-                hitSlop={10}
-                accessibilityLabel="Cerrar"
-              >
-                <Octicons name="x" size={18} color={MUTED} />
-              </Pressable>
-            </View>
-
-            {/* Hora exacta del turno (ej: 18:09) */}
-            {hora && (
-              <View style={styles.horaFila}>
-                <View style={styles.flex}>
-                  <Text style={styles.horaLabel}>HORA</Text>
-                  <Text style={styles.detalle}>
-                    {hora === horaCulto
-                      ? "La del culto"
-                      : `El culto es a las ${horaCulto ?? "—"}`}
-                  </Text>
-                </View>
-                <SelectorHora hora={hora} onCambiar={onHora} />
-              </View>
-            )}
-
-            <View style={styles.buscador}>
-              <Octicons name="search" size={14} color={MUTED} />
-              <TextInput
-                value={busqueda}
-                onChangeText={setBusqueda}
-                onSubmitEditing={agregar}
-                placeholder="Buscar o escribir un nombre nuevo"
-                placeholderTextColor={MUTED}
-                autoCapitalize="words"
-                autoCorrect={false}
-                returnKeyType="done"
-                style={styles.input}
-              />
-            </View>
-
-            <ScrollView
-              style={styles.lista}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
+      <ConBordes>
+        {(insets) => (
+          <>
+            <Pressable style={styles.fondo} onPress={cerrar} />
+            <KeyboardAvoidingView
+              // en Android la hoja (pantalla completa) no se achica sola: se sube aqui
+              behavior="padding"
+              style={styles.hojaZona}
             >
-              {/* Agregar a alguien que no esta registrado */}
-              {nuevo ? (
-                <Pressable
-                  onPress={agregar}
-                  style={({ pressed }) => [
-                    styles.agregar,
-                    pressed && styles.presionado,
+              {rol && (
+                <View
+                  style={[
+                    styles.hoja,
+                    { paddingBottom: insets.bottom + SPACING },
                   ]}
                 >
-                  <View style={[styles.avatar, styles.avatarSel]}>
-                    <Octicons name="plus" size={14} color={DARK_BG} />
-                  </View>
-                  <View style={styles.flex}>
-                    <Text style={styles.nombre}>Agregar “{texto}”</Text>
-                    <Text style={styles.detalle}>
-                      No está en la app · quedará guardado
-                    </Text>
-                  </View>
-                </Pressable>
-              ) : (
-                !texto && (
-                  <View style={styles.pista}>
-                    <Octicons name="person-add" size={14} color={MUTED} />
-                    <Text style={styles.pistaTexto}>
-                      ¿No está en la lista? Escribe su nombre arriba para
-                      agregarlo.
-                    </Text>
-                  </View>
-                )
-              )}
-              {lista.map((p) => {
-                const elegido = p === actual;
-                const agregado = sinCuenta.includes(p);
-                return (
-                  <Pressable
-                    key={p}
-                    onPress={() => elegir(p)}
-                    style={({ pressed }) => [
-                      styles.fila,
-                      pressed && styles.presionado,
-                    ]}
-                    accessibilityState={{ selected: elegido }}
-                  >
-                    <View style={[styles.avatar, elegido && styles.avatarSel]}>
-                      <Text
-                        style={[
-                          styles.avatarTexto,
-                          elegido && styles.avatarTextoSel,
-                        ]}
-                      >
-                        {p.charAt(0)}
-                      </Text>
+                  <View style={styles.asa} />
+
+                  <View style={styles.cabecera}>
+                    <View style={styles.icono}>
+                      <Octicons
+                        name={roles.de(rol).icon}
+                        size={16}
+                        color={TEXT}
+                      />
                     </View>
                     <View style={styles.flex}>
-                      <Text style={styles.nombre}>{p}</Text>
-                      {agregado && (
-                        <Text style={styles.detalle}>Agregado a mano</Text>
-                      )}
+                      <Text style={styles.titulo}>{roles.de(rol).label}</Text>
+                      <Text style={styles.sub}>{fecha}</Text>
                     </View>
-                    {elegido && (
-                      <Octicons name="check" size={16} color={TEXT} />
-                    )}
-                    {agregado && !elegido && (
-                      <Pressable
-                        onPress={() => quitarInvitado(p)}
-                        hitSlop={10}
-                        accessibilityLabel={`Quitar a ${p} de la lista`}
-                      >
-                        <Octicons name="trash" size={14} color={MUTED} />
-                      </Pressable>
-                    )}
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
+                    <Pressable
+                      onPress={cerrar}
+                      hitSlop={10}
+                      accessibilityLabel="Cerrar"
+                    >
+                      <Octicons name="x" size={18} color={MUTED} />
+                    </Pressable>
+                  </View>
 
-            {actual && (
-              <Pressable
-                onPress={() => elegir(null)}
-                style={({ pressed }) => [
-                  styles.quitar,
-                  pressed && styles.presionado,
-                ]}
-              >
-                <Text style={styles.quitarTexto}>Quitar a {actual}</Text>
-              </Pressable>
-            )}
-          </View>
+                  {/* Hora exacta del turno (ej: 18:09) */}
+                  {hora && (
+                    <View style={styles.horaFila}>
+                      <View style={styles.flex}>
+                        <Text style={styles.horaLabel}>HORA</Text>
+                        <Text style={styles.detalle}>
+                          {hora === horaCulto
+                            ? "La del culto"
+                            : `El culto es a las ${horaCulto ?? "—"}`}
+                        </Text>
+                      </View>
+                      <SelectorHora hora={hora} onCambiar={onHora} />
+                    </View>
+                  )}
+
+                  <View style={styles.buscador}>
+                    <Octicons name="search" size={14} color={MUTED} />
+                    <TextInput
+                      value={busqueda}
+                      onChangeText={setBusqueda}
+                      onSubmitEditing={agregar}
+                      placeholder="Buscar o escribir un nombre nuevo"
+                      placeholderTextColor={MUTED}
+                      autoCapitalize="words"
+                      autoCorrect={false}
+                      returnKeyType="done"
+                      style={styles.input}
+                    />
+                  </View>
+
+                  <ScrollView
+                    style={styles.lista}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                  >
+                    {/* Agregar a alguien que no esta registrado */}
+                    {nuevo ? (
+                      <Pressable
+                        onPress={agregar}
+                        style={({ pressed }) => [
+                          styles.agregar,
+                          pressed && styles.presionado,
+                        ]}
+                      >
+                        <View style={[styles.avatar, styles.avatarSel]}>
+                          <Octicons name="plus" size={14} color={DARK_BG} />
+                        </View>
+                        <View style={styles.flex}>
+                          <Text style={styles.nombre}>Agregar “{texto}”</Text>
+                          <Text style={styles.detalle}>
+                            No está en la app · quedará guardado
+                          </Text>
+                        </View>
+                      </Pressable>
+                    ) : (
+                      !texto && (
+                        <View style={styles.pista}>
+                          <Octicons name="person-add" size={14} color={MUTED} />
+                          <Text style={styles.pistaTexto}>
+                            ¿No está en la lista? Escribe su nombre arriba para
+                            agregarlo.
+                          </Text>
+                        </View>
+                      )
+                    )}
+                    {lista.map((p) => {
+                      const elegido = p === actual;
+                      const agregado = sinCuenta.includes(p);
+                      return (
+                        <Pressable
+                          key={p}
+                          onPress={() => elegir(p)}
+                          style={({ pressed }) => [
+                            styles.fila,
+                            pressed && styles.presionado,
+                          ]}
+                          accessibilityState={{ selected: elegido }}
+                        >
+                          <View
+                            style={[styles.avatar, elegido && styles.avatarSel]}
+                          >
+                            <Text
+                              style={[
+                                styles.avatarTexto,
+                                elegido && styles.avatarTextoSel,
+                              ]}
+                            >
+                              {p.charAt(0)}
+                            </Text>
+                          </View>
+                          <View style={styles.flex}>
+                            <Text style={styles.nombre}>{p}</Text>
+                            {agregado && (
+                              <Text style={styles.detalle}>
+                                Agregado a mano
+                              </Text>
+                            )}
+                          </View>
+                          {elegido && (
+                            <Octicons name="check" size={16} color={TEXT} />
+                          )}
+                          {agregado && !elegido && (
+                            <Pressable
+                              onPress={() => quitarInvitado(p)}
+                              hitSlop={10}
+                              accessibilityLabel={`Quitar a ${p} de la lista`}
+                            >
+                              <Octicons name="trash" size={14} color={MUTED} />
+                            </Pressable>
+                          )}
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+
+                  {actual && (
+                    <Pressable
+                      onPress={() => elegir(null)}
+                      style={({ pressed }) => [
+                        styles.quitar,
+                        pressed && styles.presionado,
+                      ]}
+                    >
+                      <Text style={styles.quitarTexto}>Quitar a {actual}</Text>
+                    </Pressable>
+                  )}
+                </View>
+              )}
+            </KeyboardAvoidingView>
+          </>
         )}
-      </KeyboardAvoidingView>
+      </ConBordes>
     </Modal>
   );
 }

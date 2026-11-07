@@ -77,7 +77,7 @@ export default function NotificacionesScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top"]}>
+    <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       <View style={styles.cabecera}>
         <Pressable
           onPress={() =>

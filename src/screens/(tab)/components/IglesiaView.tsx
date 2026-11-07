@@ -11,9 +11,15 @@ import {
   TEXT,
 } from "@/constants/constans";
 import { miembrosDe } from "@/screens/sala/components/MiembrosSala";
-import { useEsPastor, useEstudios, useGrupos } from "@/store/estudios";
+import {
+  useEsPastor,
+  useEstudios,
+  useGrupos,
+  usePuede,
+} from "@/store/estudios";
 import { Grupo } from "@/types/typesComunidad";
 import { useUnirse } from "@/hooks/useUnirse";
+import { esPrivado, otroDe } from "@/utils/privado";
 import Octicons from "@expo/vector-icons/Octicons";
 import { Href, router } from "expo-router";
 import { useState } from "react";
@@ -105,6 +111,12 @@ export default function IglesiaView() {
   const unirse = useUnirse();
   // el hermano entra a las salas solo despues de unirse a una iglesia
   const sinIglesia = !esPastor && !miIglesia;
+  // pastor y administradores (secretaria, etc.) no necesitan la invitacion
+  // a una sala de grupo: el pastor entra a todas
+  const puedeCronograma = usePuede("cronograma");
+  const puedeAnuncios = usePuede("anuncios");
+  const puedeRoles = usePuede("roles");
+  const administra = esPastor || puedeCronograma || puedeAnuncios || puedeRoles;
   const todos = [...MENSAJES, ...mensajes];
 
   // Cada sala con sus mensajes no leidos
@@ -119,6 +131,31 @@ export default function IglesiaView() {
   const mia = salas.find((s) => s.id === miGrupo && s.id !== iglesia.id);
   const otras = salas.filter((s) => s.id !== iglesia.id && s.id !== mia?.id);
   const abrir = (id: string) => router.push(`/sala/${id}` as Href);
+
+  // Conversaciones privadas donde estoy (la mas reciente primero)
+  const privados = [
+    ...new Set(
+      mensajes
+        .filter((m) => esPrivado(m.grupo) && m.grupo.includes(USUARIO.nombre))
+        .map((m) => m.grupo),
+    ),
+  ]
+    .map((id) => {
+      const suyos = mensajes
+        .filter((m) => m.grupo === id)
+        .sort((a, b) => b.fecha.localeCompare(a.fecha));
+      const visto = vistos[id] ?? "";
+      return {
+        id,
+        con: otroDe(id, USUARIO.nombre),
+        ultimo: suyos[0]?.texto || "Nota de voz",
+        fecha: suyos[0]?.fecha ?? "",
+        noLeidos: suyos.filter(
+          (m) => m.autor !== USUARIO.nombre && m.fecha > visto,
+        ).length,
+      };
+    })
+    .sort((a, b) => b.fecha.localeCompare(a.fecha));
 
   const usarInvitacion = () => {
     // tambien llega la iglesia (y su mapa en Inicio)
@@ -161,7 +198,7 @@ export default function IglesiaView() {
             claro={mia.tono ?? TEXT}
             onPress={() => abrir(mia.id)}
           />
-        ) : (
+        ) : administra && !sinIglesia ? null : (
           // Sin grupo: entra con el enlace que le envia su lider
           <View style={styles.invitacion}>
             <View style={styles.invitacionFila}>
@@ -232,6 +269,40 @@ export default function IglesiaView() {
           </View>
         )}
       </View>
+
+      {/* Chats privados con el lider (o con los hermanos, si eres lider) */}
+      {privados.length > 0 && (
+        <View style={styles.bloque}>
+          <Text style={styles.seccion}>MENSAJES PRIVADOS</Text>
+          <View style={styles.lista}>
+            {privados.map((c, i) => (
+              <Pressable
+                key={c.id}
+                onPress={() =>
+                  router.push(`/privado/${encodeURIComponent(c.con)}` as Href)
+                }
+                style={({ pressed }) => [
+                  styles.fila,
+                  i > 0 && styles.filaBorde,
+                  pressed && styles.presionado,
+                ]}
+              >
+                <View style={styles.icono}>
+                  <Octicons name="lock" size={13} color={TEXT} />
+                </View>
+                <View style={styles.flex}>
+                  <Text style={styles.filaTitulo}>{c.con}</Text>
+                  <Text style={styles.meta} numberOfLines={1}>
+                    {c.ultimo}
+                  </Text>
+                </View>
+                <Badge n={c.noLeidos} />
+                <Octicons name="chevron-right" size={16} color={MUTED} />
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      )}
 
       {/* Resto de grupos: solo se entra con invitacion (el pastor entra a todas) */}
       <View style={styles.bloque}>

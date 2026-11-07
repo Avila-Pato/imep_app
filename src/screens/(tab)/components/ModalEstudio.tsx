@@ -21,7 +21,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import ConBordes from "@/components/ConBordes";
 import PasajeTexto from "./PasajeTexto";
 
 type Props = {
@@ -31,89 +31,104 @@ type Props = {
 
 // Ver un estudio guardado (pasaje + respuestas) sin salir del perfil
 export default function ModalEstudio({ estudio, onCerrar }: Props) {
-  const insets = useSafeAreaInsets();
   const pasaje = usePasaje(estudio?.cita ?? "");
 
   return (
     <Modal
+      navigationBarTranslucent
       visible={!!estudio}
       transparent
       animationType="slide"
       onRequestClose={onCerrar}
       statusBarTranslucent
     >
-      <View style={styles.fondo}>
-        <Pressable style={styles.cerrarFondo} onPress={onCerrar} />
-        <View style={[styles.hoja, { paddingBottom: insets.bottom + SPACING }]}>
-          <View style={styles.asa} />
-
-          {estudio && (
-            <>
-              <View style={styles.cabecera}>
-                <View style={styles.flex}>
-                  <Text style={styles.meta}>
-                    MI ESTUDIO · {haceCuanto(estudio.fecha).toUpperCase()}
-                  </Text>
-                  <Text style={styles.titulo}>{estudio.cita}</Text>
-                </View>
-                <Pressable
-                  onPress={onCerrar}
-                  hitSlop={10}
-                  style={styles.cerrar}
-                  accessibilityLabel="Cerrar"
-                >
-                  <Octicons name="x" size={16} color={TEXT} />
-                </Pressable>
-              </View>
-
-              <ScrollView
-                contentContainerStyle={styles.contenido}
-                showsVerticalScrollIndicator={false}
+      <ConBordes>
+        {(insets) => (
+          <>
+            <View style={styles.fondo}>
+              <Pressable style={styles.cerrarFondo} onPress={onCerrar} />
+              <View
+                style={[
+                  styles.hoja,
+                  { paddingBottom: insets.bottom + SPACING },
+                ]}
               >
-                <View>
-                  <Text style={styles.seccion}>PASAJE</Text>
-                  <View style={styles.card}>
-                    <PasajeTexto
-                      cita={estudio.cita}
-                      versos={pasaje.versos}
-                      cargando={pasaje.cargando}
-                      error={pasaje.error}
-                    />
-                  </View>
-                </View>
+                <View style={styles.asa} />
 
-                <View>
-                  <Text style={styles.seccion}>MIS RESPUESTAS</Text>
-                  <View style={[styles.card, styles.cardLista]}>
-                    {PREGUNTAS.map((q, i) => {
-                      const r = estudio.respuestas[q.id]?.trim();
-                      return (
-                        <View
-                          key={q.id}
-                          style={[styles.respuesta, i > 0 && styles.conLinea]}
-                        >
-                          <Text style={styles.respuestaTitulo}>
-                            {q.titulo.toUpperCase()}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.respuestaTexto,
-                              q.id === "oracion" && styles.respuestaOracion,
-                              !r && styles.sinRespuesta,
-                            ]}
-                          >
-                            {r || "Sin respuesta"}
-                          </Text>
+                {estudio && (
+                  <>
+                    <View style={styles.cabecera}>
+                      <View style={styles.flex}>
+                        <Text style={styles.meta}>
+                          MI ESTUDIO · {haceCuanto(estudio.fecha).toUpperCase()}
+                        </Text>
+                        <Text style={styles.titulo}>{estudio.cita}</Text>
+                      </View>
+                      <Pressable
+                        onPress={onCerrar}
+                        hitSlop={10}
+                        style={styles.cerrar}
+                        accessibilityLabel="Cerrar"
+                      >
+                        <Octicons name="x" size={16} color={TEXT} />
+                      </Pressable>
+                    </View>
+
+                    <ScrollView
+                      contentContainerStyle={styles.contenido}
+                      showsVerticalScrollIndicator={false}
+                    >
+                      <View>
+                        <Text style={styles.seccion}>PASAJE</Text>
+                        <View style={styles.card}>
+                          <PasajeTexto
+                            cita={estudio.cita}
+                            versos={pasaje.versos}
+                            cargando={pasaje.cargando}
+                            error={pasaje.error}
+                          />
                         </View>
-                      );
-                    })}
-                  </View>
-                </View>
-              </ScrollView>
-            </>
-          )}
-        </View>
-      </View>
+                      </View>
+
+                      <View>
+                        <Text style={styles.seccion}>MIS RESPUESTAS</Text>
+                        <View style={[styles.card, styles.cardLista]}>
+                          {PREGUNTAS.map((q, i) => {
+                            const r = estudio.respuestas[q.id]?.trim();
+                            return (
+                              <View
+                                key={q.id}
+                                style={[
+                                  styles.respuesta,
+                                  i > 0 && styles.conLinea,
+                                ]}
+                              >
+                                <Text style={styles.respuestaTitulo}>
+                                  {q.titulo.toUpperCase()}
+                                </Text>
+                                <Text
+                                  style={[
+                                    styles.respuestaTexto,
+                                    q.id === "oracion" &&
+                                      styles.respuestaOracion,
+                                    !r && styles.sinRespuesta,
+                                  ]}
+                                >
+                                  {r || "Sin respuesta"}
+                                </Text>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    </ScrollView>
+                  </>
+                )}
+              </View>
+            </View>
+          </>
+        )}
+      </ConBordes>
     </Modal>
   );
 }

@@ -1,46 +1,25 @@
+import { useEspacioBarra } from "@/hooks/useEspacioBarra";
 import {
   DARK_BG,
   HOME_PADDING as PADDING,
   SPACING,
 } from "@/constants/constans";
-import { useRef, useState } from "react";
 import { ScrollView, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import MuroOracion from "../sala/components/MuroOracion";
 import IglesiaView from "./components/IglesiaView";
-import TabsSuperiores from "./components/TabsSuperiores";
-import VistaAnimada from "./components/VistaAnimada";
 
-type Vista = "muro" | "salas";
-
-const VISTAS: { id: Vista; label: string }[] = [
-  { id: "salas", label: "Salas" },
-  { id: "muro", label: "Muro de oración" },
-];
-
-// Comunidad: el muro de oracion y las salas de cada grupo
+// Comunidad: solo las salas (el muro de oracion vive dentro de cada sala)
 export default function ComunidadScreen() {
-  const [vista, setVista] = useState<Vista>("salas");
-  const scrollRef = useRef<ScrollView>(null);
+  // espacio para la barra flotante y los botones del telefono
+  const espacio = useEspacioBarra();
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <TabsSuperiores
-        opciones={VISTAS}
-        activo={vista}
-        onCambiar={(v) => {
-          setVista(v);
-          scrollRef.current?.scrollTo({ y: 0, animated: false });
-        }}
-      />
       <ScrollView
-        ref={scrollRef}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: espacio }]}
         showsVerticalScrollIndicator={false}
       >
-        <VistaAnimada vista={vista}>
-          {vista === "muro" ? <MuroOracion /> : <IglesiaView />}
-        </VistaAnimada>
+        <IglesiaView />
       </ScrollView>
     </SafeAreaView>
   );
@@ -53,7 +32,6 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: PADDING,
-    paddingTop: SPACING,
-    paddingBottom: 120, // espacio para el tabbar flotante
+    paddingTop: SPACING * 2,
   },
 });

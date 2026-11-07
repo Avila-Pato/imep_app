@@ -26,6 +26,7 @@ import {
 import { horaTurno } from "@/utils/cultos";
 import { haceCuanto } from "@/utils/tiempo";
 import { unirTurnos } from "@/utils/turnos";
+import { useEspacioBarra } from "@/hooks/useEspacioBarra";
 import Octicons from "@expo/vector-icons/Octicons";
 import { useState } from "react";
 import {
@@ -96,6 +97,8 @@ ${texto}`)
 };
 
 export default function PerfilScreen() {
+  // espacio para la barra flotante y los botones del telefono
+  const espacio = useEspacioBarra();
   const { grupo, guardados, versiculos, turnosEditados, nombre, cargos } =
     useEstudios();
   const esPastor = useEsPastor();
@@ -123,7 +126,7 @@ export default function PerfilScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: espacio }]}
         showsVerticalScrollIndicator={false}
       >
         {/* Portada con forma decorativa */}
@@ -343,7 +346,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingBottom: 120, // espacio para el tabbar flotante
     gap: SPACING * 2.4,
   },
 

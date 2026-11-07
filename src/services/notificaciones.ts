@@ -62,6 +62,16 @@ export async function programarAvisos(avisos: Aviso[]) {
   }
 }
 
+// Aviso inmediato (ej: el lider publica un aviso o devocional).
+// Sin backend llega solo a este telefono; con push llegara a todo el grupo
+export async function avisarAhora(titulo: string, cuerpo: string) {
+  if (!(await tienePermiso())) return;
+  await Notifications.scheduleNotificationAsync({
+    content: { title: titulo, body: cuerpo },
+    trigger: null,
+  });
+}
+
 // Para que la persona vea como llegan (en unos segundos)
 export async function enviarPrueba() {
   if (!(await tienePermiso())) return;

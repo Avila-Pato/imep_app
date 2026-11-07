@@ -14,8 +14,8 @@ type Revisiones = Record<string, Revision>;
 const ROLES_LIDER = ["Líder", "Pastor"];
 
 // TEMPORAL: para probar, esta persona es lider de todas las salas.
-// Poner en false cuando los roles vengan del registro / backend.
-const PROBAR_COMO_LIDER = true;
+// Ahora el lider se elige al crear la sala (useEsLider), por eso va en false
+const PROBAR_COMO_LIDER = false;
 
 export const esLider = (nombre: string, grupo: GrupoId) =>
   (PROBAR_COMO_LIDER && nombre === USUARIO.nombre) ||

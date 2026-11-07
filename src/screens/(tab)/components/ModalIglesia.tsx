@@ -11,14 +11,13 @@ import Octicons from "@expo/vector-icons/Octicons";
 import {
   KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import ConBordes from "@/components/ConBordes";
 import FormIglesia from "./FormIglesia";
 
 // Hoja para que el pastor ponga o cambie la ubicacion de la iglesia
@@ -29,54 +28,69 @@ export default function ModalIglesia({
   visible: boolean;
   onCerrar: () => void;
 }) {
-  const insets = useSafeAreaInsets();
   const iglesia = useIglesia();
 
   return (
     <Modal
+      navigationBarTranslucent
+      statusBarTranslucent
       visible={visible}
       transparent
       animationType="slide"
       onRequestClose={onCerrar}
     >
-      <Pressable style={styles.fondo} onPress={onCerrar} />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={styles.zona}
-        pointerEvents="box-none"
-      >
-        <View style={[styles.hoja, { paddingBottom: insets.bottom + SPACING }]}>
-          <View style={styles.asa} />
-          <ScrollView
-            contentContainerStyle={styles.contenido}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.cabecera}>
-              <Text style={styles.titulo}>
-                {iglesia ? "Cambiar ubicación" : "Ubicación de tu iglesia"}
-              </Text>
-              <Pressable
-                onPress={onCerrar}
-                hitSlop={10}
-                accessibilityLabel="Cerrar"
+      <ConBordes>
+        {(insets) => (
+          <>
+            <Pressable style={styles.fondo} onPress={onCerrar} />
+            <KeyboardAvoidingView
+              // en Android la hoja (pantalla completa) no se achica sola: se sube aqui
+              behavior="padding"
+              style={styles.zona}
+              pointerEvents="box-none"
+            >
+              <View
+                style={[
+                  styles.hoja,
+                  { paddingBottom: insets.bottom + SPACING },
+                ]}
               >
-                <Octicons name="x" size={18} color={MUTED} />
-              </Pressable>
-            </View>
-            {/* key: al abrir de nuevo parte con lo guardado */}
-            <FormIglesia
-              key={String(visible)}
-              inicial={iglesia}
-              textoBoton="Guardar"
-              onGuardar={(i) => {
-                fijarIglesia(i);
-                onCerrar();
-              }}
-            />
-          </ScrollView>
-        </View>
-      </KeyboardAvoidingView>
+                <View style={styles.asa} />
+                <ScrollView
+                  contentContainerStyle={styles.contenido}
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={false}
+                >
+                  <View style={styles.cabecera}>
+                    <Text style={styles.titulo}>
+                      {iglesia
+                        ? "Cambiar ubicación"
+                        : "Ubicación de tu iglesia"}
+                    </Text>
+                    <Pressable
+                      onPress={onCerrar}
+                      hitSlop={10}
+                      accessibilityLabel="Cerrar"
+                    >
+                      <Octicons name="x" size={18} color={MUTED} />
+                    </Pressable>
+                  </View>
+                  {/* key: al abrir de nuevo parte con lo guardado */}
+                  <FormIglesia
+                    key={String(visible)}
+                    inicial={iglesia}
+                    textoBoton="Guardar"
+                    onGuardar={(i) => {
+                      fijarIglesia(i);
+                      onCerrar();
+                    }}
+                  />
+                </ScrollView>
+              </View>
+            </KeyboardAvoidingView>
+          </>
+        )}
+      </ConBordes>
     </Modal>
   );
 }

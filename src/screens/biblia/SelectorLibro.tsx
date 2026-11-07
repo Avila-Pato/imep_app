@@ -21,7 +21,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import ConBordes from "@/components/ConBordes";
 
 // Sin acentos ni mayusculas, para buscar libros
 const normalizar = (s: string) =>
@@ -43,7 +43,6 @@ export default function SelectorLibro({
   onElegir,
   onCerrar,
 }: Props) {
-  const insets = useSafeAreaInsets();
   const [busqueda, setBusqueda] = useState("");
   // libro elegido en la hoja (null = mostrando la lista de libros)
   const [elegido, setElegido] = useState<number | null>(null);
@@ -62,121 +61,145 @@ export default function SelectorLibro({
 
   return (
     <Modal
+      navigationBarTranslucent
+      statusBarTranslucent
       visible={visible}
       transparent
       animationType="slide"
       onRequestClose={cerrar}
     >
-      <Pressable style={styles.fondo} onPress={cerrar} />
-      <View style={[styles.hoja, { paddingBottom: insets.bottom + SPACING }]}>
-        <View style={styles.asa} />
-
-        <View style={styles.cabecera}>
-          {elegido ? (
-            <Pressable
-              onPress={() => setElegido(null)}
-              hitSlop={10}
-              accessibilityLabel="Volver a los libros"
-            >
-              <Octicons name="arrow-left" size={18} color={TEXT} />
-            </Pressable>
-          ) : null}
-          <Text style={styles.titulo}>
-            {elegido ? LIBROS_BIBLIA[elegido - 1] : "Elige un libro"}
-          </Text>
-          <Pressable onPress={cerrar} hitSlop={10} accessibilityLabel="Cerrar">
-            <Octicons name="x" size={18} color={MUTED} />
-          </Pressable>
-        </View>
-
-        {elegido ? (
-          // Capitulos del libro elegido
-          <ScrollView contentContainerStyle={styles.grilla}>
-            {Array.from(
-              { length: CAPITULOS_BIBLIA[elegido - 1] },
-              (_, i) => i + 1,
-            ).map((c) => {
-              const actual = elegido === libro && c === capitulo;
-              return (
-                <Pressable
-                  key={c}
-                  onPress={() => {
-                    onElegir(elegido, c);
-                    cerrar();
-                  }}
-                  style={styles.capitulo}
-                >
-                  {({ pressed }) => (
-                    <View
-                      style={[
-                        styles.circulo,
-                        actual && styles.circuloActual,
-                        pressed && styles.presionado,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.capituloTexto,
-                          actual && styles.capituloTextoActual,
-                        ]}
-                      >
-                        {c}
-                      </Text>
-                    </View>
-                  )}
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        ) : (
+      <ConBordes>
+        {(insets) => (
           <>
-            <View style={styles.buscador}>
-              <Octicons name="search" size={14} color={MUTED} />
-              <TextInput
-                value={busqueda}
-                onChangeText={setBusqueda}
-                placeholder="Buscar libro"
-                placeholderTextColor={MUTED}
-                autoCorrect={false}
-                style={styles.input}
-              />
-            </View>
-            <FlatList
-              data={libros}
-              keyExtractor={(l) => String(l.id)}
-              keyboardShouldPersistTaps="handled"
-              // abre con el libro actual a la vista
-              initialScrollIndex={filtro ? undefined : Math.max(0, libro - 3)}
-              getItemLayout={(_, i) => ({
-                length: FILA_ALTO,
-                offset: FILA_ALTO * i,
-                index: i,
-              })}
-              renderItem={({ item }) => {
-                const actual = item.id === libro;
-                return (
+            <Pressable style={styles.fondo} onPress={cerrar} />
+            <View
+              style={[styles.hoja, { paddingBottom: insets.bottom + SPACING }]}
+            >
+              <View style={styles.asa} />
+
+              <View style={styles.cabecera}>
+                {elegido ? (
                   <Pressable
-                    onPress={() => setElegido(item.id)}
-                    style={({ pressed }) => [
-                      styles.fila,
-                      pressed && styles.presionado,
-                    ]}
+                    onPress={() => setElegido(null)}
+                    hitSlop={10}
+                    accessibilityLabel="Volver a los libros"
                   >
-                    <Text style={[styles.libro, actual && styles.libroActual]}>
-                      {item.nombre}
-                    </Text>
-                    {actual && <Text style={styles.leyendo}>Leyendo</Text>}
-                    <Text style={styles.caps}>
-                      {CAPITULOS_BIBLIA[item.id - 1]}
-                    </Text>
-                    <Octicons name="chevron-right" size={14} color={MUTED} />
+                    <Octicons name="arrow-left" size={18} color={TEXT} />
                   </Pressable>
-                );
-              }}
-            />
+                ) : null}
+                <Text style={styles.titulo}>
+                  {elegido ? LIBROS_BIBLIA[elegido - 1] : "Elige un libro"}
+                </Text>
+                <Pressable
+                  onPress={cerrar}
+                  hitSlop={10}
+                  accessibilityLabel="Cerrar"
+                >
+                  <Octicons name="x" size={18} color={MUTED} />
+                </Pressable>
+              </View>
+
+              {elegido ? (
+                // Capitulos del libro elegido
+                <ScrollView contentContainerStyle={styles.grilla}>
+                  {Array.from(
+                    { length: CAPITULOS_BIBLIA[elegido - 1] },
+                    (_, i) => i + 1,
+                  ).map((c) => {
+                    const actual = elegido === libro && c === capitulo;
+                    return (
+                      <Pressable
+                        key={c}
+                        onPress={() => {
+                          onElegir(elegido, c);
+                          cerrar();
+                        }}
+                        style={styles.capitulo}
+                      >
+                        {({ pressed }) => (
+                          <View
+                            style={[
+                              styles.circulo,
+                              actual && styles.circuloActual,
+                              pressed && styles.presionado,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.capituloTexto,
+                                actual && styles.capituloTextoActual,
+                              ]}
+                            >
+                              {c}
+                            </Text>
+                          </View>
+                        )}
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              ) : (
+                <>
+                  <View style={styles.buscador}>
+                    <Octicons name="search" size={14} color={MUTED} />
+                    <TextInput
+                      value={busqueda}
+                      onChangeText={setBusqueda}
+                      placeholder="Buscar libro"
+                      placeholderTextColor={MUTED}
+                      autoCorrect={false}
+                      style={styles.input}
+                    />
+                  </View>
+                  <FlatList
+                    data={libros}
+                    keyExtractor={(l) => String(l.id)}
+                    keyboardShouldPersistTaps="handled"
+                    // abre con el libro actual a la vista
+                    initialScrollIndex={
+                      filtro ? undefined : Math.max(0, libro - 3)
+                    }
+                    getItemLayout={(_, i) => ({
+                      length: FILA_ALTO,
+                      offset: FILA_ALTO * i,
+                      index: i,
+                    })}
+                    renderItem={({ item }) => {
+                      const actual = item.id === libro;
+                      return (
+                        <Pressable
+                          onPress={() => setElegido(item.id)}
+                          style={({ pressed }) => [
+                            styles.fila,
+                            pressed && styles.presionado,
+                          ]}
+                        >
+                          <Text
+                            style={[styles.libro, actual && styles.libroActual]}
+                          >
+                            {item.nombre}
+                          </Text>
+                          {actual && (
+                            <Text style={styles.leyendo}>Leyendo</Text>
+                          )}
+                          <Text style={styles.caps}>
+                            {CAPITULOS_BIBLIA[item.id - 1]}
+                          </Text>
+                          <Octicons
+                            name="chevron-right"
+                            size={14}
+                            color={MUTED}
+                          />
+                        </Pressable>
+                      );
+                    }}
+                  />
+                </>
+              )}
+            </View>
           </>
         )}
-      </View>
+      </ConBordes>
     </Modal>
   );
 }

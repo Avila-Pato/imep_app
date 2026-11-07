@@ -1,4 +1,3 @@
-import { ANUNCIOS } from "@/assets/data/anunciosMocks";
 import { HORARIOS_CULTO } from "@/assets/data/configMocks";
 import { USUARIO } from "@/assets/data/perfilMocks";
 import {
@@ -7,6 +6,7 @@ import {
   NOTIS_DISPONIBLES,
   programarAvisos,
 } from "@/services/notificaciones";
+import { CATEGORIAS } from "@/constants/constans";
 import { useEstudios, useRoles } from "@/store/estudios";
 import { horaTurno } from "@/utils/cultos";
 import { unirTurnos } from "@/utils/turnos";
@@ -23,7 +23,15 @@ const deKey = (key: string, hora = "00:00") => {
 // Arma y programa los recordatorios segun lo que la persona tiene activado.
 // Se usa una vez en el layout raiz; se rehace cuando cambian sus datos
 export function useRecordatorios() {
-  const { avisos, turnosEditados, nombre, iglesia } = useEstudios();
+  const {
+    avisos,
+    turnosEditados,
+    nombre,
+    iglesia,
+    anuncios,
+    desafios,
+    mensajes,
+  } = useEstudios();
   const quiere = (t: "cultos" | "turnos" | "anuncios") => avisos[t] ?? true;
   const yo = nombre ?? USUARIO.nombre;
   const roles = useRoles();
@@ -67,11 +75,40 @@ export function useRecordatorios() {
     }
   }
 
+  // Palabra de la semana: el dia antes del plazo a las 19:00, si aun no responde
+  if (quiere("turnos")) {
+    for (const d of desafios) {
+      const meToca =
+        d.elegidos.includes(yo) || d.elegidos.includes(USUARIO.nombre);
+      const respondi = mensajes.some((m) => m.desafio === d.id);
+      if (!meToca || respondi) continue;
+      // su dia: aviso en la mañana
+      const miDia = d.dias?.[yo] ?? d.dias?.[USUARIO.nombre];
+      if (miDia) {
+        lista.push({
+          titulo: "Hoy te toca hablar de tu palabra 📖",
+          cuerpo: `Comparte en tu grupo lo que te enseñó ${d.cita ?? "el versículo que elijas"}.`,
+          fecha: deKey(miDia, "09:00"),
+        });
+        continue;
+      }
+      const fecha = deKey(d.hasta, "19:00");
+      fecha.setDate(fecha.getDate() - 1);
+      lista.push({
+        titulo: "Te falta tu palabra de la semana 📖",
+        cuerpo: d.cita
+          ? `Comparte lo que te enseñó ${d.cita}.`
+          : "Elige un versículo y cuéntale a tu sala qué te enseñó.",
+        fecha,
+      });
+    }
+  }
+
   // Anuncios: a las 9:00 del dia del evento
   if (quiere("anuncios")) {
-    for (const a of ANUNCIOS) {
+    for (const a of anuncios) {
       lista.push({
-        titulo: `Hoy: ${a.titulo}`,
+        titulo: `Hoy: ${a.titulo || CATEGORIAS[a.categoria].label}`,
         cuerpo: [a.hora && `${a.hora} hrs`, a.lugar]
           .filter(Boolean)
           .join(" · "),

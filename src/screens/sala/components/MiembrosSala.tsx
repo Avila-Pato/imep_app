@@ -9,7 +9,9 @@ import {
 } from "@/constants/constans";
 import { GrupoId, Miembro } from "@/types/typesComunidad";
 import { iniciales } from "@/utils/texto";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import Octicons from "@expo/vector-icons/Octicons";
+import { Href, router } from "expo-router";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 // Miembros de la sala; el usuario actual siempre aparece (como "Tú")
 export function miembrosDe(grupo: GrupoId): Miembro[] {
@@ -19,7 +21,14 @@ export function miembrosDe(grupo: GrupoId): Miembro[] {
     : [...lista, { nombre: USUARIO.nombre }];
 }
 
-export default function MiembrosSala({ grupo }: { grupo: GrupoId }) {
+// lider: puede escribirle en privado a cada hermano
+export default function MiembrosSala({
+  grupo,
+  lider,
+}: {
+  grupo: GrupoId;
+  lider?: boolean;
+}) {
   const miembros = miembrosDe(grupo);
 
   return (
@@ -40,6 +49,23 @@ export default function MiembrosSala({ grupo }: { grupo: GrupoId }) {
               {yo && <Text style={styles.tu}> · Tú</Text>}
             </Text>
             {m.rol && <Text style={styles.rol}>{m.rol}</Text>}
+            {lider && !yo && (
+              <Pressable
+                onPress={() =>
+                  router.push(
+                    `/privado/${encodeURIComponent(m.nombre)}` as Href,
+                  )
+                }
+                hitSlop={8}
+                style={({ pressed }) => [
+                  styles.mensaje,
+                  pressed && styles.presionado,
+                ]}
+                accessibilityLabel={`Escribirle a ${m.nombre} en privado`}
+              >
+                <Octicons name="comment" size={14} color={TEXT} />
+              </Pressable>
+            )}
           </View>
         );
       })}
@@ -93,6 +119,18 @@ const styles = StyleSheet.create({
   },
   tu: {
     color: MUTED,
+  },
+  mensaje: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: BORDER,
+  },
+  presionado: {
+    opacity: 0.6,
   },
   rol: {
     fontSize: 11,

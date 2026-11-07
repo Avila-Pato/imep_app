@@ -6,6 +6,7 @@ import {
   FUENTE,
   LIBROS_BIBLIA,
   MUTED,
+  PRIMARY,
   SPACING,
   SURFACE,
   TEXT,
@@ -16,6 +17,8 @@ import ModalOracion from "@/screens/(tab)/components/ModalOracion";
 import TamanoLetra from "@/screens/(tab)/components/TamanoLetra";
 import { Verso } from "@/services/biblia";
 import {
+  alternarMeGusta,
+  darMeGusta,
   guardarVersiculo,
   resaltar,
   useEstudios,
@@ -27,6 +30,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  GestureResponderEvent,
   Platform,
   Pressable,
   Share,
@@ -37,20 +41,12 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import BotonLibro from "./BotonLibro";
 import BotonVersion from "./BotonVersion";
+import CorazonMeGusta, { DURACION_CORAZON } from "./CorazonMeGusta";
 import SelectorLibro from "./SelectorLibro";
+import { tamanoVerso } from "./tamanoVerso";
 
 // En el telefono se desliza con el dedo; en web hay flechas para el mouse
 const WEB = Platform.OS === "web";
-
-// Letra mas chica para los versiculos largos (que quepan en la pantalla).
-// "letra" es el tamaño elegido con A− / A+; el tope evita que un versiculo
-// largo se salga de la pantalla
-const tamano = (texto: string, letra: number) => {
-  const n = texto.length;
-  const base = n < 90 ? 34 : n < 170 ? 29 : n < 280 ? 25 : 21;
-  const tope = n < 90 ? 56 : n < 170 ? 42 : n < 280 ? 33 : 27;
-  return Math.min(base * letra, tope);
-};
 
 // Un versiculo por pantalla, como deslizar videos.
 // Se abre desde la Biblia con ?libro=43&capitulo=3
@@ -304,13 +300,18 @@ function Pagina({
   onOrar,
   onSiguiente,
 }: PaginaProps) {
-  const { resaltados, versiculos, letra = 1 } = useEstudios();
+  const { resaltados, versiculos, meGusta, letra = 1 } = useEstudios();
   const version = useVersion();
-  const tamanoVerso = tamano(verso.texto, letra);
+  const tamanoTexto = tamanoVerso(verso.texto, letra);
   const clave = claveVerso(libro, capitulo, verso.numero);
   const cita = `${LIBROS_BIBLIA[libro - 1]} ${capitulo}:${verso.numero}`;
   const color = resaltados[clave];
   const guardado = versiculos.some((v) => v.id === clave);
+  const gusta = meGusta.includes(clave);
+  // corazones que estan saltando (uno por cada doble toque)
+  const [corazones, setCorazones] = useState<
+    { id: number; x: number; y: number; giro: number }[]
+  >([]);
 
   const guardar = () => {
     guardarVersiculo({
@@ -322,16 +323,36 @@ function Pagina({
     onAviso("Guardado en tu perfil");
   };
 
-  // Doble toque = guardar (como dar "me gusta")
+  // Doble toque = "me gusta" con un corazon donde se toco (como TikTok)
   // (con Pressable y no con un gesto, para no frenar el deslizar en web)
   const ultimoToque = useRef(0);
-  const tocar = () => {
+  const tocar = (e: GestureResponderEvent) => {
     const ahora = Date.now();
-    if (ahora - ultimoToque.current < 300 && !guardado) guardar();
+    if (ahora - ultimoToque.current < 300) {
+      darMeGusta(clave);
+      const id = ahora;
+      const { locationX: x, locationY: y } = e.nativeEvent;
+      const giro = Math.round(Math.random() * 40 - 20);
+      setCorazones((c) => [...c, { id, x, y, giro }]);
+      // se quita cuando termina de salir
+      setTimeout(
+        () => setCorazones((c) => c.filter((k) => k.id !== id)),
+        DURACION_CORAZON + 50,
+      );
+      ultimoToque.current = 0; // un tercer toque empieza de nuevo
+      return;
+    }
     ultimoToque.current = ahora;
   };
 
   const acciones = [
+    {
+      id: "megusta",
+      label: "Me gusta",
+      icono: gusta ? ("heart-fill" as const) : ("heart" as const),
+      color: gusta ? PRIMARY : TEXT,
+      onPress: () => alternarMeGusta(clave),
+    },
     {
       id: "guardar",
       label: guardado ? "Guardado" : "Guardar",
@@ -344,7 +365,7 @@ function Pagina({
       icono: "paintbrush" as const,
       onPress: onPaleta,
     },
-    { id: "orar", label: "Orar", icono: "heart" as const, onPress: onOrar },
+    { id: "orar", label: "Orar", icono: "flame" as const, onPress: onOrar },
     {
       id: "compartir",
       label: "Compartir",
@@ -364,8 +385,8 @@ function Pagina({
           style={[
             styles.verso,
             {
-              fontSize: tamanoVerso,
-              lineHeight: tamanoVerso * 1.3,
+              fontSize: tamanoTexto,
+              lineHeight: tamanoTexto * 1.3,
             },
             color && {
               textDecorationLine: "underline",
@@ -381,6 +402,9 @@ function Pagina({
           )}
           <Text style={styles.cita}>{cita}</Text>
         </View>
+        {corazones.map((k) => (
+          <CorazonMeGusta key={k.id} x={k.x} y={k.y} giro={k.giro} />
+        ))}
       </Pressable>
 
       {/* Colores para resaltar */}
@@ -413,7 +437,11 @@ function Pagina({
               pressed && styles.presionado,
             ]}
           >
-            <Octicons name={a.icono} size={20} color={TEXT} />
+            <Octicons
+              name={a.icono}
+              size={20}
+              color={"color" in a && a.color ? a.color : TEXT}
+            />
             <Text style={styles.accionTexto}>{a.label}</Text>
           </Pressable>
         ))}
@@ -437,7 +465,7 @@ function Pagina({
         ) : (
           <Text style={styles.ayuda}>
             {primera
-              ? "Desliza hacia arriba · Doble toque para guardar"
+              ? "Desliza hacia arriba · Doble toque para dar me gusta"
               : ultima
                 ? "Fin del libro"
                 : " "}

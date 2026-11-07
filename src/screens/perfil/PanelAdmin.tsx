@@ -1,9 +1,10 @@
-import { ANUNCIOS } from "@/assets/data/anunciosMocks";
 import { MIEMBROS, PUBLICACIONES } from "@/assets/data/comunidadMocks";
+import { USUARIO } from "@/assets/data/perfilMocks";
 import {
   BORDER,
   DARK_BG,
   FUENTE,
+  HOME_PADDING as PADDING,
   MUTED,
   PRIMARY,
   SERIF,
@@ -11,6 +12,7 @@ import {
   SURFACE,
   TEXT,
 } from "@/constants/constans";
+import ModalFormAnuncio from "@/screens/(tab)/components/ModalFormAnuncio";
 import ModalIglesia from "@/screens/(tab)/components/ModalIglesia";
 import ModalNuevaSala from "@/screens/(tab)/components/ModalNuevaSala";
 import {
@@ -42,7 +44,16 @@ const aKey = (f: Date) =>
 // Pastor: todo (resumen, invitar, roles, salas, ubicacion).
 // Secretario/a (u otro rol con permisos): solo cronograma y anuncios
 export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
-  const { codigos, turnosEditados, publicaciones, revisiones } = useEstudios();
+  const {
+    codigos,
+    turnosEditados,
+    publicaciones,
+    revisiones,
+    anuncios,
+    nombre,
+  } = useEstudios();
+  // anuncio nuevo directo desde el perfil
+  const [escribiendo, setEscribiendo] = useState(false);
   const grupos = useGrupos();
   const iglesia = useIglesia();
   const puedeCronograma = usePuede("cronograma");
@@ -76,7 +87,7 @@ export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
     (p) => estadoPeticion(p, revisiones) === "pendiente",
   ).length;
   const hoyKey = aKey(new Date());
-  const proximosAnuncios = ANUNCIOS.filter((a) => a.fecha >= hoyKey).length;
+  const proximosAnuncios = anuncios.filter((a) => a.fecha >= hoyKey).length;
 
   const resumen: {
     valor: number;
@@ -96,14 +107,14 @@ export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
             valor: grupos.length,
             label: "Salas",
             icono: "comment-discussion" as IconName,
-            onPress: () => router.push("/comunidad" as Href),
+            onPress: () => router.push("/gestion/salas" as Href),
           },
           {
             valor: porAprobar,
             label: "Por aprobar",
             icono: "inbox" as IconName,
             alerta: porAprobar > 0,
-            onPress: () => router.push("/comunidad" as Href),
+            onPress: () => router.push("/gestion/salas" as Href),
           },
         ]
       : []),
@@ -114,7 +125,7 @@ export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
             label: "Turnos sin asignar",
             icono: "calendar" as IconName,
             alerta: sinAsignar > 0,
-            onPress: () => router.push("/eventos?vista=cronograma" as Href),
+            onPress: () => router.push("/gestion/cronograma" as Href),
           },
         ]
       : []),
@@ -124,7 +135,7 @@ export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
             valor: proximosAnuncios,
             label: "Anuncios próximos",
             icono: "megaphone" as IconName,
-            onPress: () => router.push("/eventos?vista=anuncios" as Href),
+            onPress: () => router.push("/gestion/anuncios" as Href),
           },
         ]
       : []),
@@ -136,16 +147,21 @@ export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
           {
             label: "Cronograma",
             icono: "calendar" as IconName,
-            onPress: () => router.push("/eventos?vista=cronograma" as Href),
+            onPress: () => router.push("/gestion/cronograma" as Href),
           },
         ]
       : []),
     ...(puedeAnuncios
       ? [
           {
+            label: "Nuevo anuncio",
+            icono: "pencil" as IconName,
+            onPress: () => setEscribiendo(true),
+          },
+          {
             label: "Anuncios",
             icono: "megaphone" as IconName,
-            onPress: () => router.push("/eventos?vista=anuncios" as Href),
+            onPress: () => router.push("/gestion/anuncios" as Href),
           },
         ]
       : []),
@@ -160,6 +176,11 @@ export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
       : []),
     ...(esPastor
       ? [
+          {
+            label: "Salas",
+            icono: "comment-discussion" as IconName,
+            onPress: () => router.push("/gestion/salas" as Href),
+          },
           {
             label: "Nueva sala",
             icono: "plus" as IconName,
@@ -336,6 +357,12 @@ export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
         onCerrar={() => setCreandoSala(false)}
       />
       <ModalIglesia visible={ubicando} onCerrar={() => setUbicando(false)} />
+      {escribiendo && (
+        <ModalFormAnuncio
+          autor={nombre ?? USUARIO.nombre}
+          onCerrar={() => setEscribiendo(false)}
+        />
+      )}
     </View>
   );
 }
@@ -406,6 +433,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   panel: {
+    marginHorizontal: PADDING,
     gap: SPACING * 1.4,
   },
   cabecera: {

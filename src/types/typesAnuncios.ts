@@ -18,7 +18,9 @@ export type Anuncio = {
   lugar?: string;
   // Opcionales: se ven al abrir el anuncio
   detalle?: string; // texto largo
-  imagen?: string; // URL de la imagen del evento
+  imagen?: string; // URL de la imagen del evento (o un afiche solo)
+  imagenAspecto?: number; // ancho / alto, para mostrarla completa
+  autor?: string; // quien lo publico
 };
 
 // Horario fijo de culto (configurable por el lider)

@@ -9,6 +9,7 @@ import {
   SURFACE,
   TEXT,
 } from "@/constants/constans";
+import { useEspacioBarra } from "@/hooks/useEspacioBarra";
 import Octicons from "@expo/vector-icons/Octicons";
 import {
   asignarTurno,
@@ -144,6 +145,8 @@ function FondoCeldas({ alto }: { alto: number }) {
 }
 
 export default function CronogramaView() {
+  // espacio para la barra flotante y los botones del telefono
+  const espacio = useEspacioBarra();
   const [mes, setMes] = useState({ y: hoy.getFullYear(), m: hoy.getMonth() });
   const [seleccionado, setSeleccionado] = useState(() =>
     siguienteCulto(HOY_KEY),
@@ -490,7 +493,7 @@ export default function CronogramaView() {
 
           <ScrollView
             style={styles.flex}
-            contentContainerStyle={styles.content}
+            contentContainerStyle={[styles.content, { paddingBottom: espacio }]}
             showsVerticalScrollIndicator={false}
             onContentSizeChange={(_, h) => setAltoLista(h)}
           >
@@ -647,7 +650,6 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: PADDING,
     paddingTop: SPACING * 1.4,
-    paddingBottom: 120, // espacio para el tabbar flotante
     gap: SPACING * 2,
   },
 

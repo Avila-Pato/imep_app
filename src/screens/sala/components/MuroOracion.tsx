@@ -1,6 +1,7 @@
 import { PUBLICACIONES } from "@/assets/data/comunidadMocks";
 import {
   BORDER,
+  DARK_BG,
   FUENTE,
   MUTED,
   NOTA_TINTA,
@@ -21,6 +22,7 @@ import {
 import { tiempoRestante } from "@/utils/tiempo";
 import Octicons from "@expo/vector-icons/Octicons";
 import { useState } from "react";
+import ModalPedirOracion from "./ModalPedirOracion";
 import {
   Modal,
   Pressable,
@@ -45,6 +47,7 @@ export default function MuroOracion({ grupo }: Props) {
   const { publicaciones, orando, revisiones, grupo: miGrupo } = useEstudios();
   const grupos = useGrupos(); // incluye las salas que creo el pastor
   const [abiertaId, setAbiertaId] = useState<string | null>(null);
+  const [pidiendo, setPidiendo] = useState(false);
 
   // las publicaciones antiguas sin sala cuentan como "Iglesia"
   const todas = [...publicaciones, ...PUBLICACIONES].filter(
@@ -168,6 +171,23 @@ export default function MuroOracion({ grupo }: Props) {
         </Text>
       </View>
 
+      {/* Pedir oracion: la revisa el lider antes de llegar al muro */}
+      <Pressable
+        onPress={() => setPidiendo(true)}
+        style={({ pressed }) => [styles.pedir, pressed && styles.presionado]}
+      >
+        <View style={styles.pedirIcono}>
+          <Octicons name="heart" size={16} color={DARK_BG} />
+        </View>
+        <View style={styles.flex}>
+          <Text style={styles.pedirTitulo}>Pedir oración</Text>
+          <Text style={styles.pedirTexto}>
+            Comparte tu petición para que la iglesia ore por ti
+          </Text>
+        </View>
+        <Octicons name="plus" size={16} color={MUTED} />
+      </Pressable>
+
       {/* Mis peticiones en espera */}
       {misPendientes > 0 && (
         <View style={styles.espera}>
@@ -195,8 +215,13 @@ export default function MuroOracion({ grupo }: Props) {
         </View>
       )}
 
+      {pidiendo && (
+        <ModalPedirOracion grupo={grupo} onCerrar={() => setPidiendo(false)} />
+      )}
+
       {/* Peticion abierta en grande */}
       <Modal
+        navigationBarTranslucent
         visible={!!abierta}
         transparent
         animationType="fade"
@@ -243,6 +268,38 @@ export default function MuroOracion({ grupo }: Props) {
 }
 
 const styles = StyleSheet.create({
+  pedir: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING * 1.2,
+    marginBottom: SPACING * 2,
+    padding: SPACING * 1.4,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: BORDER,
+  },
+  pedirIcono: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: TEXT,
+  },
+  pedirTitulo: {
+    fontFamily: FUENTE.semibold,
+    fontSize: 15,
+    color: TEXT,
+  },
+  pedirTexto: {
+    fontSize: 12,
+    color: MUTED,
+    marginTop: 2,
+  },
+  flex: {
+    flex: 1,
+  },
   cabecera: {
     alignItems: "center",
     gap: 4,

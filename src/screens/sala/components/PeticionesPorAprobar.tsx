@@ -1,5 +1,4 @@
 import { PUBLICACIONES } from "@/assets/data/comunidadMocks";
-import { USUARIO } from "@/assets/data/perfilMocks";
 import {
   BORDER,
   DARK_BG,
@@ -11,9 +10,9 @@ import {
   SURFACE,
   TEXT,
 } from "@/constants/constans";
-import { revisarPeticion, useEstudios } from "@/store/estudios";
+import { revisarPeticion, useEsLider, useEstudios } from "@/store/estudios";
 import { GrupoId } from "@/types/typesComunidad";
-import { esLider, estadoPeticion } from "@/utils/peticiones";
+import { estadoPeticion } from "@/utils/peticiones";
 import { haceCuanto } from "@/utils/tiempo";
 import Octicons from "@expo/vector-icons/Octicons";
 import { useState } from "react";
@@ -25,13 +24,20 @@ import {
   Text,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import ConBordes from "@/components/ConBordes";
 
 // Barra arriba de la sala: solo la ve el lider cuando hay peticiones pendientes
-export default function PeticionesPorAprobar({ grupo }: { grupo: GrupoId }) {
+// oculto: se esconde la barra mientras se escribe (la hoja sigue abierta)
+export default function PeticionesPorAprobar({
+  grupo,
+  oculto,
+}: {
+  grupo: GrupoId;
+  oculto?: boolean;
+}) {
   const { publicaciones, revisiones } = useEstudios();
   const [abierto, setAbierto] = useState(false);
-  const insets = useSafeAreaInsets();
+  const lider = useEsLider(grupo);
 
   const pendientes = [...publicaciones, ...PUBLICACIONES]
     .filter(
@@ -41,106 +47,119 @@ export default function PeticionesPorAprobar({ grupo }: { grupo: GrupoId }) {
     )
     .sort((a, b) => a.fecha.localeCompare(b.fecha)); // la mas antigua primero
 
-  if (!esLider(USUARIO.nombre, grupo) || pendientes.length === 0) return null;
+  if (!lider || pendientes.length === 0) return null;
 
   return (
     <>
-      <Pressable
-        onPress={() => setAbierto(true)}
-        style={({ pressed }) => [styles.barra, pressed && styles.presionado]}
-        accessibilityRole="button"
-      >
-        <View style={styles.punto} />
-        <Text style={styles.barraTexto}>
-          {pendientes.length === 1
-            ? "1 petición espera tu aprobación"
-            : `${pendientes.length} peticiones esperan tu aprobación`}
-        </Text>
-        <Text style={styles.revisar}>Revisar</Text>
-        <Octicons name="chevron-right" size={14} color={MUTED} />
-      </Pressable>
+      {!oculto && (
+        <Pressable
+          onPress={() => setAbierto(true)}
+          style={({ pressed }) => [styles.barra, pressed && styles.presionado]}
+          accessibilityRole="button"
+        >
+          <View style={styles.punto} />
+          <Text style={styles.barraTexto}>
+            {pendientes.length === 1
+              ? "1 petición espera tu aprobación"
+              : `${pendientes.length} peticiones esperan tu aprobación`}
+          </Text>
+          <Text style={styles.revisar}>Revisar</Text>
+          <Octicons name="chevron-right" size={14} color={MUTED} />
+        </Pressable>
+      )}
 
       <Modal
+        navigationBarTranslucent
         visible={abierto}
         transparent
         animationType="slide"
         onRequestClose={() => setAbierto(false)}
         statusBarTranslucent
       >
-        <View style={styles.fondo}>
-          <Pressable
-            style={styles.cerrarFondo}
-            onPress={() => setAbierto(false)}
-          />
-          <View
-            style={[styles.hoja, { paddingBottom: insets.bottom + SPACING }]}
-          >
-            <View style={styles.asa} />
-            <View style={styles.cabecera}>
-              <View style={styles.flex}>
-                <Text style={styles.meta}>
-                  POR APROBAR · {pendientes.length}
-                </Text>
-                <Text style={styles.titulo}>
-                  Peticiones de <Text style={styles.cursiva}>oración</Text>
-                </Text>
-              </View>
-              <Pressable
-                onPress={() => setAbierto(false)}
-                hitSlop={10}
-                style={styles.cerrar}
-                accessibilityLabel="Cerrar"
-              >
-                <Octicons name="x" size={16} color={TEXT} />
-              </Pressable>
-            </View>
-
-            <ScrollView
-              contentContainerStyle={styles.lista}
-              showsVerticalScrollIndicator={false}
-            >
-              {pendientes.map((p) => (
-                <View key={p.id} style={styles.pendiente}>
-                  <Text style={styles.pendienteMeta}>
-                    {p.autor} · {haceCuanto(p.fecha)}
-                  </Text>
-                  <Text style={styles.pendienteTexto}>{p.texto}</Text>
-                  <View style={styles.acciones}>
-                    <Pressable
-                      onPress={() => revisarPeticion(p.id, "rechazada")}
-                      style={({ pressed }) => [
-                        styles.accion,
-                        pressed && styles.presionado,
-                      ]}
-                    >
-                      <Text style={styles.accionTexto}>Rechazar</Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => revisarPeticion(p.id, "aprobada")}
-                      style={({ pressed }) => [
-                        styles.accion,
-                        styles.accionPrincipal,
-                        pressed && styles.presionado,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.accionTexto,
-                          styles.accionTextoPrincipal,
-                        ]}
-                      >
-                        Aprobar
+        <ConBordes>
+          {(insets) => (
+            <>
+              <View style={styles.fondo}>
+                <Pressable
+                  style={styles.cerrarFondo}
+                  onPress={() => setAbierto(false)}
+                />
+                <View
+                  style={[
+                    styles.hoja,
+                    { paddingBottom: insets.bottom + SPACING },
+                  ]}
+                >
+                  <View style={styles.asa} />
+                  <View style={styles.cabecera}>
+                    <View style={styles.flex}>
+                      <Text style={styles.meta}>
+                        POR APROBAR · {pendientes.length}
                       </Text>
+                      <Text style={styles.titulo}>
+                        Peticiones de{" "}
+                        <Text style={styles.cursiva}>oración</Text>
+                      </Text>
+                    </View>
+                    <Pressable
+                      onPress={() => setAbierto(false)}
+                      hitSlop={10}
+                      style={styles.cerrar}
+                      accessibilityLabel="Cerrar"
+                    >
+                      <Octicons name="x" size={16} color={TEXT} />
                     </Pressable>
                   </View>
+
+                  <ScrollView
+                    contentContainerStyle={styles.lista}
+                    showsVerticalScrollIndicator={false}
+                  >
+                    {pendientes.map((p) => (
+                      <View key={p.id} style={styles.pendiente}>
+                        <Text style={styles.pendienteMeta}>
+                          {p.autor} · {haceCuanto(p.fecha)}
+                        </Text>
+                        <Text style={styles.pendienteTexto}>{p.texto}</Text>
+                        <View style={styles.acciones}>
+                          <Pressable
+                            onPress={() => revisarPeticion(p.id, "rechazada")}
+                            style={({ pressed }) => [
+                              styles.accion,
+                              pressed && styles.presionado,
+                            ]}
+                          >
+                            <Text style={styles.accionTexto}>Rechazar</Text>
+                          </Pressable>
+                          <Pressable
+                            onPress={() => revisarPeticion(p.id, "aprobada")}
+                            style={({ pressed }) => [
+                              styles.accion,
+                              styles.accionPrincipal,
+                              pressed && styles.presionado,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.accionTexto,
+                                styles.accionTextoPrincipal,
+                              ]}
+                            >
+                              Aprobar
+                            </Text>
+                          </Pressable>
+                        </View>
+                      </View>
+                    ))}
+                  </ScrollView>
+                  <Text style={styles.nota}>
+                    Al aprobarla se publica en el muro de oración por 24 horas.
+                  </Text>
                 </View>
-              ))}
-            </ScrollView>
-            <Text style={styles.nota}>
-              Al aprobarla se publica en el muro de oración por 24 horas.
-            </Text>
-          </View>
-        </View>
+              </View>
+            </>
+          )}
+        </ConBordes>
       </Modal>
     </>
   );

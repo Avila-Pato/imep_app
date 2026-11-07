@@ -15,14 +15,13 @@ import { useState } from "react";
 import {
   KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import ConBordes from "@/components/ConBordes";
 
 // "Tengo un código": unirse a la iglesia (y a un grupo) con el codigo o
 // enlace que envio el pastor
@@ -33,7 +32,6 @@ export default function ModalCodigo({
   visible: boolean;
   onCerrar: () => void;
 }) {
-  const insets = useSafeAreaInsets();
   const unirse = useUnirse();
   const iglesia = useIglesia();
   const [codigo, setCodigo] = useState("");
@@ -56,96 +54,111 @@ export default function ModalCodigo({
 
   return (
     <Modal
+      navigationBarTranslucent
+      statusBarTranslucent
       visible={visible}
       transparent
       animationType="slide"
       onRequestClose={cerrar}
     >
-      <Pressable style={styles.fondo} onPress={cerrar} />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={styles.zona}
-        pointerEvents="box-none"
-      >
-        <View style={[styles.hoja, { paddingBottom: insets.bottom + SPACING }]}>
-          <View style={styles.asa} />
-
-          {unido ? (
-            // Listo: ya se unio
-            <View style={styles.listo}>
-              <View style={styles.listoIcono}>
-                <Octicons name="check" size={26} color="#FFFFFF" />
-              </View>
-              <Text style={styles.titulo}>¡Bienvenido!</Text>
-              <Text style={styles.texto}>
-                Te uniste a {unido}. En Inicio ya puedes ver la ubicación de{" "}
-                {iglesia?.sede ?? "tu iglesia"}.
-              </Text>
-              <Pressable
-                onPress={cerrar}
-                style={({ pressed }) => [
-                  styles.boton,
-                  pressed && styles.presionado,
+      <ConBordes>
+        {(insets) => (
+          <>
+            <Pressable style={styles.fondo} onPress={cerrar} />
+            <KeyboardAvoidingView
+              // en Android la hoja (pantalla completa) no se achica sola: se sube aqui
+              behavior="padding"
+              style={styles.zona}
+              pointerEvents="box-none"
+            >
+              <View
+                style={[
+                  styles.hoja,
+                  { paddingBottom: insets.bottom + SPACING },
                 ]}
               >
-                <Text style={styles.botonTexto}>Listo</Text>
-              </Pressable>
-            </View>
-          ) : (
-            <>
-              <View style={styles.cabecera}>
-                <Text style={styles.titulo}>Tengo un código</Text>
-                <Pressable
-                  onPress={cerrar}
-                  hitSlop={10}
-                  accessibilityLabel="Cerrar"
-                >
-                  <Octicons name="x" size={18} color={MUTED} />
-                </Pressable>
-              </View>
-              <Text style={styles.texto}>
-                Escribe o pega el código que te envió tu pastor para unirte a tu
-                iglesia. Si es de un grupo, también entrarás a su sala.
-              </Text>
+                <View style={styles.asa} />
 
-              <View style={[styles.input, error && styles.inputError]}>
-                <Octicons name="key" size={14} color={MUTED} />
-                <TextInput
-                  value={codigo}
-                  onChangeText={(t) => {
-                    setCodigo(t);
-                    setError(false);
-                  }}
-                  onSubmitEditing={usar}
-                  placeholder="Código o enlace"
-                  placeholderTextColor="#555555"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  autoFocus
-                  style={styles.inputTexto}
-                />
-              </View>
-              {error && (
-                <Text style={styles.error}>
-                  Ese código no es válido. Pídele uno nuevo a tu pastor.
-                </Text>
-              )}
+                {unido ? (
+                  // Listo: ya se unio
+                  <View style={styles.listo}>
+                    <View style={styles.listoIcono}>
+                      <Octicons name="check" size={26} color="#FFFFFF" />
+                    </View>
+                    <Text style={styles.titulo}>¡Bienvenido!</Text>
+                    <Text style={styles.texto}>
+                      Te uniste a {unido}. En Inicio ya puedes ver la ubicación
+                      de {iglesia?.sede ?? "tu iglesia"}.
+                    </Text>
+                    <Pressable
+                      onPress={cerrar}
+                      style={({ pressed }) => [
+                        styles.boton,
+                        pressed && styles.presionado,
+                      ]}
+                    >
+                      <Text style={styles.botonTexto}>Listo</Text>
+                    </Pressable>
+                  </View>
+                ) : (
+                  <>
+                    <View style={styles.cabecera}>
+                      <Text style={styles.titulo}>Tengo un código</Text>
+                      <Pressable
+                        onPress={cerrar}
+                        hitSlop={10}
+                        accessibilityLabel="Cerrar"
+                      >
+                        <Octicons name="x" size={18} color={MUTED} />
+                      </Pressable>
+                    </View>
+                    <Text style={styles.texto}>
+                      Escribe o pega el código que te envió tu pastor para
+                      unirte a tu iglesia. Si es de un grupo, también entrarás a
+                      su sala.
+                    </Text>
 
-              <Pressable
-                onPress={usar}
-                disabled={!codigo.trim()}
-                style={({ pressed }) => [
-                  styles.boton,
-                  !codigo.trim() && styles.botonApagado,
-                  pressed && styles.presionado,
-                ]}
-              >
-                <Text style={styles.botonTexto}>Unirme</Text>
-              </Pressable>
-            </>
-          )}
-        </View>
-      </KeyboardAvoidingView>
+                    <View style={[styles.input, error && styles.inputError]}>
+                      <Octicons name="key" size={14} color={MUTED} />
+                      <TextInput
+                        value={codigo}
+                        onChangeText={(t) => {
+                          setCodigo(t);
+                          setError(false);
+                        }}
+                        onSubmitEditing={usar}
+                        placeholder="Código o enlace"
+                        placeholderTextColor="#555555"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        autoFocus
+                        style={styles.inputTexto}
+                      />
+                    </View>
+                    {error && (
+                      <Text style={styles.error}>
+                        Ese código no es válido. Pídele uno nuevo a tu pastor.
+                      </Text>
+                    )}
+
+                    <Pressable
+                      onPress={usar}
+                      disabled={!codigo.trim()}
+                      style={({ pressed }) => [
+                        styles.boton,
+                        !codigo.trim() && styles.botonApagado,
+                        pressed && styles.presionado,
+                      ]}
+                    >
+                      <Text style={styles.botonTexto}>Unirme</Text>
+                    </Pressable>
+                  </>
+                )}
+              </View>
+            </KeyboardAvoidingView>
+          </>
+        )}
+      </ConBordes>
     </Modal>
   );
 }

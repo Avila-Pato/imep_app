@@ -23,6 +23,7 @@ type Props = {
   ancho: number;
   alto: number;
   onComoLlegar?: () => void; // sin esto no se muestra el boton (vista previa)
+  etiqueta?: string; // nombre en un globo sobre el pin
 };
 
 // El pin queda un poco arriba del centro para que no lo tape el panel inferior
@@ -35,6 +36,7 @@ export default function MapaIglesia({
   ancho,
   alto,
   onComoLlegar,
+  etiqueta,
 }: Props) {
   const { teselas, tamano } = teselasVisibles(
     lat,
@@ -96,6 +98,22 @@ export default function MapaIglesia({
         </View>
       </View>
 
+      {/* Globo con el nombre de la iglesia sobre el pin */}
+      {!!etiqueta && (
+        <View
+          pointerEvents="none"
+          style={[styles.globo, { top: alto * FOCO.y - PIN / 2 - 34 }]}
+        >
+          <View style={styles.globoCaja}>
+            <Octicons name="heart-fill" size={10} color={PRIMARY} />
+            <Text style={styles.globoTexto} numberOfLines={1}>
+              {etiqueta}
+            </Text>
+          </View>
+          <View style={styles.globoPunta} />
+        </View>
+      )}
+
       {onComoLlegar && (
         <Pressable
           onPress={onComoLlegar}
@@ -138,6 +156,34 @@ const styles = StyleSheet.create({
     backgroundColor: PRIMARY,
     borderWidth: 2,
     borderColor: "#FFFFFF",
+  },
+  globo: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    alignItems: "center",
+  },
+  globoCaja: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    maxWidth: 200,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: "#FFFFFF",
+  },
+  globoTexto: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#121212",
+  },
+  globoPunta: {
+    width: 8,
+    height: 8,
+    marginTop: -4,
+    backgroundColor: "#FFFFFF",
+    transform: [{ rotate: "45deg" }],
   },
   boton: {
     position: "absolute",

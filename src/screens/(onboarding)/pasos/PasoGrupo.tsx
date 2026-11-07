@@ -1,7 +1,5 @@
 import {
   BORDER,
-  FUENTE,
-  GRUPOS,
   MUTED,
   PRIMARY,
   SPACING,
@@ -63,25 +61,6 @@ export default function PasoGrupo({ onSeguir }: { onSeguir: () => void }) {
         sala.
       </Subtitulo>
 
-      {/* los grupos de la iglesia, de referencia */}
-      <View style={styles.grupos}>
-        {GRUPOS.filter((g) => g.id !== "general").map((g) => {
-          const activo = g.id === grupo;
-          return (
-            <View
-              key={g.id}
-              style={[
-                styles.grupo,
-                activo && { borderColor: g.tono, backgroundColor: SURFACE },
-              ]}
-            >
-              <Octicons name={g.icono} size={14} color={g.tono ?? TEXT} />
-              <Text style={styles.grupoTexto}>{g.label}</Text>
-            </View>
-          );
-        })}
-      </View>
-
       <View style={[styles.input, error && styles.inputError]}>
         <Octicons name="link" size={14} color={MUTED} />
         <TextInput
@@ -118,27 +97,6 @@ export default function PasoGrupo({ onSeguir }: { onSeguir: () => void }) {
 const styles = StyleSheet.create({
   presionado: {
     opacity: 0.7,
-  },
-  grupos: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginVertical: SPACING,
-  },
-  grupo: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: BORDER,
-  },
-  grupoTexto: {
-    fontFamily: FUENTE.medium,
-    fontSize: 13,
-    color: TEXT,
   },
   input: {
     flexDirection: "row",

@@ -13,7 +13,6 @@ import { useState } from "react";
 import {
   KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -21,7 +20,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import ConBordes from "@/components/ConBordes";
 
 type Props = {
   visible: boolean;
@@ -42,92 +41,106 @@ export default function ModalOracion({
   onGuardar,
   onCompartir,
 }: Props) {
-  const insets = useSafeAreaInsets();
   const [oracion, setOracion] = useState("");
   const lista = !!oracion.trim();
 
   return (
     <Modal
+      navigationBarTranslucent
       visible={visible}
       transparent
       animationType="slide"
       onRequestClose={onCerrar}
       statusBarTranslucent
     >
-      <KeyboardAvoidingView
-        style={styles.fondo}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <Pressable style={styles.cerrarFondo} onPress={onCerrar} />
-        <View style={[styles.hoja, { paddingBottom: insets.bottom + SPACING }]}>
-          <View style={styles.asa} />
-          <ScrollView
-            contentContainerStyle={styles.contenido}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.cabecera}>
-              <Text style={styles.titulo}>
-                Ora con <Text style={styles.cursiva}>este versículo</Text>
-              </Text>
-              <Pressable
-                onPress={onCerrar}
-                hitSlop={10}
-                style={styles.cerrar}
-                accessibilityLabel="Cerrar"
+      <ConBordes>
+        {(insets) => (
+          <>
+            <KeyboardAvoidingView
+              style={styles.fondo}
+              // en Android la hoja (pantalla completa) no se achica sola: se sube aqui
+              behavior="padding"
+            >
+              <Pressable style={styles.cerrarFondo} onPress={onCerrar} />
+              <View
+                style={[
+                  styles.hoja,
+                  { paddingBottom: insets.bottom + SPACING },
+                ]}
               >
-                <Octicons name="x" size={16} color={TEXT} />
-              </Pressable>
-            </View>
+                <View style={styles.asa} />
+                <ScrollView
+                  contentContainerStyle={styles.contenido}
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={false}
+                >
+                  <View style={styles.cabecera}>
+                    <Text style={styles.titulo}>
+                      Ora con <Text style={styles.cursiva}>este versículo</Text>
+                    </Text>
+                    <Pressable
+                      onPress={onCerrar}
+                      hitSlop={10}
+                      style={styles.cerrar}
+                      accessibilityLabel="Cerrar"
+                    >
+                      <Octicons name="x" size={16} color={TEXT} />
+                    </Pressable>
+                  </View>
 
-            {/* el versiculo */}
-            <View style={styles.verso}>
-              <Text style={styles.versoTexto}>«{texto}»</Text>
-              <Text style={styles.versoCita}>{cita.toUpperCase()}</Text>
-            </View>
+                  {/* el versiculo */}
+                  <View style={styles.verso}>
+                    <Text style={styles.versoTexto}>«{texto}»</Text>
+                    <Text style={styles.versoCita}>{cita.toUpperCase()}</Text>
+                  </View>
 
-            <TextInput
-              value={oracion}
-              onChangeText={setOracion}
-              placeholder="Señor, hoy te pido…"
-              placeholderTextColor="#555555"
-              multiline
-              style={styles.input}
-            />
+                  <TextInput
+                    value={oracion}
+                    onChangeText={setOracion}
+                    placeholder="Señor, hoy te pido…"
+                    placeholderTextColor="#555555"
+                    multiline
+                    style={styles.input}
+                  />
 
-            <Pressable
-              onPress={() => onGuardar(oracion.trim())}
-              disabled={!lista}
-              style={({ pressed }) => [
-                styles.boton,
-                styles.botonPrincipal,
-                !lista && styles.apagado,
-                pressed && styles.presionado,
-              ]}
-            >
-              <Octicons name="bookmark" size={16} color={DARK_BG} />
-              <Text style={[styles.botonTexto, styles.botonTextoPrincipal]}>
-                Guardar en mi perfil
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => onCompartir(oracion.trim())}
-              disabled={!lista}
-              style={({ pressed }) => [
-                styles.boton,
-                !lista && styles.apagado,
-                pressed && styles.presionado,
-              ]}
-            >
-              <Octicons name="share-android" size={16} color={TEXT} />
-              <Text style={styles.botonTexto}>Compartir con amigos</Text>
-            </Pressable>
-            <Text style={styles.nota}>
-              Tu oración es personal: no se publica en el muro.
-            </Text>
-          </ScrollView>
-        </View>
-      </KeyboardAvoidingView>
+                  <Pressable
+                    onPress={() => onGuardar(oracion.trim())}
+                    disabled={!lista}
+                    style={({ pressed }) => [
+                      styles.boton,
+                      styles.botonPrincipal,
+                      !lista && styles.apagado,
+                      pressed && styles.presionado,
+                    ]}
+                  >
+                    <Octicons name="bookmark" size={16} color={DARK_BG} />
+                    <Text
+                      style={[styles.botonTexto, styles.botonTextoPrincipal]}
+                    >
+                      Guardar en mi perfil
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => onCompartir(oracion.trim())}
+                    disabled={!lista}
+                    style={({ pressed }) => [
+                      styles.boton,
+                      !lista && styles.apagado,
+                      pressed && styles.presionado,
+                    ]}
+                  >
+                    <Octicons name="share-android" size={16} color={TEXT} />
+                    <Text style={styles.botonTexto}>Compartir con amigos</Text>
+                  </Pressable>
+                  <Text style={styles.nota}>
+                    Tu oración es personal: no se publica en el muro.
+                  </Text>
+                </ScrollView>
+              </View>
+            </KeyboardAvoidingView>
+          </>
+        )}
+      </ConBordes>
     </Modal>
   );
 }

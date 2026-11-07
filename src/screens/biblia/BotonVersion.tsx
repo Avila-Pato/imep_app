@@ -12,11 +12,10 @@ import { elegirVersion, useVersion } from "@/store/estudios";
 import Octicons from "@expo/vector-icons/Octicons";
 import { useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import ConBordes from "@/components/ConBordes";
 
 // Pastilla "RV1960 ⌄" al lado del libro: elige la version de la Biblia
 export default function BotonVersion() {
-  const insets = useSafeAreaInsets();
   const version = useVersion();
   const [abierto, setAbierto] = useState(false);
 
@@ -33,42 +32,70 @@ export default function BotonVersion() {
       </Pressable>
 
       <Modal
+        navigationBarTranslucent
+        statusBarTranslucent
         visible={abierto}
         transparent
         animationType="slide"
         onRequestClose={() => setAbierto(false)}
       >
-        <Pressable style={styles.fondo} onPress={() => setAbierto(false)} />
-        <View style={[styles.hoja, { paddingBottom: insets.bottom + SPACING }]}>
-          <View style={styles.asa} />
-          <Text style={styles.titulo}>Versión de la Biblia</Text>
-          {VERSIONES_BIBLIA.map((v) => {
-            const activa = v.id === version;
-            return (
+        <ConBordes>
+          {(insets) => (
+            <>
               <Pressable
-                key={v.id}
-                onPress={() => {
-                  elegirVersion(v.id);
-                  setAbierto(false);
-                }}
-                style={({ pressed }) => [
-                  styles.fila,
-                  activa && styles.filaActiva,
-                  pressed && styles.presionado,
+                style={styles.fondo}
+                onPress={() => setAbierto(false)}
+              />
+              <View
+                style={[
+                  styles.hoja,
+                  { paddingBottom: insets.bottom + SPACING },
                 ]}
-                accessibilityState={{ selected: activa }}
               >
-                <Text style={[styles.filaCodigo, activa && styles.textoActivo]}>
-                  {v.id}
-                </Text>
-                <Text style={[styles.filaNombre, activa && styles.textoActivo]}>
-                  {v.nombre}
-                </Text>
-                {activa && <Octicons name="check" size={16} color={DARK_BG} />}
-              </Pressable>
-            );
-          })}
-        </View>
+                <View style={styles.asa} />
+                <Text style={styles.titulo}>Versión de la Biblia</Text>
+                {VERSIONES_BIBLIA.map((v) => {
+                  const activa = v.id === version;
+                  return (
+                    <Pressable
+                      key={v.id}
+                      onPress={() => {
+                        elegirVersion(v.id);
+                        setAbierto(false);
+                      }}
+                      style={({ pressed }) => [
+                        styles.fila,
+                        activa && styles.filaActiva,
+                        pressed && styles.presionado,
+                      ]}
+                      accessibilityState={{ selected: activa }}
+                    >
+                      <Text
+                        style={[
+                          styles.filaCodigo,
+                          activa && styles.textoActivo,
+                        ]}
+                      >
+                        {v.id}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.filaNombre,
+                          activa && styles.textoActivo,
+                        ]}
+                      >
+                        {v.nombre}
+                      </Text>
+                      {activa && (
+                        <Octicons name="check" size={16} color={DARK_BG} />
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </>
+          )}
+        </ConBordes>
       </Modal>
     </>
   );

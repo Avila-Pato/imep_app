@@ -26,6 +26,7 @@ import PasoCargando from "./pasos/PasoCargando";
 import PasoCuenta from "./pasos/PasoCuenta";
 import PasoFunciones from "./pasos/PasoFunciones";
 import PasoGrupo from "./pasos/PasoGrupo";
+import PasoGuiaPastor from "./pasos/PasoGuiaPastor";
 import PasoHistorias from "./pasos/PasoHistorias";
 import PasoIglesia from "./pasos/PasoIglesia";
 import PasoMotivos from "./pasos/PasoMotivos";
@@ -47,6 +48,8 @@ const pasosPara = (rol?: RolIglesia) => {
     // "¿Qué te trae aquí?" no aplica al pastor
     ...(pastor ? [] : [PasoMotivos]),
     PasoFunciones,
+    // el pastor recibe una guia detallada de como administrar
+    ...(pastor ? [PasoGuiaPastor] : []),
     PasoVersiones,
     ...(pastor ? [] : [PasoGrupo]),
     PasoCuenta,
