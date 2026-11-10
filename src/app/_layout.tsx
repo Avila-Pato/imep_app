@@ -89,6 +89,9 @@ export default function RootLayout() {
             contentStyle: { backgroundColor: DARK_BG },
           }}
         >
+          {/* Siempre abiertas: son paginas publicas (enlace de Google Play) */}
+          <Stack.Screen name="privacidad" />
+          <Stack.Screen name="ayuda" />
           {/* Primera vez: solo el onboarding */}
           <Stack.Protected guard={!bienvenida}>
             <Stack.Screen name="(onboarding)" />
@@ -103,8 +106,6 @@ export default function RootLayout() {
             <Stack.Screen name="notificaciones" />
             <Stack.Screen name="megusta" />
             <Stack.Screen name="guardados" />
-            <Stack.Screen name="privacidad" />
-            <Stack.Screen name="ayuda" />
             <Stack.Screen name="editar-perfil" />
             <Stack.Screen name="unirse/[codigo]" />
             {/* entra y sale desde abajo, como una hoja */}

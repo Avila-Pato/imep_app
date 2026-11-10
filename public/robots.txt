@@ -1,0 +1,8 @@
+# Congrega
+# Solo las paginas publicas (privacidad y ayuda). El resto es la app.
+User-agent: *
+Allow: /privacidad
+Allow: /ayuda
+Disallow: /
+
+Sitemap: https://congrega.expo.app/sitemap.xml
