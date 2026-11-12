@@ -89,9 +89,6 @@ export default function RootLayout() {
             contentStyle: { backgroundColor: DARK_BG },
           }}
         >
-          {/* Siempre abiertas: son paginas publicas (enlace de Google Play) */}
-          <Stack.Screen name="privacidad" />
-          <Stack.Screen name="ayuda" />
           {/* Primera vez: solo el onboarding */}
           <Stack.Protected guard={!bienvenida}>
             <Stack.Screen name="(onboarding)" />
@@ -114,6 +111,12 @@ export default function RootLayout() {
               options={{ animation: "slide_from_bottom" }}
             />
           </Stack.Protected>
+          {/* Siempre abiertas: son paginas publicas (enlace de Google Play).
+              Van al final: si quedan primero, Expo Router las usa como
+              pantalla inicial cuando "/" esta protegida (antes del onboarding) */}
+          <Stack.Screen name="privacidad" />
+          <Stack.Screen name="ayuda" />
+
         </Stack>
       </ThemeProvider>
     </GestureHandlerRootView>
