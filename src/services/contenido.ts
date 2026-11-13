@@ -2,6 +2,7 @@ import { asegurarSesion, supabase } from "@/lib/supabase";
 import { File } from "expo-file-system";
 import { Platform } from "react-native";
 import { Anuncio, CategoriaId } from "@/types/typesAnuncios";
+import type { AvatarElegido } from "@/store/estudios";
 import { Turno } from "@/types/typesCronogramas";
 import { esUuid } from "./iglesias";
 
@@ -204,6 +205,8 @@ export type MiembroIglesia = {
   nombre: string; // el de su perfil
   rol: "pastor" | "hermano";
   sala?: string; // sala a la que entro con su invitacion
+  avatar?: AvatarElegido; // su foto o chibi
+  unido?: string; // ISO: desde cuando esta en la iglesia
 };
 
 // Los hermanos reales de la iglesia (los que se unieron con la invitacion)
@@ -219,12 +222,16 @@ export async function bajarMiembros(iglesiaId: string) {
       nombre: string;
       rol: "pastor" | "hermano";
       sala: string | null;
+      avatar: AvatarElegido | null;
+      unido: string | null;
     }[]
   ).map((m): MiembroIglesia => ({
     id: m.usuario_id,
     nombre: m.nombre,
     rol: m.rol,
     ...(m.sala ? { sala: m.sala } : {}),
+    ...(m.avatar ? { avatar: m.avatar } : {}),
+    ...(m.unido ? { unido: m.unido } : {}),
   }));
 }
 

@@ -1,8 +1,8 @@
+import { categoriaDe, categoriasUsadas } from "@/utils/categorias";
 import EstadoSubida from "@/components/EstadoSubida";
 import { USUARIO } from "@/assets/data/perfilMocks";
 import {
   BORDER,
-  CATEGORIAS,
   DARK_BG,
   HOME_PADDING as PADDING,
   MESES_CORTOS,
@@ -19,7 +19,7 @@ import {
   useNombreIglesiaSiVarias,
   usePuede,
 } from "@/store/estudios";
-import { Anuncio, CategoriaId } from "@/types/typesAnuncios";
+import { Anuncio } from "@/types/typesAnuncios";
 import { confirmar } from "@/utils/confirmar";
 import { proximoCulto } from "@/utils/cultos";
 import { useEspacioBarra } from "@/hooks/useEspacioBarra";
@@ -31,15 +31,7 @@ import ModalAnuncio from "./ModalAnuncio";
 import ModalFormAnuncio from "./ModalFormAnuncio";
 import TarjetaIglesia from "./TarjetaIglesia";
 
-type Filtro = "todos" | CategoriaId;
-
-const FILTROS: { id: Filtro; label: string }[] = [
-  { id: "todos", label: "Todos" },
-  ...(Object.keys(CATEGORIAS) as CategoriaId[]).map((id) => ({
-    id,
-    label: CATEGORIAS[id].label,
-  })),
-];
+type Filtro = "todos" | (string & {});
 
 // "YYYY-MM-DD" de hoy + N dias (hora local)
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -97,12 +89,12 @@ function Fila({
         <View style={styles.flex}>
           <View style={styles.categoria}>
             <Octicons
-              name={CATEGORIAS[a.categoria].icon}
+              name={categoriaDe(a.categoria).icon}
               size={11}
               color={MUTED}
             />
             <Text style={styles.categoriaTexto} numberOfLines={1}>
-              {CATEGORIAS[a.categoria].label.toUpperCase()}
+              {categoriaDe(a.categoria).label.toUpperCase()}
               {iglesia ? ` · ${iglesia.toUpperCase()}` : ""}
             </Text>
           </View>
@@ -155,8 +147,19 @@ export default function AnunciosView({
   const proximos = anuncios
     .filter((a) => a.fecha >= hoy)
     .sort((a, b) => a.fecha.localeCompare(b.fecha));
+  // Filtros: Todos, Eventos y las categorias que tienen anuncios
+  // (las que crea el admin aparecen solas al publicar)
+  const FILTROS: { id: Filtro; label: string }[] = [
+    { id: "todos", label: "Todos" },
+    ...categoriasUsadas(proximos).map((id) => ({
+      id,
+      label: categoriaDe(id).label,
+    })),
+  ];
+  // si se fue el ultimo anuncio de ese filtro, vuelve a "Todos"
+  const filtroActual = FILTROS.some((f) => f.id === filtro) ? filtro : "todos";
   const visibles = proximos.filter(
-    (a) => filtro === "todos" || a.categoria === filtro,
+    (a) => filtroActual === "todos" || a.categoria === filtroActual,
   );
   const secciones = [
     {
@@ -227,7 +230,7 @@ export default function AnunciosView({
           contentContainerStyle={styles.filtrosContent}
         >
           {FILTROS.map((f) => {
-            const activo = f.id === filtro;
+            const activo = f.id === filtroActual;
             return (
               <Pressable
                 key={f.id}

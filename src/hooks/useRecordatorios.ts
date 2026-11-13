@@ -1,5 +1,5 @@
+import { categoriaDe } from "@/utils/categorias";
 import { PUSH_ACTIVO } from "@/services/push";
-import { HORARIOS_CULTO } from "@/assets/data/configMocks";
 import { USUARIO } from "@/assets/data/perfilMocks";
 import {
   alActivarPermiso,
@@ -9,13 +9,13 @@ import {
   NOTIS_DISPONIBLES,
   programarAvisos,
 } from "@/services/notificaciones";
-import { CATEGORIAS } from "@/constants/constans";
 import {
   marcarTurnosAvisados,
   olvidarTurnosAvisados,
   marcarAnunciosAvisados,
   TipoAviso,
   useEstudios,
+  useHorarios,
   useRoles,
 } from "@/store/estudios";
 import { horaTurno } from "@/utils/cultos";
@@ -48,6 +48,7 @@ export function useRecordatorios() {
   const quiere = (t: TipoAviso) => avisos[t] ?? true;
   const yo = nombre ?? USUARIO.nombre;
   const roles = useRoles();
+  const horarios = useHorarios(); // los de la iglesia activa
   const nombreIglesia = iglesia?.sede;
 
   const lista: Aviso[] = [];
@@ -61,7 +62,7 @@ export function useRecordatorios() {
         hoy.getMonth(),
         hoy.getDate() + i,
       );
-      for (const h of HORARIOS_CULTO.filter((h) => h.dia === dia.getDay())) {
+      for (const h of horarios.filter((h) => h.dia === dia.getDay())) {
         const [hh, mm] = h.hora.split(":").map(Number);
         const fecha = new Date(dia);
         fecha.setHours(hh - 2, mm);
@@ -265,7 +266,7 @@ export function useRecordatorios() {
       const fecha = a.hora ? deKey(a.fecha, a.hora) : deKey(a.fecha, "09:00");
       if (a.hora) fecha.setHours(fecha.getHours() - 2);
       lista.push({
-        titulo: `Hoy: ${a.titulo || CATEGORIAS[a.categoria].label}`,
+        titulo: `Hoy: ${a.titulo || categoriaDe(a.categoria).label}`,
         cuerpo: [a.hora && `${a.hora} hrs`, a.lugar]
           .filter(Boolean)
           .join(" · "),

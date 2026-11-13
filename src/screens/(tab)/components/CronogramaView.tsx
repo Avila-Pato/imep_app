@@ -1,37 +1,44 @@
+import AvatarPersona from "@/components/AvatarPersona";
 import EstadoSubida from "@/components/EstadoSubida";
-import { HORARIOS_CULTO } from "@/assets/data/configMocks";
 import {
   BORDER,
   DARK_BG,
   DIAS_SEMANA,
-  HOME_PADDING as PADDING,
+  ELEVADO,
+  LINEA,
   MUTED,
+  HOME_PADDING as PADDING,
+  PRIMARY,
+  RADIO_BORDE,
   SPACING,
   SURFACE,
   TEXT,
-  ELEVADO,
-  LINEA,
-  RADIO_BORDE,
   primarioAlfa,
 } from "@/constants/constans";
 import { useEspacioBarra } from "@/hooks/useEspacioBarra";
-import Octicons from "@expo/vector-icons/Octicons";
 import {
   asignarTurno,
   fijarHoraTurno,
   quitarRol,
+  useAvatarDe,
+  useClaveSubidaCronograma,
   useEstudios,
+  useHorarios,
+  useHorariosConfigurados,
+  useIglesia,
+  useNombreIglesiaSiVarias,
   usePuede,
   useRoles,
-  useClaveSubidaCronograma,
-  useNombreIglesiaSiVarias,
+  useSubida,
 } from "@/store/estudios";
-import { confirmar } from "@/utils/confirmar";
 import { RolId, Turno } from "@/types/typesCronogramas";
-import { horaCulto, horaTurno } from "@/utils/cultos";
+import { confirmar } from "@/utils/confirmar";
+import { horaCulto, horaTurno, horariosActuales } from "@/utils/cultos";
 import { unirTurnos } from "@/utils/turnos";
+import Octicons from "@expo/vector-icons/Octicons";
 import { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   LayoutChangeEvent,
   Pressable,
   ScrollView,
@@ -46,6 +53,7 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import ModalAsignar from "./ModalAsignar";
+import ModalHorarios from "./ModalHorarios";
 import ModalNuevaCasilla from "./ModalNuevaCasilla";
 
 const RESORTE = { damping: 22, stiffness: 220 };
@@ -81,12 +89,14 @@ const deKey = (key: string) => {
   return new Date(y, m - 1, d);
 };
 const aKey = (f: Date) => toKey(f.getFullYear(), f.getMonth(), f.getDate());
-// Dias de culto segun la configuracion de la iglesia
-const DIAS_CULTO = HORARIOS_CULTO.map((h) => h.dia);
-const esCulto = (f: Date) => DIAS_CULTO.includes(f.getDay());
+// Dias de culto de la iglesia activa (los configura el pastor)
+const diasCulto = () => [...new Set(horariosActuales().map((h) => h.dia))];
+const esCulto = (f: Date) => diasCulto().includes(f.getDay());
 
-// Dia de culto mas cercano desde esa fecha (ella misma si ya es de culto)
+// Dia de culto mas cercano desde esa fecha (ella misma si ya es de culto).
+// Sin dias de culto: la misma fecha
 function siguienteCulto(key: string) {
+  if (!diasCulto().length) return key;
   const f = deKey(key);
   while (!esCulto(f)) f.setDate(f.getDate() + 1);
   return aKey(f);
@@ -117,7 +127,7 @@ function cultosDeLaSemana(key: string) {
   const f = deKey(key);
   const lunes = new Date(f);
   lunes.setDate(f.getDate() - ((f.getDay() + 6) % 7));
-  return [...DIAS_CULTO]
+  return diasCulto()
     .map((d) => (d + 6) % 7) // posicion desde el lunes
     .sort((x, y) => x - y)
     .map((offset) => {
@@ -177,6 +187,12 @@ export default function CronogramaView() {
   // Turnos de ejemplo + los que asigno el admin
   const { turnosEditados } = useEstudios();
   const claveSubida = useClaveSubidaCronograma();
+  const iglesiaActiva = useIglesia();
+  // la casilla que se acaba de cambiar muestra si se guardo (gira → ✓)
+  const [rolEditado, setRolEditado] = useState<RolId | null>(null);
+  const avatarDe = useAvatarDe(); // foto o chibi de quien sirve
+  // se redibuja si el pastor cambia los dias de culto
+  useHorarios();
   const nombreIglesia = useNombreIglesiaSiVarias();
   const turnos = unirTurnos(turnosEditados);
 
@@ -197,6 +213,8 @@ export default function CronogramaView() {
   const roles = useRoles(); // las de la app + las que agrego la iglesia
   const ordenRoles = roles.lista;
   const [creandoCasilla, setCreandoCasilla] = useState(false);
+  const [editandoHorarios, setEditandoHorarios] = useState(false);
+  const horariosConfigurados = useHorariosConfigurados();
   // casilla recien creada: la vista baja hasta ella y queda resaltada
   const [recienCreada, setRecienCreada] = useState<RolId | null>(null);
   const lista = useRef<ScrollView>(null);
@@ -303,9 +321,16 @@ export default function CronogramaView() {
             </View>
             <View style={styles.flex}>
               <Text style={styles.bloqueRol}>{rol.label.toUpperCase()}</Text>
-              <Text style={styles.bloquePersona} numberOfLines={1}>
-                {t.persona}
-              </Text>
+              <View style={styles.personaFila}>
+                <AvatarPersona
+                  nombre={t.persona}
+                  avatar={avatarDe(t.persona)}
+                  tamano={20}
+                />
+                <Text style={styles.bloquePersona} numberOfLines={1}>
+                  {t.persona}
+                </Text>
+              </View>
             </View>
           </View>
         </View>
@@ -314,8 +339,16 @@ export default function CronogramaView() {
   };
 
   // En modo admin: todos los roles, con o sin persona
+  // la subida del dia que se esta viendo (para la casilla recien cambiada)
+  const claveDia = iglesiaActiva?.id
+    ? `dia:${iglesiaActiva.id}:${seleccionado}`
+    : undefined;
+  const subidaDia = useSubida(claveDia);
+
   const filaEditable = (rolId: RolId) => {
     const rol = roles.de(rolId);
+    const guardandoEsta =
+      rolId === rolEditado && subidaDia ? subidaDia.etapa : undefined;
     const turno = turnosDia.find((t) => t.rol === rolId);
     const persona = turno?.persona;
     const suHora = turno ? horaTurno(turno) : undefined;
@@ -349,7 +382,20 @@ export default function CronogramaView() {
             {suHora}
           </Text>
         )}
-        <Octicons name={persona ? "pencil" : "plus"} size={14} color={MUTED} />
+        {/* recien cambiada: se esta guardando, quedo guardada o fallo */}
+        {guardandoEsta === "guardando" ? (
+          <ActivityIndicator size="small" color={MUTED} />
+        ) : guardandoEsta === "listo" ? (
+          <Octicons name="check-circle-fill" size={16} color={VERDE_OK} />
+        ) : guardandoEsta === "error" ? (
+          <Octicons name="alert" size={15} color={PRIMARY} />
+        ) : (
+          <Octicons
+            name={persona ? "pencil" : "plus"}
+            size={14}
+            color={MUTED}
+          />
+        )}
         {/* las casillas que agrego la iglesia se pueden borrar */}
         {roles.esNueva(rolId) && (
           <Pressable
@@ -595,7 +641,7 @@ export default function CronogramaView() {
                   hitSlop={8}
                   style={[styles.editar, enEdicion && styles.editarActivo]}
                   accessibilityLabel={
-                    enEdicion ? "Terminar de editar" : "Editar turnos"
+                    enEdicion ? "Cerrar edición" : "Editar turnos"
                   }
                 >
                   <Octicons
@@ -622,9 +668,48 @@ export default function CronogramaView() {
                   agendaY.current = e.nativeEvent.layout.y;
                 }}
               >
+                {/* dentro de la hoja (arriba la tapa al editar): se guardo? */}
+                <EstadoSubida
+                  clave={claveDia}
+                  textos={{
+                    guardando: "Guardando cronograma…",
+                    listo: "Cronograma guardado ✓",
+                    error: "No se guardó el cronograma",
+                  }}
+                />
+                {/* dias y horarios de culto de esta iglesia */}
+                <Pressable
+                  onPress={() => setEditandoHorarios(true)}
+                  style={({ pressed }) => [
+                    styles.horarios,
+                    !horariosConfigurados && styles.horariosPendiente,
+                    pressed && styles.presionado,
+                  ]}
+                >
+                  <Octicons name="clock" size={15} color={TEXT} />
+                  <View style={styles.flex}>
+                    <Text style={styles.horariosTitulo}>
+                      Días y horarios de culto
+                    </Text>
+                    <Text style={styles.horariosTexto}>
+                      {horariosConfigurados
+                        ? "Cambia los días que aparecen en el cronograma"
+                        : "Aún no los configuras: estos son de ejemplo"}
+                    </Text>
+                  </View>
+                  <Octicons name="chevron-right" size={16} color={MUTED} />
+                </Pressable>
                 <Text style={styles.ayuda}>
                   Toca un rol para elegir quién sirve y a qué hora.
                 </Text>
+                {/* que no piense que debe "guardar": cada cambio ya se publica */}
+                <View style={styles.alInstante}>
+                  <Octicons name="check-circle" size={13} color={VERDE_OK} />
+                  <Text style={styles.alInstanteTexto}>
+                    Cada cambio se guarda solo y los hermanos lo ven al
+                    instante.
+                  </Text>
+                </View>
                 {ordenRoles.map((id) => (
                   <View
                     key={id}
@@ -677,10 +762,13 @@ export default function CronogramaView() {
         onHora={(h) => {
           if (!rolAbierto) return;
           // ya tiene persona: se guarda al tiro; si no, al elegir a alguien
-          if (turnoAbierto) fijarHoraTurno(seleccionado, rolAbierto, h);
-          else setHoraPendiente(h);
+          if (turnoAbierto) {
+            fijarHoraTurno(seleccionado, rolAbierto, h);
+            setRolEditado(rolAbierto);
+          } else setHoraPendiente(h);
         }}
         onElegir={(persona) => {
+          if (rolAbierto) setRolEditado(rolAbierto);
           if (rolAbierto)
             asignarTurno(
               seleccionado,
@@ -693,6 +781,11 @@ export default function CronogramaView() {
         onCerrar={() => setRolAbierto(null)}
       />
 
+      <ModalHorarios
+        visible={editandoHorarios}
+        onCerrar={() => setEditandoHorarios(false)}
+      />
+
       <ModalNuevaCasilla
         visible={creandoCasilla}
         onCerrar={() => setCreandoCasilla(false)}
@@ -703,6 +796,7 @@ export default function CronogramaView() {
 }
 
 const HORA_LABEL_W = 44;
+const VERDE_OK = "#34D59A";
 
 const styles = StyleSheet.create({
   safe: {
@@ -882,6 +976,47 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: MUTED,
+  },
+  alInstante: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    marginBottom: SPACING,
+  },
+  alInstanteTexto: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 17,
+    color: MUTED,
+  },
+  personaFila: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  horarios: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING * 1.2,
+    padding: SPACING * 1.4,
+    marginBottom: SPACING,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: BORDER,
+  },
+  horariosPendiente: {
+    borderColor: PRIMARY,
+    backgroundColor: primarioAlfa(0.08),
+  },
+  horariosTitulo: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: TEXT,
+  },
+  horariosTexto: {
+    fontSize: 12,
+    color: MUTED,
+    marginTop: 2,
   },
   recienCreada: {
     borderRadius: 14,

@@ -10,7 +10,7 @@ export type Categoria = {
 // Lo minimo para publicar: titulo, texto, fecha y categoria
 export type Anuncio = {
   id: string;
-  categoria: CategoriaId;
+  categoria: CategoriaId | (string & {}); // o una que creo el admin (su nombre)
   titulo: string;
   descripcion: string;
   fecha: string; // "YYYY-MM-DD"

@@ -28,6 +28,7 @@ import PasoFunciones from "./pasos/PasoFunciones";
 import PasoGrupo from "./pasos/PasoGrupo";
 import PasoGuiaPastor from "./pasos/PasoGuiaPastor";
 import PasoHistorias from "./pasos/PasoHistorias";
+import PasoHorarios from "./pasos/PasoHorarios";
 import PasoIglesia from "./pasos/PasoIglesia";
 import PasoMotivos from "./pasos/PasoMotivos";
 import PasoNombre from "./pasos/PasoNombre";
@@ -44,7 +45,8 @@ const pasosPara = (rol?: RolIglesia) => {
     PasoHistorias,
     PasoNombre,
     PasoRol,
-    ...(pastor ? [PasoIglesia] : []),
+    // el pastor: sus iglesias y despues los dias y horarios de culto
+    ...(pastor ? [PasoIglesia, PasoHorarios] : []),
     // "¿Qué te trae aquí?" no aplica al pastor
     ...(pastor ? [] : [PasoMotivos]),
     PasoFunciones,

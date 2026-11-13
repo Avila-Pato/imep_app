@@ -10,7 +10,11 @@ import {
   ELEVADO,
   PLACEHOLDER,
 } from "@/constants/constans";
-import { buscarDireccion, Lugar } from "@/services/direcciones";
+import {
+  buscarDireccion,
+  Lugar,
+  ubicacionActual,
+} from "@/services/direcciones";
 import { Iglesia } from "@/types/typesHome";
 import Octicons from "@expo/vector-icons/Octicons";
 import { useEffect, useState } from "react";
@@ -44,6 +48,10 @@ export default function FormIglesia({
   );
   const [resultados, setResultados] = useState<Lugar[]>([]);
   const [buscando, setBuscando] = useState(false);
+  // "Usar mi ubicacion actual": null = no esta buscando
+  const [ubicando, setUbicando] = useState<"buscando" | "sin-permiso" | null>(
+    null,
+  );
   const [error, setError] = useState(false);
   const [ancho, setAncho] = useState(0); // para dibujar la vista previa
 
@@ -65,6 +73,21 @@ export default function FormIglesia({
       ctrl.abort();
     };
   }, [busqueda, elegido?.direccion]);
+
+  // el pastor esta en el templo: un toque y listo (sin escribir la direccion)
+  const usarMiUbicacion = async () => {
+    setUbicando("buscando");
+    setError(false);
+    try {
+      const l = await ubicacionActual();
+      if (!l) return setUbicando("sin-permiso");
+      elegir(l);
+      setUbicando(null);
+    } catch {
+      setError(true);
+      setUbicando(null);
+    }
+  };
 
   const elegir = (l: Lugar) => {
     setElegido(l);
@@ -90,6 +113,38 @@ export default function FormIglesia({
 
       <View style={styles.campo}>
         <Text style={styles.etiqueta}>DIRECCIÓN</Text>
+        {/* lo mas facil: estando en la iglesia, su ubicacion */}
+        <Pressable
+          onPress={usarMiUbicacion}
+          disabled={ubicando === "buscando"}
+          style={({ pressed }) => [
+            styles.miUbicacion,
+            pressed && styles.presionado,
+          ]}
+        >
+          {ubicando === "buscando" ? (
+            <ActivityIndicator size="small" color={TEXT} />
+          ) : (
+            <Octicons name="location" size={15} color={TEXT} />
+          )}
+          <View style={styles.flex}>
+            <Text style={styles.miUbicacionTitulo}>
+              {ubicando === "buscando"
+                ? "Buscando dónde estás…"
+                : "Usar mi ubicación actual"}
+            </Text>
+            <Text style={styles.miUbicacionTexto}>
+              Si estás en la iglesia ahora, tócalo y listo
+            </Text>
+          </View>
+        </Pressable>
+        {ubicando === "sin-permiso" && (
+          <Text style={styles.error}>
+            Sin permiso de ubicación. Actívalo en los ajustes del teléfono o
+            escribe la dirección.
+          </Text>
+        )}
+        <Text style={styles.o}>o busca la dirección</Text>
         <View style={styles.buscador}>
           <Octicons name="location" size={14} color={MUTED} />
           <TextInput
@@ -203,6 +258,35 @@ const styles = StyleSheet.create({
     color: TEXT,
     borderBottomWidth: 1,
     borderBottomColor: BORDER,
+  },
+  flex: {
+    flex: 1,
+  },
+  miUbicacion: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING * 1.2,
+    padding: SPACING * 1.4,
+    borderRadius: 14,
+    backgroundColor: SURFACE,
+    borderWidth: 1,
+    borderColor: BORDER,
+  },
+  miUbicacionTitulo: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: TEXT,
+  },
+  miUbicacionTexto: {
+    fontSize: 12,
+    color: MUTED,
+    marginTop: 2,
+  },
+  o: {
+    fontSize: 12,
+    color: MUTED,
+    textAlign: "center",
+    marginVertical: 2,
   },
   buscador: {
     flexDirection: "row",

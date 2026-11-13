@@ -1,4 +1,5 @@
-import { miembrosActuales, useMiembros } from "@/store/estudios";
+import AvatarPersona from "@/components/AvatarPersona";
+import { miembrosActuales, useAvatarDe, useMiembros } from "@/store/estudios";
 import { USUARIO } from "@/assets/data/perfilMocks";
 import {
   BORDER,
@@ -8,7 +9,6 @@ import {
   TEXT,
 } from "@/constants/constans";
 import { GrupoId, Miembro } from "@/types/typesComunidad";
-import { iniciales } from "@/utils/texto";
 import Octicons from "@expo/vector-icons/Octicons";
 import { Href, router } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -33,6 +33,7 @@ export default function MiembrosSala({
   lider?: boolean;
 }) {
   useMiembros(); // se actualiza cuando llegan del servidor
+  const avatarDe = useAvatarDe();
   const miembros = miembrosDe(grupo);
 
   return (
@@ -45,9 +46,11 @@ export default function MiembrosSala({
         const yo = m.nombre === USUARIO.nombre;
         return (
           <View key={m.nombre} style={[styles.fila, i > 0 && styles.conLinea]}>
-            <View style={[styles.avatar, yo && styles.avatarYo]}>
-              <Text style={styles.avatarTexto}>{iniciales(m.nombre)}</Text>
-            </View>
+            <AvatarPersona
+              nombre={m.nombre}
+              avatar={avatarDe(m.nombre)}
+              tamano={40}
+            />
             <Text style={styles.nombre}>
               {m.nombre}
               {yo && <Text style={styles.tu}> · Tú</Text>}

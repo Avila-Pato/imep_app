@@ -1,4 +1,5 @@
 import { asegurarSesion, supabase } from "@/lib/supabase";
+import { HorarioCulto } from "@/types/typesAnuncios";
 import { Iglesia } from "@/types/typesHome";
 
 // Iglesias, miembros e invitaciones en Supabase.
@@ -11,6 +12,7 @@ type FilaIglesia = {
   direccion: string;
   lat: number;
   lng: number;
+  horarios: HorarioCulto[] | null;
 };
 
 const aIglesia = (f: FilaIglesia): Iglesia => ({
@@ -20,6 +22,7 @@ const aIglesia = (f: FilaIglesia): Iglesia => ({
   direccion: f.direccion,
   lat: f.lat,
   lng: f.lng,
+  ...(Array.isArray(f.horarios) ? { horarios: f.horarios } : {}),
 });
 
 // Solo las iglesias con id uuid estan (o pueden estar) en el servidor;
@@ -48,6 +51,7 @@ export async function subirIglesia(iglesia: Iglesia) {
     p_direccion: iglesia.direccion,
     p_lat: iglesia.lat,
     p_lng: iglesia.lng,
+    p_horarios: iglesia.horarios ?? null, // null: no los cambia
   });
   if (error) throw error;
   return aIglesia(data as FilaIglesia);
@@ -73,14 +77,20 @@ export async function misIglesias(): Promise<MiIglesia[] | null> {
   if (!yo) return null;
   const { data, error } = await supabase
     .from("miembros")
-    .select("rol, sala, iglesias(*)")
+    .select("rol, sala, unido, iglesias(*)")
     .eq("usuario_id", yo)
     .order("unido");
   if (error) throw error;
   return (data ?? []).flatMap((m) => {
     const f = m.iglesias as unknown as FilaIglesia | null;
     return f
-      ? [{ iglesia: aIglesia(f), rol: m.rol, sala: m.sala ?? undefined }]
+      ? [
+          {
+            iglesia: { ...aIglesia(f), unido: m.unido ?? undefined },
+            rol: m.rol,
+            sala: m.sala ?? undefined,
+          },
+        ]
       : [];
   });
 }

@@ -1,7 +1,7 @@
+import { categoriaDe } from "@/utils/categorias";
 import { useNombreIglesiaSiVarias } from "@/store/estudios";
 import {
   BORDER,
-  CATEGORIAS,
   DARK_BG,
   HOME_PADDING as PADDING,
   MUTED,
@@ -131,12 +131,12 @@ export default function ModalAnuncio({
                       <View style={styles.etiquetas}>
                         <View style={styles.categoria}>
                           <Octicons
-                            name={CATEGORIAS[anuncio.categoria].icon}
+                            name={categoriaDe(anuncio.categoria).icon}
                             size={11}
                             color={MUTED}
                           />
                           <Text style={styles.categoriaTexto}>
-                            {CATEGORIAS[anuncio.categoria].label.toUpperCase()}
+                            {categoriaDe(anuncio.categoria).label.toUpperCase()}
                           </Text>
                         </View>
                         {/* de que iglesia es (si tiene varias) */}

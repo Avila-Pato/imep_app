@@ -1,3 +1,4 @@
+import { HORARIOS_CULTO as HORARIOS_POR_DEFECTO } from "@/assets/data/configMocks";
 import { IGLESIA } from "@/assets/data/homeMocks";
 import { USUARIO } from "@/assets/data/perfilMocks";
 import {
@@ -7,7 +8,7 @@ import {
   ROL_GENERICO,
   ROLES,
 } from "@/constants/constans";
-import { Anuncio } from "@/types/typesAnuncios";
+import { Anuncio, HorarioCulto } from "@/types/typesAnuncios";
 import { CargoId, Permiso } from "@/types/typesCargos";
 import {
   Desafio,
@@ -25,7 +26,7 @@ import { Predicacion } from "@/types/typesOraciones";
 import { subirPerfil } from "@/services/perfil";
 import { borrarDelServidor } from "@/services/reinicio";
 import { registrarDispositivo } from "@/services/push";
-import { horaTurno } from "@/utils/cultos";
+import { horaTurno, usarHorarios } from "@/utils/cultos";
 import {
   avisarAnuncio,
   avisarTurno,
@@ -262,6 +263,39 @@ const useStore = create<Estado>()(
 
 const cambiar = useStore.setState;
 
+// Los horarios de culto siguen a la iglesia activa (antes de que se dibujen
+// las pantallas: este aviso se registra primero)
+usarHorarios(useStore.getState().iglesia?.horarios);
+useStore.subscribe((s, antes) => {
+  if (s.iglesia?.horarios !== antes.iglesia?.horarios) {
+    usarHorarios(s.iglesia?.horarios);
+  }
+});
+
+// Dias y horarios de culto de la iglesia activa (para las pantallas)
+export function useHorarios(): HorarioCulto[] {
+  return useStore((s) => s.iglesia?.horarios) ?? HORARIOS_POR_DEFECTO;
+}
+// ¿Ya configuro sus horarios? (si no, se usan los de ejemplo)
+export function useHorariosConfigurados() {
+  return useStore((s) => !!s.iglesia?.horarios);
+}
+
+// El pastor guarda los dias y horarios de una iglesia (la activa si no dice)
+export function fijarHorarios(horarios: HorarioCulto[], iglesiaId?: string) {
+  const s = useStore.getState();
+  const id = iglesiaId ?? s.iglesia?.id;
+  const lista = listaIglesias(s);
+  const destino = lista.find((x) => x.id === id);
+  if (!destino) return;
+  const nueva = { ...destino, horarios };
+  cambiar({
+    iglesias: lista.map((x) => (x.id === id ? nueva : x)),
+    iglesia: s.iglesia?.id === id ? nueva : s.iglesia,
+  });
+  subir(nueva);
+}
+
 // Deja la app como recien instalada (rol, iglesia, mapa, salas, todo)
 // y vuelve a mostrar la bienvenida para elegir pastor o hermano
 export function reiniciarApp() {
@@ -316,15 +350,26 @@ export function guardarPerfil(datos: {
 }) {
   cambiar(datos);
   // su iglesia ve su nombre (y su foto, si es una URL)
-  if (datos.nombre || datos.avatar?.tipo === "foto") {
-    const { nombre, avatar } = useStore.getState();
-    enFondo(
-      subirPerfil({
-        nombre,
-        foto: avatar?.tipo === "foto" ? avatar.uri : undefined,
-      }),
-    );
-  }
+  // su iglesia ve su nombre y su foto o chibi (cronograma, salas)
+  if (datos.nombre || datos.avatar) subirMiPerfil();
+}
+
+// Sube nombre y avatar; si era una foto de la galeria, el telefono pasa a
+// usar el enlace de arriba (asi no se vuelve a subir)
+function subirMiPerfil() {
+  const { nombre, avatar } = useStore.getState();
+  enFondo(
+    subirPerfil({ nombre, avatar }).then((arriba) => {
+      if (
+        arriba?.tipo === "foto" &&
+        avatar?.tipo === "foto" &&
+        arriba.uri !== avatar.uri &&
+        useStore.getState().avatar === avatar
+      ) {
+        cambiar({ avatar: arriba });
+      }
+    }),
+  );
 }
 
 // Entro con Google: guarda la cuenta y completa lo que falte del perfil
@@ -337,13 +382,7 @@ export function conectarCuenta(cuenta: CuentaConectada) {
       s.avatar ??
       (cuenta.foto ? { tipo: "foto", uri: cuenta.foto } : undefined),
   }));
-  const { nombre, avatar } = useStore.getState();
-  enFondo(
-    subirPerfil({
-      nombre,
-      foto: avatar?.tipo === "foto" ? avatar.uri : undefined,
-    }),
-  );
+  subirMiPerfil();
 }
 
 // Foto del perfil: un chibi (por su semilla) o una foto de la galeria
@@ -415,6 +454,56 @@ export function useMiembros(): MiembroIglesia[] {
   const esPastor = useStore((s) => s.rol === "pastor");
   return conYo(miembros, yo, esPastor);
 }
+// Mis proximos turnos en TODAS mis iglesias (la activa + las guardadas),
+// cada uno con el nombre de su iglesia y la hora segun SUS horarios
+export type MiTurno = Turno & { iglesia?: string; horaFinal?: string };
+export function useMisTurnos(): MiTurno[] {
+  const s = useStore();
+  const yo = (s.nombre ?? USUARIO.nombre).trim().toLowerCase();
+  const hoy = aKeyHoy();
+  const deIglesia = (
+    iglesia: Iglesia | undefined,
+    editados?: Record<string, Turno[]>,
+  ) =>
+    unirTurnos(editados ?? {})
+      .filter((t) => t.persona.trim().toLowerCase() === yo && t.fecha >= hoy)
+      .map((t) => {
+        const [y, m, d] = t.fecha.split("-").map(Number);
+        const dia = new Date(y, m - 1, d).getDay();
+        const horaCultoDia = (iglesia?.horarios ?? HORARIOS_POR_DEFECTO)
+          .filter((h) => h.dia === dia)
+          .sort((a, b) => a.hora.localeCompare(b.hora))[0]?.hora;
+        return {
+          ...t,
+          iglesia: iglesia?.sede,
+          horaFinal: t.hora ?? horaCultoDia,
+        };
+      });
+  const lista = listaIglesias(s);
+  return [
+    ...deIglesia(s.iglesia, s.turnosEditados),
+    ...lista
+      .filter((i) => !misma(i, s.iglesia))
+      .flatMap((i) =>
+        deIglesia(i, s.porIglesia?.[idIglesia(i)]?.turnosEditados),
+      ),
+  ].sort((a, b) => a.fecha.localeCompare(b.fecha));
+}
+
+// Avatar (foto o chibi) de alguien de la iglesia por su nombre (el turno y
+// las salas guardan el nombre). El propio sale de este telefono
+export function useAvatarDe() {
+  const miembros = useStore((s) => s.miembros);
+  const yo = useStore((s) => s.nombre) ?? USUARIO.nombre;
+  const miAvatar = useStore((s) => s.avatar);
+  return (nombre?: string): AvatarElegido | undefined => {
+    if (!nombre) return undefined;
+    const n = nombre.trim().toLowerCase();
+    if (n === yo.trim().toLowerCase()) return miAvatar;
+    return miembros.find((m) => m.nombre.trim().toLowerCase() === n)?.avatar;
+  };
+}
+
 // lo mismo, fuera de un componente (lee el estado de ahora)
 export function miembrosActuales(): MiembroIglesia[] {
   const s = useStore.getState();
@@ -667,6 +756,12 @@ export async function sincronizarIglesias() {
     return null;
   });
   if (!remotas) return; // sin servidor o sin conexion: no se toca nada
+  // su foto de la galeria aun no esta arriba (fallo o no habia servidor):
+  // se reintenta, para que su iglesia la vea sin que la vuelva a elegir
+  const { avatar } = useStore.getState();
+  if (avatar?.tipo === "foto" && !avatar.uri.startsWith("https://")) {
+    subirMiPerfil();
+  }
   const ids = new Set(remotas.map((r) => r.iglesia.id));
   const reintentar: Iglesia[] = [];
   cambiar((s) => {

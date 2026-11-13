@@ -1,6 +1,6 @@
+import { categoriaDe, categoriasUsadas } from "@/utils/categorias";
 import {
   BORDER,
-  CATEGORIAS,
   DARK_BG,
   FUENTE,
   MUTED,
@@ -11,8 +11,8 @@ import {
   PLACEHOLDER,
   LINEA,
 } from "@/constants/constans";
-import { guardarAnuncio } from "@/store/estudios";
-import { Anuncio, CategoriaId } from "@/types/typesAnuncios";
+import { guardarAnuncio, useEstudios } from "@/store/estudios";
+import { Anuncio } from "@/types/typesAnuncios";
 import Octicons from "@expo/vector-icons/Octicons";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
@@ -58,8 +58,6 @@ const DIAS = Array.from({ length: 60 }, (_, i) => {
   };
 });
 
-const IDS_CATEGORIA = Object.keys(CATEGORIAS) as CategoriaId[];
-
 type Props = {
   anuncio?: Anuncio | null; // con anuncio = editar; sin = nuevo
   autor: string;
@@ -69,9 +67,39 @@ type Props = {
 // Escribir o editar un anuncio (pastor, secretaria, comunicaciones).
 // Se monta cada vez que se abre, asi parte con los datos correctos
 export default function ModalFormAnuncio({ anuncio, autor, onCerrar }: Props) {
-  const [categoria, setCategoria] = useState<CategoriaId>(
+  const [categoria, setCategoria] = useState<string>(
     anuncio?.categoria ?? "evento",
   );
+  // categorias: Eventos + las que ya uso la iglesia + las nuevas de ahora
+  const { anuncios } = useEstudios();
+  const [nuevas, setNuevas] = useState<string[]>([]);
+  const opciones = [
+    ...new Set([
+      ...categoriasUsadas(anuncios),
+      ...(anuncio ? [anuncio.categoria] : []),
+      ...nuevas,
+    ]),
+  ];
+  // "+ Nueva categoria": se escribe y queda elegida
+  const [creando, setCreando] = useState(false);
+  const [nombreCategoria, setNombreCategoria] = useState("");
+  const limpiaCategoria = nombreCategoria.trim().replace(/\s+/g, " ");
+  const repetida = opciones.some(
+    (id) =>
+      categoriaDe(id).label.toLowerCase() === limpiaCategoria.toLowerCase(),
+  );
+  const categoriaLista = limpiaCategoria.length >= 2 && !repetida;
+  // con mayuscula inicial: "mujeres" -> "Mujeres"
+  const nombreNueva =
+    limpiaCategoria.charAt(0).toUpperCase() + limpiaCategoria.slice(1);
+  const agregarCategoria = () => {
+    if (!categoriaLista) return;
+    const nombre = nombreNueva;
+    setNuevas((n) => [...n, nombre]);
+    setCategoria(nombre);
+    setNombreCategoria("");
+    setCreando(false);
+  };
   const [titulo, setTitulo] = useState(anuncio?.titulo ?? "");
   const [descripcion, setDescripcion] = useState(anuncio?.descripcion ?? "");
   const [fecha, setFecha] = useState(anuncio?.fecha ?? DIAS[0].key);
@@ -121,7 +149,8 @@ export default function ModalFormAnuncio({ anuncio, autor, onCerrar }: Props) {
     if (!listo) return;
     guardarAnuncio({
       id: anuncio?.id,
-      categoria,
+      // si escribio una categoria nueva y no toco "Agregar", se usa esa
+      categoria: creando && categoriaLista ? nombreNueva : categoria,
       titulo: titulo.trim(),
       descripcion: descripcion.trim(),
       fecha,
@@ -239,7 +268,7 @@ export default function ModalFormAnuncio({ anuncio, autor, onCerrar }: Props) {
                   {/* Para quien es */}
                   <Text style={styles.etiqueta}>CATEGORÍA</Text>
                   <View style={styles.chips}>
-                    {IDS_CATEGORIA.map((id) => {
+                    {opciones.map((id) => {
                       const activo = id === categoria;
                       return (
                         <Pressable
@@ -249,7 +278,7 @@ export default function ModalFormAnuncio({ anuncio, autor, onCerrar }: Props) {
                           accessibilityState={{ selected: activo }}
                         >
                           <Octicons
-                            name={CATEGORIAS[id].icon}
+                            name={categoriaDe(id).icon}
                             size={12}
                             color={activo ? DARK_BG : MUTED}
                           />
@@ -259,12 +288,60 @@ export default function ModalFormAnuncio({ anuncio, autor, onCerrar }: Props) {
                               activo && styles.chipTextoActivo,
                             ]}
                           >
-                            {CATEGORIAS[id].label}
+                            {categoriaDe(id).label}
                           </Text>
                         </Pressable>
                       );
                     })}
+                    {!creando && (
+                      <Pressable
+                        onPress={() => setCreando(true)}
+                        style={[styles.chip, styles.chipNueva]}
+                        accessibilityLabel="Nueva categoría"
+                      >
+                        <Octicons name="plus" size={12} color={MUTED} />
+                        <Text style={styles.chipTexto}>Nueva categoría</Text>
+                      </Pressable>
+                    )}
                   </View>
+                  {creando && (
+                    <View style={styles.nuevaCategoria}>
+                      <TextInput
+                        value={nombreCategoria}
+                        onChangeText={setNombreCategoria}
+                        onSubmitEditing={agregarCategoria}
+                        placeholder="Ej: Mujeres, Matrimonios"
+                        placeholderTextColor={PLACEHOLDER}
+                        autoFocus
+                        maxLength={24}
+                        returnKeyType="done"
+                        style={styles.nuevaCategoriaInput}
+                      />
+                      <Pressable
+                        onPress={agregarCategoria}
+                        disabled={!categoriaLista}
+                        hitSlop={8}
+                        style={!categoriaLista && styles.apagado}
+                      >
+                        <Text style={styles.nuevaCategoriaBoton}>Agregar</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => {
+                          setCreando(false);
+                          setNombreCategoria("");
+                        }}
+                        hitSlop={8}
+                        accessibilityLabel="Cancelar"
+                      >
+                        <Octicons name="x" size={16} color={MUTED} />
+                      </Pressable>
+                    </View>
+                  )}
+                  {creando && repetida && (
+                    <Text style={styles.avisoCategoria}>
+                      Esa categoría ya existe: elígela arriba.
+                    </Text>
+                  )}
 
                   <Text style={styles.etiqueta}>
                     TÍTULO{imagen ? " (OPCIONAL CON IMAGEN)" : ""}
@@ -399,6 +476,38 @@ export default function ModalFormAnuncio({ anuncio, autor, onCerrar }: Props) {
 }
 
 const styles = StyleSheet.create({
+  chipNueva: {
+    borderStyle: "dashed",
+  },
+  nuevaCategoria: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING * 1.2,
+    marginTop: SPACING,
+    paddingHorizontal: SPACING * 1.2,
+    height: 46,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: BORDER,
+  },
+  nuevaCategoriaInput: {
+    flex: 1,
+    fontSize: 15,
+    color: TEXT,
+  },
+  nuevaCategoriaBoton: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: TEXT,
+  },
+  apagado: {
+    opacity: 0.3,
+  },
+  avisoCategoria: {
+    fontSize: 12,
+    color: MUTED,
+    marginTop: 6,
+  },
   flex: {
     flex: 1,
   },

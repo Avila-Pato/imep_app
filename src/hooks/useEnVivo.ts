@@ -1,6 +1,10 @@
 import { asegurarSesion, supabase } from "@/lib/supabase";
 import { esUuid } from "@/services/iglesias";
-import { sincronizarContenido, useIglesia } from "@/store/estudios";
+import {
+  sincronizarContenido,
+  sincronizarIglesias,
+  useIglesia,
+} from "@/store/estudios";
 import { useEffect } from "react";
 
 // En vivo (Supabase Realtime): cuando el admin cambia el cronograma, publica
@@ -45,6 +49,25 @@ export function useEnVivo() {
             refrescar,
           );
         }
+        // la iglesia misma (ej: el pastor cambio los horarios de culto)
+        canal.on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "iglesias",
+            filter: `id=eq.${id}`,
+          },
+          () => {
+            sincronizarIglesias();
+          },
+        );
+        // alguien cambio su foto o nombre (RLS: solo los de su iglesia)
+        canal.on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "perfiles" },
+          refrescar,
+        );
         canal.subscribe();
       })
       .catch((e) => console.warn("[supabase]", e?.message ?? e));

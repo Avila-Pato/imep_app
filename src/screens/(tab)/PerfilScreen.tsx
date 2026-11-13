@@ -28,13 +28,12 @@ import {
   useEstudios,
   useGrupos,
   useIglesia,
+  useMisTurnos,
   usePuede,
   useRoles,
   verBienvenida,
   guardarPerfil,
 } from "@/store/estudios";
-import { horaTurno } from "@/utils/cultos";
-import { unirTurnos } from "@/utils/turnos";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import Octicons from "@expo/vector-icons/Octicons";
 import { Href, router } from "expo-router";
@@ -52,10 +51,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import ModalCodigo from "./components/ModalCodigo";
 import { TEXTO_VERSION } from "@/utils/version";
 import ModalEstudio from "./components/ModalEstudio";
-
-const pad = (n: number) => String(n).padStart(2, "0");
-const hoy = new Date();
-const HOY_KEY = `${hoy.getFullYear()}-${pad(hoy.getMonth() + 1)}-${pad(hoy.getDate())}`;
 
 // "2026-10-20" -> { dia: "Mar", numero: 20, mes: "oct" }
 const partesFecha = (key: string) => {
@@ -117,7 +112,6 @@ export default function PerfilScreen() {
     grupo,
     guardados,
     versiculos,
-    turnosEditados,
     nombre,
     cargos,
     meGusta,
@@ -139,9 +133,15 @@ export default function PerfilScreen() {
   const administra = esPastor || puedeCronograma || puedeAnuncios || puedeRoles;
   const grupos = useGrupos();
   // Turnos del usuario desde hoy en adelante (incluye los que asigno el admin)
-  const proximos = unirTurnos(turnosEditados)
-    .filter((t) => t.persona === miNombre && t.fecha >= HOY_KEY)
-    .sort((a, b) => a.fecha.localeCompare(b.fecha));
+  // de todas sus iglesias (cada uno dice de cual es, si tiene varias)
+  const proximos = useMisTurnos();
+  const variasIglesias = useIglesias().length > 1;
+  // "Miembro desde": cuando entro a esta iglesia (con el enlace)
+  const miembroDesde = iglesia?.unido
+    ? new Date(iglesia.unido)
+        .toLocaleDateString("es-ES", { month: "long", year: "numeric" })
+        .toUpperCase()
+    : undefined;
   const MIS_TURNOS = proximos.slice(0, 3);
   // versiculos con "me gusta", el ultimo primero
   const gustados = meGusta
@@ -246,7 +246,9 @@ export default function PerfilScreen() {
                 : USUARIO.ministerio}
             {!esPastor && miGrupo && ` · ${miGrupo.label}`}
           </Text>
-          <Text style={styles.meta}>MIEMBRO DESDE {USUARIO.miembroDesde}</Text>
+          {!!miembroDesde && (
+            <Text style={styles.meta}>MIEMBRO DESDE {miembroDesde}</Text>
+          )}
           {/* la cuenta con la que entro */}
           {cuenta && (
             <View style={styles.cuenta}>
@@ -384,8 +386,9 @@ export default function PerfilScreen() {
                       <Text style={styles.bloqueRol}>
                         {rol.label.toUpperCase()}
                       </Text>
-                      <Text style={styles.bloqueHora}>
-                        {horaTurno(t) ?? "—"} hrs
+                      <Text style={styles.bloqueHora} numberOfLines={1}>
+                        {t.horaFinal ?? "—"} hrs
+                        {variasIglesias && t.iglesia ? ` · ${t.iglesia}` : ""}
                       </Text>
                     </View>
                   </View>

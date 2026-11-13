@@ -1,3 +1,4 @@
+import { HorarioCulto } from "./typesAnuncios";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { ComponentProps } from "react";
 
@@ -9,6 +10,9 @@ export type PalabraDelDia = {
 export type Iglesia = {
   id?: string; // separa los datos de cada iglesia (las antiguas no lo tienen)
   subida?: boolean; // ya esta en el servidor (si luego no aparece, se borro)
+  // dias y horarios de culto de esta iglesia (sin dato = aun no los configura)
+  horarios?: HorarioCulto[];
+  unido?: string; // ISO: desde cuando ESTA PERSONA esta en esta iglesia
   sede: string;
   lugar: string;
   direccion: string; // se usa en "Como llegar" (Google/Apple ubican el numero exacto)

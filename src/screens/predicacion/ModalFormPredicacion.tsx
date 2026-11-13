@@ -1,4 +1,3 @@
-import { HORARIOS_CULTO } from "@/assets/data/configMocks";
 import ConBordes from "@/components/ConBordes";
 import {
   BORDER,
@@ -11,7 +10,7 @@ import {
   LINEA,
 } from "@/constants/constans";
 import ElegirVersiculoTikTok from "@/screens/biblia/ElegirVersiculoTikTok";
-import { guardarPredicacion } from "@/store/estudios";
+import { guardarPredicacion, useHorarios } from "@/store/estudios";
 import { Predicacion } from "@/types/typesOraciones";
 import Octicons from "@expo/vector-icons/Octicons";
 import { useState } from "react";
@@ -53,12 +52,6 @@ const DIAS = Array.from({ length: 60 }, (_, i) => {
   };
 });
 
-// nombres de los cultos configurados, sin repetir
-const CULTOS = [
-  ...new Set(
-    HORARIOS_CULTO.map((h) => h.nombre).filter((n): n is string => !!n),
-  ),
-];
 
 type Props = {
   predicacion?: Predicacion | null; // con predicacion = editar; sin = nueva
@@ -73,6 +66,14 @@ export default function ModalFormPredicacion({
   predicador: yo,
   onCerrar,
 }: Props) {
+  // nombres de los cultos de la iglesia (los que configuro el pastor)
+  const CULTOS = [
+    ...new Set(
+      useHorarios()
+        .map((h) => h.nombre)
+        .filter((n): n is string => !!n),
+    ),
+  ];
   const [titulo, setTitulo] = useState(predicacion?.titulo ?? "");
   const [predicador, setPredicador] = useState(predicacion?.predicador ?? yo);
   const [cita, setCita] = useState(predicacion?.cita ?? "");

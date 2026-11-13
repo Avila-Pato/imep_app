@@ -12,9 +12,11 @@ import {
   agregarInvitado,
   quitarInvitado,
   useEstudios,
+  useAvatarDe,
   useMiembros,
   useRoles,
 } from "@/store/estudios";
+import AvatarPersona from "@/components/AvatarPersona";
 import { RolId } from "@/types/typesCronogramas";
 import SelectorHora from "./SelectorHora";
 import Octicons from "@expo/vector-icons/Octicons";
@@ -57,6 +59,7 @@ export default function ModalAsignar({
   onCerrar,
 }: Props) {
   const { invitados } = useEstudios();
+  const avatarDe = useAvatarDe();
   // los hermanos que se unieron a la iglesia (sin repetir)
   const REGISTRADOS = [...new Set(useMiembros().map((m) => m.nombre))].sort(
     (a, b) => a.localeCompare(b, "es"),
@@ -214,17 +217,15 @@ export default function ModalAsignar({
                           ]}
                           accessibilityState={{ selected: elegido }}
                         >
+                          {/* su foto o chibi (o sus iniciales) */}
                           <View
-                            style={[styles.avatar, elegido && styles.avatarSel]}
+                            style={[styles.anillo, elegido && styles.anilloSel]}
                           >
-                            <Text
-                              style={[
-                                styles.avatarTexto,
-                                elegido && styles.avatarTextoSel,
-                              ]}
-                            >
-                              {p.charAt(0)}
-                            </Text>
+                            <AvatarPersona
+                              nombre={p}
+                              avatar={avatarDe(p)}
+                              tamano={36}
+                            />
                           </View>
                           <View style={styles.flex}>
                             <Text style={styles.nombre}>{p}</Text>
@@ -273,6 +274,16 @@ export default function ModalAsignar({
 }
 
 const styles = StyleSheet.create({
+  // borde que marca a quien esta elegido
+  anillo: {
+    padding: 2,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  anilloSel: {
+    borderColor: PRIMARY,
+  },
   flex: {
     flex: 1,
   },

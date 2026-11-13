@@ -33,7 +33,10 @@
               "pathPrefix": "/unirse"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -65,7 +68,13 @@
         }
       ],
       "expo-sqlite",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Congrega usa tu ubicación solo para marcar dónde está tu iglesia."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

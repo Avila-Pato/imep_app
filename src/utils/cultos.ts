@@ -2,6 +2,14 @@ import { HORARIOS_CULTO } from "@/assets/data/configMocks";
 import { HorarioCulto } from "@/types/typesAnuncios";
 import { Turno } from "@/types/typesCronogramas";
 
+// Horarios de la iglesia activa (los pone el store al cambiar de iglesia).
+// Sin configurar se usan unos de ejemplo; [] = la iglesia no tiene cultos fijos
+let actuales: HorarioCulto[] = HORARIOS_CULTO;
+export function usarHorarios(horarios?: HorarioCulto[]) {
+  actuales = horarios ?? HORARIOS_CULTO;
+}
+export const horariosActuales = () => actuales;
+
 export type ProximoCulto = {
   horario: HorarioCulto;
   fecha: Date; // dia y hora exactos
@@ -16,7 +24,7 @@ const aMinutos = (hora: string) => {
 // El proximo culto segun la configuracion (si el de hoy ya paso, el siguiente)
 export function proximoCulto(ahora = new Date()): ProximoCulto | null {
   const minutosHoy = ahora.getHours() * 60 + ahora.getMinutes();
-  const candidatos = HORARIOS_CULTO.map((h) => {
+  const candidatos = actuales.map((h) => {
     let dias = (h.dia - ahora.getDay() + 7) % 7;
     if (dias === 0 && aMinutos(h.hora) <= minutosHoy) dias = 7;
     return { h, dias };
@@ -46,7 +54,10 @@ export function proximoCulto(ahora = new Date()): ProximoCulto | null {
 export function horaCulto(fechaKey: string) {
   const [y, m, d] = fechaKey.split("-").map(Number);
   const dia = new Date(y, m - 1, d).getDay();
-  return HORARIOS_CULTO.find((h) => h.dia === dia)?.hora;
+  // si hay varios cultos ese dia, el primero
+  return actuales
+    .filter((h) => h.dia === dia)
+    .sort((a, b) => a.hora.localeCompare(b.hora))[0]?.hora;
 }
 
 // Hora de un turno: la que puso el admin o, si no, la del culto
