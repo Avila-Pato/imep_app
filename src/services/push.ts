@@ -12,6 +12,11 @@ const PROJECT_ID: string | undefined =
 const EN_EXPO_GO =
   Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
+// Este telefono recibe push del servidor (no Expo Go, con servidor y no web).
+// Entonces los avisos "te asignaron" llegan por push y no se repiten locales
+export const PUSH_ACTIVO =
+  !!supabase && NOTIS_DISPONIBLES && !!PROJECT_ID && !EN_EXPO_GO;
+
 export async function registrarDispositivo(
   avisos: Partial<Record<string, boolean>>,
 ) {

@@ -1,3 +1,4 @@
+import EstadoSubida from "@/components/EstadoSubida";
 import { HORARIOS_CULTO } from "@/assets/data/configMocks";
 import {
   BORDER,
@@ -11,6 +12,7 @@ import {
   ELEVADO,
   LINEA,
   RADIO_BORDE,
+  primarioAlfa,
 } from "@/constants/constans";
 import { useEspacioBarra } from "@/hooks/useEspacioBarra";
 import Octicons from "@expo/vector-icons/Octicons";
@@ -21,12 +23,14 @@ import {
   useEstudios,
   usePuede,
   useRoles,
+  useClaveSubidaCronograma,
+  useNombreIglesiaSiVarias,
 } from "@/store/estudios";
 import { confirmar } from "@/utils/confirmar";
 import { RolId, Turno } from "@/types/typesCronogramas";
 import { horaCulto, horaTurno } from "@/utils/cultos";
 import { unirTurnos } from "@/utils/turnos";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   LayoutChangeEvent,
   Pressable,
@@ -172,6 +176,8 @@ export default function CronogramaView() {
 
   // Turnos de ejemplo + los que asigno el admin
   const { turnosEditados } = useEstudios();
+  const claveSubida = useClaveSubidaCronograma();
+  const nombreIglesia = useNombreIglesiaSiVarias();
   const turnos = unirTurnos(turnosEditados);
 
   // Modo admin: asigna quien sirve en cada rol (solo cultos que no pasaron)
@@ -191,6 +197,31 @@ export default function CronogramaView() {
   const roles = useRoles(); // las de la app + las que agrego la iglesia
   const ordenRoles = roles.lista;
   const [creandoCasilla, setCreandoCasilla] = useState(false);
+  // casilla recien creada: la vista baja hasta ella y queda resaltada
+  const [recienCreada, setRecienCreada] = useState<RolId | null>(null);
+  const lista = useRef<ScrollView>(null);
+  const agendaY = useRef(0); // donde empieza la lista de casillas
+  useEffect(() => {
+    if (!recienCreada) return;
+    // queda arriba de la lista: se sube hasta ahi (despues de dibujarla)
+    const subir = setTimeout(
+      () =>
+        lista.current?.scrollTo({
+          y: Math.max(0, agendaY.current - 10),
+          animated: true,
+        }),
+      150,
+    );
+    const t = setTimeout(() => setRecienCreada(null), 2500);
+    return () => {
+      clearTimeout(subir);
+      clearTimeout(t);
+    };
+  }, [recienCreada]);
+  // al empezar a editar: arriba, para ver la ayuda y todas las casillas
+  useEffect(() => {
+    if (editando) lista.current?.scrollTo({ y: 0, animated: true });
+  }, [editando]);
   const turnosDia = turnos
     .filter((t) => t.fecha === seleccionado)
     .sort(
@@ -355,6 +386,24 @@ export default function CronogramaView() {
     <View style={styles.safe}>
       {/* Parte fija */}
       <View style={styles.fijo} onLayout={onFijoLayout}>
+        {/* el admin ve si el cronograma termino de guardarse */}
+        <EstadoSubida
+          clave={claveSubida}
+          textos={{
+            guardando: "Guardando cronograma…",
+            listo: "Cronograma guardado ✓",
+            error: "No se guardó el cronograma",
+          }}
+        />
+        {/* de que iglesia es este cronograma (si tiene varias) */}
+        {!!nombreIglesia && (
+          <View style={styles.deIglesia}>
+            <Octicons name="location" size={12} color={MUTED} />
+            <Text style={styles.deIglesiaTexto} numberOfLines={1}>
+              Cronograma de {nombreIglesia}
+            </Text>
+          </View>
+        )}
         <View style={styles.calendario}>
           <View style={styles.mesFila}>
             <Text style={styles.mesTitulo}>{titulo}</Text>
@@ -495,6 +544,7 @@ export default function CronogramaView() {
           </GestureDetector>
 
           <ScrollView
+            ref={lista}
             style={styles.flex}
             contentContainerStyle={[styles.content, { paddingBottom: espacio }]}
             showsVerticalScrollIndicator={false}
@@ -533,7 +583,15 @@ export default function CronogramaView() {
               </View>
               {puedeEditar && (
                 <Pressable
-                  onPress={() => setEditando((e) => !e)}
+                  onPress={() => {
+                    // al editar, la hoja sube hasta arriba (mas espacio para
+                    // las casillas); al terminar ("Listo") vuelve abajo
+                    const nuevo = !editando;
+                    setEditando(nuevo);
+                    top.set(
+                      withSpring(nuevo ? arriba.get() : abajo.get(), RESORTE),
+                    );
+                  }}
                   hitSlop={8}
                   style={[styles.editar, enEdicion && styles.editarActivo]}
                   accessibilityLabel={
@@ -558,11 +616,23 @@ export default function CronogramaView() {
             </View>
 
             {enEdicion ? (
-              <View style={styles.agenda}>
+              <View
+                style={styles.agenda}
+                onLayout={(e) => {
+                  agendaY.current = e.nativeEvent.layout.y;
+                }}
+              >
                 <Text style={styles.ayuda}>
                   Toca un rol para elegir quién sirve y a qué hora.
                 </Text>
-                {ordenRoles.map(filaEditable)}
+                {ordenRoles.map((id) => (
+                  <View
+                    key={id}
+                    style={id === recienCreada && styles.recienCreada}
+                  >
+                    {filaEditable(id)}
+                  </View>
+                ))}
                 {/* Casilla nueva (ej: Devocional, Sonido, Niños) */}
                 <Pressable
                   onPress={() => setCreandoCasilla(true)}
@@ -626,6 +696,7 @@ export default function CronogramaView() {
       <ModalNuevaCasilla
         visible={creandoCasilla}
         onCerrar={() => setCreandoCasilla(false)}
+        onCreada={setRecienCreada}
       />
     </View>
   );
@@ -799,6 +870,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 4,
+  },
+  deIglesia: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: SPACING * 2,
+    paddingBottom: SPACING / 2,
+  },
+  deIglesiaTexto: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: MUTED,
+  },
+  recienCreada: {
+    borderRadius: 14,
+    backgroundColor: primarioAlfa(0.14),
   },
   mesTitulo: {
     fontSize: 16,

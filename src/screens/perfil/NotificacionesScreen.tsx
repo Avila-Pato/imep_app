@@ -16,7 +16,12 @@ import {
   pedirPermiso,
   tienePermiso,
 } from "@/services/notificaciones";
-import { alternarAviso, TipoAviso, useEstudios } from "@/store/estudios";
+import {
+  alternarAviso,
+  TipoAviso,
+  useEsPastor,
+  useEstudios,
+} from "@/store/estudios";
 import { IconName } from "@/types/typesCronogramas";
 import Octicons from "@expo/vector-icons/Octicons";
 import { Href, router } from "expo-router";
@@ -68,6 +73,7 @@ const TIPOS: {
 // Notificaciones: permiso del telefono y que recordatorios recibir
 export default function NotificacionesScreen() {
   const { avisos } = useEstudios();
+  const esPastor = useEsPastor();
   // null = revisando el permiso
   const [permiso, setPermiso] = useState<boolean | null>(null);
   const [probado, setProbado] = useState(false);
@@ -173,7 +179,8 @@ export default function NotificacionesScreen() {
           })}
         </View>
 
-        {NOTIS_DISPONIBLES && permiso && (
+        {/* la prueba es para el pastor (revisar que lleguen) */}
+        {NOTIS_DISPONIBLES && permiso && esPastor && (
           <Pressable
             onPress={async () => {
               await enviarPrueba();

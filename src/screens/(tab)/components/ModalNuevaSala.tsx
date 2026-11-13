@@ -10,13 +10,13 @@ import {
   PLACEHOLDER,
   LINEA,
 } from "@/constants/constans";
-import { MIEMBROS } from "@/assets/data/comunidadMocks";
 import { USUARIO } from "@/assets/data/perfilMocks";
 import {
   borrarSala,
   crearSala,
   editarSala,
   useEstudios,
+  useMiembros,
 } from "@/store/estudios";
 import { FuncionSala, Grupo } from "@/types/typesComunidad";
 import { confirmar } from "@/utils/confirmar";
@@ -117,9 +117,10 @@ export default function ModalNuevaSala({
   const sePuedeBorrar = !!sala && sala.id !== "general";
   const [otro, setOtro] = useState("");
   const { nombre: miNombre, invitados } = useEstudios();
+  const hermanos = useMiembros();
   const personas = [
     ...new Set([
-      ...MIEMBROS.general.map((m) => m.nombre),
+      ...hermanos.map((m) => m.nombre),
       ...invitados,
       ...(lider ? [lider] : []),
     ]),

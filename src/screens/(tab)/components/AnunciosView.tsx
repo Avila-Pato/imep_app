@@ -1,3 +1,4 @@
+import EstadoSubida from "@/components/EstadoSubida";
 import { USUARIO } from "@/assets/data/perfilMocks";
 import {
   BORDER,
@@ -12,7 +13,12 @@ import {
   TEXT,
   LINEA,
 } from "@/constants/constans";
-import { borrarAnuncio, useEstudios, usePuede } from "@/store/estudios";
+import {
+  borrarAnuncio,
+  useEstudios,
+  useNombreIglesiaSiVarias,
+  usePuede,
+} from "@/store/estudios";
 import { Anuncio, CategoriaId } from "@/types/typesAnuncios";
 import { confirmar } from "@/utils/confirmar";
 import { proximoCulto } from "@/utils/cultos";
@@ -49,7 +55,15 @@ const deKey = (key: string) => {
 };
 
 // Una fila: fecha a la izquierda, texto a la derecha
-function Fila({ a, onAbrir }: { a: Anuncio; onAbrir: () => void }) {
+function Fila({
+  a,
+  iglesia,
+  onAbrir,
+}: {
+  a: Anuncio;
+  iglesia?: string; // de que iglesia es (si tiene varias)
+  onAbrir: () => void;
+}) {
   const f = deKey(a.fecha);
   const dia = f
     .toLocaleDateString("es-ES", { weekday: "short" })
@@ -87,8 +101,9 @@ function Fila({ a, onAbrir }: { a: Anuncio; onAbrir: () => void }) {
               size={11}
               color={MUTED}
             />
-            <Text style={styles.categoriaTexto}>
+            <Text style={styles.categoriaTexto} numberOfLines={1}>
               {CATEGORIAS[a.categoria].label.toUpperCase()}
+              {iglesia ? ` · ${iglesia.toUpperCase()}` : ""}
             </Text>
           </View>
           {!!a.titulo && <Text style={styles.titulo}>{a.titulo}</Text>}
@@ -104,6 +119,8 @@ function Fila({ a, onAbrir }: { a: Anuncio; onAbrir: () => void }) {
           style={styles.flecha}
         />
       </View>
+      {/* quien lo publico ve si termino de subir (o reintenta) */}
+      <EstadoSubida clave={a.id} />
     </Pressable>
   );
 }
@@ -115,6 +132,7 @@ export default function AnunciosView({
 }: {
   conIglesia?: boolean; // en la pestaña: el mapa y el proximo culto arriba
 }) {
+  const nombreIglesia = useNombreIglesiaSiVarias();
   // espacio para la barra flotante y los botones del telefono
   const espacio = useEspacioBarra();
   const { anuncios, nombre } = useEstudios();
@@ -248,7 +266,12 @@ export default function AnunciosView({
             <Text style={styles.seccion}>{s.titulo}</Text>
             <View style={styles.lista}>
               {s.lista.map((a) => (
-                <Fila key={a.id} a={a} onAbrir={() => setAbiertoId(a.id)} />
+                <Fila
+                  key={a.id}
+                  a={a}
+                  iglesia={nombreIglesia}
+                  onAbrir={() => setAbiertoId(a.id)}
+                />
               ))}
             </View>
           </View>

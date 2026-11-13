@@ -23,7 +23,9 @@ Deno.serve(async (req) => {
 
   const { data: anuncio } = await usuario
     .from("anuncios")
-    .select("id, iglesia_id, titulo, descripcion, iglesias(nombre)")
+    .select(
+      "id, iglesia_id, categoria, titulo, descripcion, fecha, hora, lugar, iglesias(nombre)",
+    )
     .eq("id", anuncio_id)
     .maybeSingle();
   if (!anuncio) return json({ error: "anuncio no encontrado" }, 404);
@@ -43,11 +45,27 @@ Deno.serve(async (req) => {
 
   const iglesia =
     (anuncio.iglesias as unknown as { nombre: string } | null)?.nombre ?? "";
+
+  // Evento: "🗓️ Nuevo evento: Retiro" + "sáb 22 nov · 19:30 · Iglesia Central"
+  // Otro anuncio: "📣 Titulo" + "descripcion · Iglesia Central"
+  // (siempre con la iglesia: un hermano puede estar en varias)
+  const esEvento = anuncio.categoria === "evento";
+  const cuando = new Date(`${anuncio.fecha}T12:00:00`).toLocaleDateString(
+    "es-CL",
+    { weekday: "short", day: "numeric", month: "short" },
+  );
+  const titulo = esEvento
+    ? `🗓️ Nuevo evento: ${anuncio.titulo}`
+    : `📣 ${anuncio.titulo}`;
+  const cuerpo = esEvento
+    ? [cuando, anuncio.hora, iglesia]
+    : [anuncio.descripcion, iglesia];
+
   const resultado = await enviar(
     (tokens ?? []).map((t: { token: string }) => ({
       to: t.token,
-      title: `📣 ${anuncio.titulo}`,
-      body: [anuncio.descripcion, iglesia].filter(Boolean).join(" · ").slice(0, 180),
+      title: titulo,
+      body: cuerpo.filter(Boolean).join(" · ").slice(0, 180),
       data: { url: "/eventos?vista=anuncios", iglesia_id: anuncio.iglesia_id },
     })),
   );

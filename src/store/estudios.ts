@@ -23,10 +23,15 @@ import { Rol, RolId, Turno } from "@/types/typesCronogramas";
 import { Iglesia } from "@/types/typesHome";
 import { Predicacion } from "@/types/typesOraciones";
 import { subirPerfil } from "@/services/perfil";
+import { borrarDelServidor } from "@/services/reinicio";
 import { registrarDispositivo } from "@/services/push";
+import { horaTurno } from "@/utils/cultos";
 import {
   avisarAnuncio,
+  avisarTurno,
   bajarAnuncios,
+  bajarMiembros,
+  type MiembroIglesia,
   bajarTurnos,
   borrarAnuncioRemoto,
   subirAnuncio,
@@ -62,6 +67,8 @@ type Estado = {
   meGustaTextos: Record<string, MeGustaInfo>; // cita y texto de cada uno (para el perfil)
   ayudasVistas: string[]; // explicaciones que ya vio (salen solo una vez)
   turnosAvisados?: string[]; // turnos suyos ya avisados (sin dato = primera vez)
+  anunciosAvisados?: string[]; // anuncios ya avisados (sin dato = primera vez)
+  subidas?: Record<string, Subida>; // lo que se esta subiendo (o fallo): anuncios y dias del cronograma
   vistos: Partial<Record<GrupoId, string>>; // ultima vez que abrio cada sala (ISO)
   habitos: Record<string, string[]>; // "YYYY-MM-DD" -> ids de habitos cumplidos
   revisiones: Record<string, Revision>; // decisiones del lider sobre peticiones
@@ -91,6 +98,7 @@ type Estado = {
   rolesExtra: Record<string, Rol>; // casillas nuevas del cronograma (ej: Devocional)
   anuncios: Anuncio[]; // los que publico el pastor / secretaria / comunicaciones
   predicaciones: Predicacion[]; // las sube el pastor (o quien publica anuncios)
+  miembros: MiembroIglesia[]; // los hermanos reales de la iglesia (del servidor)
 };
 
 // La cuenta de Google con la que entro (para mostrarla en el Perfil)
@@ -99,6 +107,17 @@ export type CuentaConectada = {
   correo?: string;
   nombre?: string; // nombre completo en Google
   foto?: string; // URL de su foto de Google
+};
+
+// Estado de una subida al servidor (para mostrar "Subiendo…" y reintentar).
+// Clave: el id del anuncio, o "dia:<iglesia>:<fecha>" para el cronograma
+export type EtapaSubida = "foto" | "guardando" | "avisando" | "listo" | "error";
+export type Subida = {
+  etapa: EtapaSubida;
+  desde: string; // ISO: cuando empezo (para mostrar los segundos)
+  iglesiaId: string;
+  avisar?: boolean; // anuncio nuevo: avisar a la iglesia al terminar
+  error?: string;
 };
 
 // Notificaciones que la persona puede activar o apagar
@@ -159,6 +178,7 @@ const inicial = (): Estado => ({
   rolesExtra: {},
   anuncios: [],
   predicaciones: [],
+  miembros: [],
 });
 
 const useStore = create<Estado>()(
@@ -190,6 +210,8 @@ const useStore = create<Estado>()(
           ...estado.meGustaTextos,
         },
         turnosAvisados: estado.turnosAvisados ?? previo.turnosAvisados,
+        anunciosAvisados: estado.anunciosAvisados ?? previo.anunciosAvisados,
+        subidas: { ...(previo.subidas ?? {}), ...estado.subidas },
         ayudasVistas: [
           ...new Set([...estado.ayudasVistas, ...(previo.ayudasVistas ?? [])]),
         ],
@@ -221,6 +243,9 @@ const useStore = create<Estado>()(
         rolesExtra: { ...(previo.rolesExtra ?? {}), ...estado.rolesExtra },
         anuncios: unir(estado.anuncios, previo.anuncios ?? []),
         predicaciones: unir(estado.predicaciones, previo.predicaciones ?? []),
+        miembros: estado.miembros.length
+          ? estado.miembros
+          : (previo.miembros ?? []),
         invitados: [
           ...new Set([...estado.invitados, ...(previo.invitados ?? [])]),
         ],
@@ -241,6 +266,13 @@ const cambiar = useStore.setState;
 // y vuelve a mostrar la bienvenida para elegir pastor o hermano
 export function reiniciarApp() {
   useStore.setState(inicial(), true);
+}
+
+// Reinicio completo: primero borra lo del servidor (si falla, no se toca el
+// telefono, para no dejar datos a medias) y luego deja la app como nueva
+export async function reiniciarTodo() {
+  await borrarDelServidor();
+  reiniciarApp();
 }
 
 export function useEstudios() {
@@ -375,6 +407,31 @@ export function useEsLider(grupo: GrupoId) {
   );
 }
 
+// Hermanos de la iglesia activa (los que se unieron, con su nombre de
+// perfil). Siempre incluye a esta persona. Sin servidor: solo ella
+export function useMiembros(): MiembroIglesia[] {
+  const miembros = useStore((s) => s.miembros);
+  const yo = useStore((s) => s.nombre) ?? USUARIO.nombre;
+  const esPastor = useStore((s) => s.rol === "pastor");
+  return conYo(miembros, yo, esPastor);
+}
+// lo mismo, fuera de un componente (lee el estado de ahora)
+export function miembrosActuales(): MiembroIglesia[] {
+  const s = useStore.getState();
+  return conYo(s.miembros, s.nombre ?? USUARIO.nombre, s.rol === "pastor");
+}
+const conYo = (
+  lista: MiembroIglesia[],
+  yo: string,
+  esPastor: boolean,
+): MiembroIglesia[] =>
+  lista.some((m) => m.nombre === yo)
+    ? lista
+    : [
+        ...lista,
+        { id: "yo", nombre: yo, rol: esPastor ? "pastor" : "hermano" },
+      ];
+
 // Iglesia de esta persona (sin iglesia = hermano que aun no se une)
 export function useIglesia() {
   return useStore((s) => s.iglesia);
@@ -401,6 +458,9 @@ const CAMPOS_IGLESIA = [
   "cargos",
   "codigos",
   "grupo",
+  "miembros",
+  "turnosAvisados",
+  "anunciosAvisados",
 ] as const satisfies readonly (keyof Estado)[];
 type DatosIglesia = Partial<Pick<Estado, (typeof CAMPOS_IGLESIA)[number]>>;
 
@@ -414,7 +474,10 @@ const idIglesia = (i: Iglesia) => i.id ?? `${i.sede}|${i.lat}|${i.lng}`;
 // a que exista en el servidor (si no, el servidor dice "no eres el pastor")
 const subiendo = new Map<string, Promise<unknown>>();
 function subir(iglesia: Iglesia) {
-  const p = subirIglesia(iglesia);
+  const p = subirIglesia(iglesia).then((r) => {
+    if (r) marcarSubida(iglesia.id);
+    return r;
+  });
   if (iglesia.id)
     subiendo.set(
       iglesia.id,
@@ -422,6 +485,16 @@ function subir(iglesia: Iglesia) {
     );
   enFondo(p);
   return p;
+}
+// la iglesia ya esta en el servidor
+function marcarSubida(id?: string) {
+  if (!id) return;
+  cambiar((s) => ({
+    iglesias: listaIglesias(s).map((x) =>
+      x.id === id ? { ...x, subida: true } : x,
+    ),
+    iglesia: s.iglesia?.id === id ? { ...s.iglesia, subida: true } : s.iglesia,
+  }));
 }
 
 // lo que va al servidor corre aparte: si falla, el telefono ya lo guardo
@@ -450,6 +523,14 @@ export function useIglesias() {
   const iglesias = useStore((s) => s.iglesias);
   const activa = useStore((s) => s.iglesia);
   return iglesias ?? (activa ? [activa] : []);
+}
+
+// Nombre de la iglesia activa, solo si tiene varias: en anuncios y
+// cronograma se muestra de que iglesia es (con una sola no hace falta)
+export function useNombreIglesiaSiVarias() {
+  const nombre = useStore((s) => s.iglesia?.sede);
+  const varias = useStore((s) => listaIglesias(s).length > 1);
+  return varias ? nombre : undefined;
 }
 
 // ¿Es esta la iglesia activa?
@@ -489,6 +570,14 @@ export function agregarIglesia(datos: Iglesia) {
       : { iglesia, iglesias };
   });
   subir(iglesia);
+}
+
+// Toco un aviso de otra de sus iglesias: se cambia a esa (si es suya)
+export function irAIglesia(id: string) {
+  const s = useStore.getState();
+  if (s.iglesia?.id === id) return;
+  const destino = listaIglesias(s).find((i) => i.id === id);
+  if (destino) elegirIglesia(destino);
 }
 
 // Cambia de iglesia: el mapa, los anuncios, el cronograma, las salas...
@@ -577,20 +666,47 @@ export async function sincronizarIglesias() {
     console.warn("[supabase]", e?.message ?? e);
     return null;
   });
-  if (!remotas?.length) return;
+  if (!remotas) return; // sin servidor o sin conexion: no se toca nada
+  const ids = new Set(remotas.map((r) => r.iglesia.id));
+  const reintentar: Iglesia[] = [];
   cambiar((s) => {
-    let iglesias = listaIglesias(s);
+    // el servidor manda: las que estaban arriba y ya no estan, se borraron
+    // (desde otro telefono o en pruebas). Las que nunca subieron, se reintentan
+    let iglesias = listaIglesias(s).filter((x) => {
+      if (!esUuid(x.id) || ids.has(x.id)) return true;
+      if (!x.subida) reintentar.push(x);
+      return !x.subida;
+    });
     for (const { iglesia } of remotas) {
-      iglesias = iglesias.some((x) => misma(x, iglesia))
-        ? iglesias.map((x) => (misma(x, iglesia) ? iglesia : x))
-        : [...iglesias, iglesia];
+      const arriba = { ...iglesia, subida: true };
+      iglesias = iglesias.some((x) => misma(x, arriba))
+        ? iglesias.map((x) => (misma(x, arriba) ? arriba : x))
+        : [...iglesias, arriba];
     }
-    const activa =
-      iglesias.find((x) => misma(x, s.iglesia)) ?? s.iglesia ?? iglesias[0];
+    const borradas = listaIglesias(s)
+      .filter((x) => !iglesias.some((y) => misma(x, y)))
+      .map((x) => idIglesia(x));
+    const porIglesia = Object.fromEntries(
+      Object.entries(s.porIglesia ?? {}).filter(([k]) => !borradas.includes(k)),
+    );
+    const sigue = iglesias.find((x) => misma(x, s.iglesia));
+    if (s.iglesia && !sigue) {
+      // la activa se borro: pasa a la primera que queda (sin guardar la otra)
+      const siguiente = iglesias[0];
+      return {
+        iglesias,
+        porIglesia,
+        iglesia: siguiente,
+        ...vacios(),
+        ...(siguiente ? porIglesia[idIglesia(siguiente)] : undefined),
+      };
+    }
+    const activa = sigue ?? iglesias[0];
     // sin activa (telefono nuevo): entra a la primera con su sala
-    const grupo = s.iglesia ? s.grupo : (remotas[0].sala ?? s.grupo);
-    return { iglesias, iglesia: activa, grupo };
+    const grupo = s.iglesia ? s.grupo : (remotas[0]?.sala ?? s.grupo);
+    return { iglesias, porIglesia, iglesia: activa, grupo };
   });
+  reintentar.forEach((x) => subir(x));
 }
 
 // Trae los anuncios y turnos de la iglesia activa (lo que publico el pastor).
@@ -599,22 +715,49 @@ export async function sincronizarContenido() {
   const id = useStore.getState().iglesia?.id;
   if (!esUuid(id)) return;
   const desde = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10);
-  const [anuncios, turnos] = await Promise.all([
+  const [anuncios, turnos, miembros] = await Promise.all([
     bajarAnuncios(id),
     bajarTurnos(id, desde),
+    bajarMiembros(id),
   ]).catch((e) => {
     console.warn("[supabase]", e?.message ?? e);
-    return [null, null] as const;
+    return [null, null, null] as const;
   });
   // si mientras tanto cambio de iglesia, no mezclar
   if (useStore.getState().iglesia?.id !== id) return;
   cambiar((s) => ({
     ...(anuncios
       ? {
-          anuncios: [...anuncios, ...s.anuncios.filter((a) => !esUuid(a.id))],
+          // + los que solo estan en el telefono: antiguos o aun subiendo
+          anuncios: [
+            ...anuncios,
+            ...s.anuncios.filter(
+              (a) =>
+                !esUuid(a.id) ||
+                (pendiente(s, a.id) && !anuncios.some((r) => r.id === a.id)),
+            ),
+          ],
         }
       : {}),
-    ...(turnos ? { turnosEditados: { ...s.turnosEditados, ...turnos } } : {}),
+    // desde "desde" manda el servidor: si un dia quedo vacio (el admin
+    // quito a todos), aqui tambien se vacia
+    ...(turnos
+      ? {
+          turnosEditados: {
+            ...Object.fromEntries(
+              Object.entries(s.turnosEditados).filter(([f]) => f < desde),
+            ),
+            ...turnos,
+            // los dias que aun se estan subiendo: manda el telefono
+            ...Object.fromEntries(
+              Object.entries(s.turnosEditados).filter(([f]) =>
+                pendiente(s, `dia:${id}:${f}`),
+              ),
+            ),
+          },
+        }
+      : {}),
+    ...(miembros ? { miembros } : {}),
   }));
 }
 
@@ -883,15 +1026,163 @@ export function guardarAnuncio(a: Omit<Anuncio, "id"> & { id?: string }) {
     anuncios: existe
       ? s.anuncios.map((x) => (x.id === anuncio.id ? anuncio : x))
       : [anuncio, ...s.anuncios],
+    // lo publico esta persona: a ella no se le avisa
+    anunciosAvisados: [...(s.anunciosAvisados ?? []), anuncio.id],
   });
   const iglesiaId = s.iglesia?.id;
-  if (!iglesiaId) return;
-  enFondo(
-    subirAnuncio(iglesiaId, anuncio).then((subido) => {
-      if (subido && !existe) return avisarAnuncio(anuncio.id);
-    }),
-  );
+  if (!conectado() || !esUuid(iglesiaId)) return;
+  subirAnuncioConEstado(iglesiaId, anuncio, !existe);
 }
+
+// ───────────── Estado de las subidas ─────────────
+
+// La subida del cronograma que conviene mostrar (iglesia activa): primero
+// la que fallo, si no la mas reciente
+export function useClaveSubidaCronograma() {
+  return useStore((s) => {
+    const id = s.iglesia?.id;
+    if (!id) return undefined;
+    const del = Object.entries(s.subidas ?? {}).filter(([k]) =>
+      k.startsWith(`dia:${id}:`),
+    );
+    del.sort(
+      ([, a], [, b]) =>
+        Number(b.etapa === "error") - Number(a.etapa === "error") ||
+        b.desde.localeCompare(a.desde),
+    );
+    return del[0]?.[0];
+  });
+}
+
+export function useSubida(clave?: string) {
+  return useStore((s) => (clave ? s.subidas?.[clave] : undefined));
+}
+
+function ponerSubida(clave: string, cambios: Partial<Subida>) {
+  cambiar((s) => {
+    const antes = s.subidas?.[clave];
+    const nueva = { ...antes, ...cambios } as Subida;
+    return { subidas: { ...s.subidas, [clave]: nueva } };
+  });
+}
+
+function quitarSubida(clave: string) {
+  cambiar((s) => {
+    const { [clave]: _, ...resto } = s.subidas ?? {};
+    return { subidas: resto };
+  });
+}
+
+// "Publicado ✓" se ve un momento y se va
+function terminarSubida(clave: string) {
+  ponerSubida(clave, { etapa: "listo", error: undefined });
+  setTimeout(() => {
+    if (useStore.getState().subidas?.[clave]?.etapa === "listo") {
+      quitarSubida(clave);
+    }
+  }, 4000);
+}
+
+const mensajeDe = (e: unknown) => {
+  const m = (e as Error)?.message ?? String(e);
+  return /network|fetch|internet/i.test(m) ? "Sin conexión" : m;
+};
+
+// Sube el anuncio contando cada etapa: foto → guardando → avisando → listo.
+// No depende de la pantalla: sigue aunque el admin cambie de vista
+function subirAnuncioConEstado(
+  iglesiaId: string,
+  anuncio: Anuncio,
+  avisar: boolean,
+) {
+  const clave = anuncio.id;
+  const conFoto = !!anuncio.imagen && !anuncio.imagen.startsWith("https://");
+  ponerSubida(clave, {
+    etapa: conFoto ? "foto" : "guardando",
+    desde: new Date().toISOString(),
+    iglesiaId,
+    avisar,
+    error: undefined,
+  });
+  subirAnuncio(iglesiaId, anuncio, () =>
+    ponerSubida(clave, { etapa: "guardando" }),
+  )
+    .then(async (subido) => {
+      if (!subido) throw new Error("No se pudo subir");
+      // la foto de la galeria ya esta arriba: el telefono usa ese enlace
+      if (subido.imagen !== anuncio.imagen)
+        reemplazarAnuncio(iglesiaId, subido);
+      // el aviso sale despues de subir la imagen (el hermano ya la ve). Si
+      // el aviso falla, el anuncio igual quedo publicado
+      if (avisar) {
+        ponerSubida(clave, { etapa: "avisando" });
+        await avisarAnuncio(anuncio.id).catch((e) =>
+          console.warn("[supabase]", e?.message ?? e),
+        );
+      }
+      terminarSubida(clave);
+    })
+    .catch((e) => {
+      console.warn("[supabase]", e?.message ?? e);
+      ponerSubida(clave, { etapa: "error", error: mensajeDe(e) });
+    });
+}
+
+// El anuncio puede estar en la iglesia activa o guardado en otra
+function reemplazarAnuncio(iglesiaId: string, nuevo: Anuncio) {
+  cambiar((s) => {
+    if (s.iglesia?.id === iglesiaId) {
+      return {
+        anuncios: s.anuncios.map((x) => (x.id === nuevo.id ? nuevo : x)),
+      };
+    }
+    const datos = s.porIglesia?.[iglesiaId];
+    if (!datos?.anuncios) return s;
+    return {
+      porIglesia: {
+        ...s.porIglesia,
+        [iglesiaId]: {
+          ...datos,
+          anuncios: datos.anuncios.map((x) => (x.id === nuevo.id ? nuevo : x)),
+        },
+      },
+    };
+  });
+}
+
+// Reintenta una subida que fallo (o que quedo a medias al cerrar la app)
+export function reintentarSubida(clave: string) {
+  const s = useStore.getState();
+  const sub = s.subidas?.[clave];
+  if (!sub) return;
+  if (clave.startsWith("dia:")) {
+    const fecha = clave.split(":")[2];
+    // el cronograma solo se sube desde la iglesia activa
+    if (s.iglesia?.id === sub.iglesiaId) subirDia(fecha);
+    return;
+  }
+  const anuncio = (
+    s.iglesia?.id === sub.iglesiaId
+      ? s.anuncios
+      : (s.porIglesia?.[sub.iglesiaId]?.anuncios ?? [])
+  ).find((a) => a.id === clave);
+  if (!anuncio) return quitarSubida(clave); // ya no existe
+  subirAnuncioConEstado(sub.iglesiaId, anuncio, !!sub.avisar);
+}
+
+// Al abrir la app: lo que quedo a medias o fallo se reintenta solo
+export function reintentarPendientes() {
+  const subidas = useStore.getState().subidas ?? {};
+  for (const [clave, sub] of Object.entries(subidas)) {
+    if (sub.etapa === "listo") quitarSubida(clave);
+    else reintentarSubida(clave);
+  }
+}
+
+const pendiente = (s: Estado, clave: string) => {
+  const e = s.subidas?.[clave]?.etapa;
+  return !!e && e !== "listo";
+};
 
 // Predicaciones: las que ya ocurrieron, la mas reciente primero
 export function usePredicaciones() {
@@ -931,8 +1222,9 @@ export function borrarPredicacion(id: string) {
 }
 
 export function borrarAnuncio(id: string) {
+  const imagen = useStore.getState().anuncios.find((a) => a.id === id)?.imagen;
   cambiar((s) => ({ anuncios: s.anuncios.filter((a) => a.id !== id) }));
-  enFondo(borrarAnuncioRemoto(id));
+  enFondo(borrarAnuncioRemoto(id, imagen));
 }
 
 // Casillas del cronograma: las de la app + las que agrego la iglesia
@@ -940,21 +1232,24 @@ export function useRoles() {
   const extra = useStore((s) => s.rolesExtra);
   const todos: Record<string, Rol> = { ...ROLES, ...extra };
   return {
-    lista: Object.keys(todos) as RolId[],
+    // las casillas nuevas arriba (la ultima creada primero), luego las de
+    // siempre: asi el admin no tiene que buscarla al final
+    lista: [...Object.keys(extra).reverse(), ...Object.keys(ROLES)] as RolId[],
     de: (id: RolId) => todos[id] ?? ROL_GENERICO,
     esNueva: (id: RolId) => id in extra, // solo esas se pueden borrar
   };
 }
 
 // Agrega una casilla al cronograma de todos los cultos
-export function crearRol(rol: Rol) {
+// Devuelve el id de la casilla nueva (para llevar la vista hasta ella)
+export function crearRol(rol: Rol): RolId {
   const base = aSlug(rol.label) || "casilla";
-  cambiar((s) => {
-    const usados = [...Object.keys(ROLES), ...Object.keys(s.rolesExtra)];
-    let id = base;
-    for (let n = 2; usados.includes(id); n++) id = `${base}-${n}`;
-    return { rolesExtra: { ...s.rolesExtra, [id]: rol } };
-  });
+  const s = useStore.getState();
+  const usados = [...Object.keys(ROLES), ...Object.keys(s.rolesExtra)];
+  let id = base;
+  for (let n = 2; usados.includes(id); n++) id = `${base}-${n}`;
+  cambiar({ rolesExtra: { ...s.rolesExtra, [id]: rol } });
+  return id;
 }
 
 // Borra una casilla nueva y los turnos que tenia asignados
@@ -990,6 +1285,9 @@ export function asignarTurno(
   persona: string | null,
   hora?: string, // sin hora: mantiene la que tenia (o la del culto)
 ) {
+  const antesPersona = unirTurnos(useStore.getState().turnosEditados).find(
+    (t) => t.fecha === fecha && t.rol === rol,
+  )?.persona;
   cambiar((s) => {
     const delDia = unirTurnos(s.turnosEditados).filter(
       (t) => t.fecha === fecha,
@@ -1011,19 +1309,74 @@ export function asignarTurno(
       : otros;
     return { turnosEditados: { ...s.turnosEditados, [fecha]: turnos } };
   });
-  subirDia(fecha);
+  // a quien asignaron (o cambiaron) le llega "Te asignaron un turno", y a
+  // quien sacaron (o reemplazaron) "Te quitaron de un turno", despues de
+  // que el dia ya este arriba
+  const nuevo = !!persona && persona !== antesPersona;
+  const quitado =
+    !!antesPersona && antesPersona !== persona ? antesPersona : undefined;
+  subirDia(
+    fecha,
+    nuevo ? rol : undefined,
+    quitado ? { rol, persona: quitado } : undefined,
+  );
 }
 
 // Sube el dia completo (con el nombre visible de cada rol, para el aviso)
-function subirDia(fecha: string) {
+function subirDia(
+  fecha: string,
+  avisarRol?: RolId,
+  quitado?: { rol: RolId; persona: string },
+) {
   const s = useStore.getState();
-  if (!s.iglesia?.id) return;
+  const iglesiaId = s.iglesia?.id;
+  if (!iglesiaId) return;
   const nombres: Record<string, Rol> = { ...ROLES, ...s.rolesExtra };
   const turnos = (s.turnosEditados[fecha] ?? []).map((t) => ({
     ...t,
     rolNombre: nombres[t.rol]?.label,
   }));
-  enFondo(subirTurnosDelDia(s.iglesia.id, fecha, turnos));
+  const avisar = turnos.find((t) => t.rol === avisarRol);
+  // estado "Guardando cronograma…" (el aviso a la persona va aparte: si
+  // falla, el cronograma igual quedo guardado)
+  const clave = `dia:${iglesiaId}:${fecha}`;
+  ponerSubida(clave, {
+    etapa: "guardando",
+    desde: new Date().toISOString(),
+    iglesiaId,
+    error: undefined,
+  });
+  enFondo(
+    subirTurnosDelDia(iglesiaId, fecha, turnos)
+      .then(
+        () => terminarSubida(clave),
+        (e) => {
+          ponerSubida(clave, { etapa: "error", error: mensajeDe(e) });
+          throw e;
+        },
+      )
+      .then(() =>
+        Promise.all([
+          avisar &&
+            avisarTurno({
+              tipo: "asignado",
+              iglesiaId,
+              fecha,
+              rol: avisar.rolNombre ?? avisar.rol,
+              hora: horaTurno(avisar),
+              persona: avisar.persona,
+            }),
+          quitado &&
+            avisarTurno({
+              tipo: "quitado",
+              iglesiaId,
+              fecha,
+              rol: nombres[quitado.rol]?.label ?? quitado.rol,
+              persona: quitado.persona,
+            }),
+        ]),
+      ),
+  );
 }
 
 // Cambia solo la hora de un turno ya asignado
@@ -1082,6 +1435,20 @@ export function alternarMeGusta(
       meGustaTextos: resto,
     };
   });
+}
+
+// Anuncios ya avisados ("Nuevo evento"), para no repetir
+export function marcarAnunciosAvisados(ids: string[]) {
+  cambiar((s) => ({
+    anunciosAvisados: [...new Set([...(s.anunciosAvisados ?? []), ...ids])],
+  }));
+}
+
+// Ya no tiene esos turnos (lo quitaron): se olvidan para no avisar de nuevo
+export function olvidarTurnosAvisados(claves: string[]) {
+  cambiar((s) => ({
+    turnosAvisados: (s.turnosAvisados ?? []).filter((k) => !claves.includes(k)),
+  }));
 }
 
 // Turnos suyos que ya se avisaron (para no repetir el "te asignaron")

@@ -1,3 +1,4 @@
+import { useNombreIglesiaSiVarias } from "@/store/estudios";
 import {
   BORDER,
   CATEGORIAS,
@@ -59,6 +60,9 @@ const Dato = ({
   </View>
 );
 
+// La imagen del detalle no pasa de 4:5 (ancho / alto)
+const ASPECTO_MINIMO = 4 / 5;
+
 // Detalle de un anuncio: imagen (si tiene) y toda la informacion
 export default function ModalAnuncio({
   anuncio,
@@ -66,6 +70,7 @@ export default function ModalAnuncio({
   onEditar,
   onBorrar,
 }: Props) {
+  const nombreIglesia = useNombreIglesiaSiVarias();
   return (
     <Modal
       navigationBarTranslucent
@@ -91,14 +96,19 @@ export default function ModalAnuncio({
                     {anuncio.imagen ? (
                       <Image
                         source={{ uri: anuncio.imagen }}
-                        // completa (si es un afiche se lee entero)
+                        // con su forma, pero nunca mas alta que 4:5 (una
+                        // foto vertical llenaba toda la pantalla): lo que
+                        // sobra se recorta al centro
                         style={[
                           styles.imagen,
                           !!anuncio.imagenAspecto && {
-                            aspectRatio: anuncio.imagenAspecto,
+                            aspectRatio: Math.max(
+                              anuncio.imagenAspecto,
+                              ASPECTO_MINIMO,
+                            ),
                           },
                         ]}
-                        contentFit="contain"
+                        contentFit="cover"
                         transition={200}
                       />
                     ) : (
@@ -129,6 +139,15 @@ export default function ModalAnuncio({
                             {CATEGORIAS[anuncio.categoria].label.toUpperCase()}
                           </Text>
                         </View>
+                        {/* de que iglesia es (si tiene varias) */}
+                        {!!nombreIglesia && (
+                          <View style={styles.categoria}>
+                            <Octicons name="location" size={11} color={MUTED} />
+                            <Text style={styles.categoriaTexto}>
+                              {nombreIglesia.toUpperCase()}
+                            </Text>
+                          </View>
+                        )}
                       </View>
 
                       {!!anuncio.titulo && (

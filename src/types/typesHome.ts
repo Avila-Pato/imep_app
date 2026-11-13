@@ -8,6 +8,7 @@ export type PalabraDelDia = {
 
 export type Iglesia = {
   id?: string; // separa los datos de cada iglesia (las antiguas no lo tienen)
+  subida?: boolean; // ya esta en el servidor (si luego no aparece, se borro)
   sede: string;
   lugar: string;
   direccion: string; // se usa en "Como llegar" (Google/Apple ubican el numero exacto)

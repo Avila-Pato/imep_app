@@ -1,4 +1,4 @@
-import { MIEMBROS, PUBLICACIONES } from "@/assets/data/comunidadMocks";
+import { PUBLICACIONES } from "@/assets/data/comunidadMocks";
 import { USUARIO } from "@/assets/data/perfilMocks";
 import {
   BORDER,
@@ -21,6 +21,7 @@ import {
   useEstudios,
   useGrupos,
   useIglesia,
+  useMiembros,
   usePuede,
   useRoles,
 } from "@/store/estudios";
@@ -58,6 +59,7 @@ export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
   const [predicando, setPredicando] = useState(false);
   const grupos = useGrupos();
   const iglesia = useIglesia();
+  const miembros = useMiembros();
   const puedeCronograma = usePuede("cronograma");
   const puedeAnuncios = usePuede("anuncios");
   const puedeRoles = usePuede("roles"); // pastor o secretaria
@@ -102,7 +104,7 @@ export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
     ...(esPastor
       ? [
           {
-            valor: MIEMBROS.general.length,
+            valor: miembros.length,
             label: "Miembros",
             icono: "people" as IconName,
           },

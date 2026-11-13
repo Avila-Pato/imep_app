@@ -91,8 +91,12 @@ export default function ModalFormAnuncio({ anuncio, autor, onCerrar }: Props) {
   const listo = conTexto || !!imagen;
 
   const elegirImagen = async () => {
+    // el admin recorta y mueve la foto (con vista previa) antes de usarla.
+    // En Android el cuadro queda 16:10, como la tarjeta del anuncio
     const r = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [16, 10],
       quality: 0.8,
     });
     if (r.canceled || !r.assets[0]) return;

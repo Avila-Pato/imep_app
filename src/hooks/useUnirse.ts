@@ -1,6 +1,7 @@
 import { conectado, unirseConCodigo } from "@/services/iglesias";
 import {
   aceptarInvitacion,
+  sincronizarIglesias,
   unirseAIglesia,
   useEstudios,
   useGrupos,
@@ -23,6 +24,8 @@ export function useUnirse() {
         const r = await unirseConCodigo(texto, nombre);
         if (!r) return null; // no existe: no se deja pasar
         unirseAIglesia(r.iglesia, r.sala);
+        // tambien quedo en las demas iglesias de su pastor: se traen todas
+        sincronizarIglesias();
         return {
           grupo: r.sala,
           sala: grupos.find((g) => g.id === r.sala)?.label,

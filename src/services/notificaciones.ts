@@ -51,6 +51,15 @@ export async function tienePermiso() {
   return (await Notifications.getPermissionsAsync()).granted;
 }
 
+// Al entrar a la app (despues de la bienvenida): pregunta UNA vez. Si ya
+// respondio (si o no), no insiste: puede cambiarlo en Perfil → Notificaciones
+export async function pedirPermisoAlEntrar() {
+  if (!NOTIS_DISPONIBLES) return;
+  const actual = await Notifications.getPermissionsAsync();
+  if (actual.granted || actual.status !== "undetermined") return;
+  await pedirPermiso();
+}
+
 export async function pedirPermiso() {
   if (!NOTIS_DISPONIBLES) return false;
   const ok = (await Notifications.requestPermissionsAsync()).granted;
@@ -115,25 +124,34 @@ export async function enviarPrueba() {
 
 // Al tocar una notificacion se abre su pantalla (tambien si la app estaba
 // cerrada). Devuelve la funcion para dejar de escuchar
-export function escucharToques(abrir: (url: string) => void) {
+// iglesiaId: el aviso es de esa iglesia (push de anuncios): se cambia a ella
+export function escucharToques(
+  abrir: (url: string, iglesiaId?: string) => void,
+) {
   if (!NOTIS_DISPONIBLES) return () => {};
+  const datos = (r: Notifications.NotificationResponse | null) =>
+    r?.notification.request.content.data;
   const urlDe = (r: Notifications.NotificationResponse | null) => {
-    const url = r?.notification.request.content.data?.url;
+    const url = datos(r)?.url;
     return typeof url === "string" ? url : null;
+  };
+  const iglesiaDe = (r: Notifications.NotificationResponse | null) => {
+    const id = datos(r)?.iglesia_id;
+    return typeof id === "string" ? id : undefined;
   };
   // la app se abrio desde una notificacion
   Notifications.getLastNotificationResponseAsync()
     .then((r) => {
       const url = urlDe(r);
       if (url) {
-        abrir(url);
+        abrir(url, iglesiaDe(r));
         Notifications.clearLastNotificationResponseAsync?.().catch(() => {});
       }
     })
     .catch(() => {});
   const sub = Notifications.addNotificationResponseReceivedListener((r) => {
     const url = urlDe(r);
-    if (url) abrir(url);
+    if (url) abrir(url, iglesiaDe(r));
   });
   return () => sub.remove();
 }

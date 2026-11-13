@@ -1,4 +1,3 @@
-import { MIEMBROS } from "@/assets/data/comunidadMocks";
 import { USUARIO } from "@/assets/data/perfilMocks";
 import {
   EstadoPeticion,
@@ -10,18 +9,13 @@ import { oracionVigente } from "./tiempo";
 
 type Revisiones = Record<string, Revision>;
 
-// Quienes aprueban las peticiones de una sala
-const ROLES_LIDER = ["Líder", "Pastor"];
-
 // TEMPORAL: para probar, esta persona es lider de todas las salas.
 // Ahora el lider se elige al crear la sala (useEsLider), por eso va en false
 const PROBAR_COMO_LIDER = false;
 
-export const esLider = (nombre: string, grupo: GrupoId) =>
-  (PROBAR_COMO_LIDER && nombre === USUARIO.nombre) ||
-  (MIEMBROS[grupo] ?? []).some(
-    (m) => m.nombre === nombre && ROLES_LIDER.includes(m.rol ?? ""),
-  );
+// El lider real es el que eligio el pastor al crear la sala (useEsLider)
+export const esLider = (nombre: string, _grupo: GrupoId) =>
+  PROBAR_COMO_LIDER && nombre === USUARIO.nombre;
 
 // Estado real: la decision del lider manda sobre el de la publicacion
 export const estadoPeticion = (

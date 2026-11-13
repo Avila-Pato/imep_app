@@ -1,4 +1,4 @@
-import { MIEMBROS } from "@/assets/data/comunidadMocks";
+import { miembrosActuales, useMiembros } from "@/store/estudios";
 import { USUARIO } from "@/assets/data/perfilMocks";
 import {
   BORDER,
@@ -13,12 +13,15 @@ import Octicons from "@expo/vector-icons/Octicons";
 import { Href, router } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-// Miembros de la sala; el usuario actual siempre aparece (como "Tú")
+// Miembros reales de la sala: en "general" toda la iglesia; en las demas,
+// quienes entraron con la invitacion de esa sala. Esta persona siempre aparece
 export function miembrosDe(grupo: GrupoId): Miembro[] {
-  const lista = MIEMBROS[grupo] ?? [];
-  return lista.some((m) => m.nombre === USUARIO.nombre)
-    ? lista
-    : [...lista, { nombre: USUARIO.nombre }];
+  return miembrosActuales()
+    .filter((m) => grupo === "general" || m.sala === grupo || m.id === "yo")
+    .map((m) => ({
+      nombre: m.nombre,
+      ...(m.rol === "pastor" ? { rol: "Pastor" } : {}),
+    }));
 }
 
 // lider: puede escribirle en privado a cada hermano
@@ -29,6 +32,7 @@ export default function MiembrosSala({
   grupo: GrupoId;
   lider?: boolean;
 }) {
+  useMiembros(); // se actualiza cuando llegan del servidor
   const miembros = miembrosDe(grupo);
 
   return (

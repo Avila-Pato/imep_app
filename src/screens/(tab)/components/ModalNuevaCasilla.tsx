@@ -46,9 +46,11 @@ const ICONOS: IconName[] = [
 export default function ModalNuevaCasilla({
   visible,
   onCerrar,
+  onCreada,
 }: {
   visible: boolean;
   onCerrar: () => void;
+  onCreada?: (id: string) => void; // para llevar la vista hasta la nueva
 }) {
   const roles = useRoles();
   const [nombre, setNombre] = useState("");
@@ -68,8 +70,9 @@ export default function ModalNuevaCasilla({
 
   const crear = () => {
     if (!listo) return;
-    crearRol({ label: limpio, icon: icono });
+    const id = crearRol({ label: limpio, icon: icono });
     cerrar();
+    onCreada?.(id);
   };
 
   return (

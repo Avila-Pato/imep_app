@@ -1,4 +1,3 @@
-import { MIEMBROS } from "@/assets/data/comunidadMocks";
 import { USUARIO } from "@/assets/data/perfilMocks";
 import {
   BORDER,
@@ -18,6 +17,7 @@ import {
   alternarCargo,
   useEsPastor,
   useEstudios,
+  useMiembros,
   usePuede,
 } from "@/store/estudios";
 import { CargoId } from "@/types/typesCargos";
@@ -45,9 +45,6 @@ const PUEDE: Record<string, string> = {
   roles: "Asigna roles",
 };
 
-// Toda la congregacion menos el pastor
-const PERSONAS = MIEMBROS.general.filter((m) => m.rol !== "Pastor");
-
 // El pastor y quien tenga el permiso "roles" (ej: secretaria) asignan
 // roles a los hermanos (cada uno puede tener varios)
 export default function PermisosScreen() {
@@ -55,6 +52,8 @@ export default function PermisosScreen() {
   const puedeRoles = usePuede("roles");
   const { cargos, nombre } = useEstudios();
   const [busqueda, setBusqueda] = useState("");
+  // los hermanos que se unieron (menos el pastor)
+  const PERSONAS = useMiembros().filter((m) => m.rol !== "pastor");
 
   if (!puedeRoles) return <Redirect href={"/perfil" as Href} />;
 

@@ -1,5 +1,3 @@
-import { MIEMBROS } from "@/assets/data/comunidadMocks";
-import { USUARIO } from "@/assets/data/perfilMocks";
 import {
   BORDER,
   DARK_BG,
@@ -14,6 +12,7 @@ import {
   agregarInvitado,
   quitarInvitado,
   useEstudios,
+  useMiembros,
   useRoles,
 } from "@/store/estudios";
 import { RolId } from "@/types/typesCronogramas";
@@ -31,11 +30,6 @@ import {
   View,
 } from "react-native";
 import ConBordes from "@/components/ConBordes";
-
-// Toda la congregacion registrada (sin repetir) para elegir quien sirve
-const REGISTRADOS = [
-  ...new Set([USUARIO.nombre, ...MIEMBROS.general.map((m) => m.nombre)]),
-].sort((a, b) => a.localeCompare(b, "es"));
 
 const sinTildes = (s: string) =>
   s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -63,6 +57,10 @@ export default function ModalAsignar({
   onCerrar,
 }: Props) {
   const { invitados } = useEstudios();
+  // los hermanos que se unieron a la iglesia (sin repetir)
+  const REGISTRADOS = [...new Set(useMiembros().map((m) => m.nombre))].sort(
+    (a, b) => a.localeCompare(b, "es"),
+  );
   const roles = useRoles();
   const [busqueda, setBusqueda] = useState("");
   const texto = busqueda.trim().replace(/\s+/g, " ");

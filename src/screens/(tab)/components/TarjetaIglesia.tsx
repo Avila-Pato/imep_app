@@ -79,7 +79,7 @@ export default function TarjetaIglesia() {
             const activa = esActiva(i, iglesia);
             return (
               <Pressable
-                key={`${i.sede}-${i.lat}-${i.lng}`}
+                key={i.id ?? `${i.sede}-${i.lat}-${i.lng}`}
                 onPress={() => elegirIglesia(i)}
                 style={({ pressed }) => [
                   styles.chip,

@@ -14,7 +14,10 @@ import {
   ES_CLARO,
 } from "@/constants/constans";
 import { useRecordatorios } from "@/hooks/useRecordatorios";
+import { useEnVivo } from "@/hooks/useEnVivo";
 import {
+  irAIglesia,
+  reintentarPendientes,
   registrarPush,
   sincronizarContenido,
   sincronizarIglesias,
@@ -30,7 +33,11 @@ import {
   Stack,
   ThemeProvider,
 } from "expo-router";
-import { alActivarPermiso, escucharToques } from "@/services/notificaciones";
+import {
+  alActivarPermiso,
+  escucharToques,
+  pedirPermisoAlEntrar,
+} from "@/services/notificaciones";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
@@ -70,6 +77,8 @@ export default function RootLayout() {
   const cargado = useCargado();
   // recordatorios de cultos, turnos y anuncios (notificaciones locales)
   useRecordatorios();
+  // cronograma, anuncios y miembros al instante (Supabase Realtime)
+  useEnVivo();
   const { bienvenida: vista } = useEstudios();
   const bienvenida = vista || !MOSTRAR_BIENVENIDA;
   const listo = (fuentesListas || !!error) && cargado;
@@ -83,11 +92,16 @@ export default function RootLayout() {
   // telefono para recibir push. Al volver a la app, trae lo nuevo
   useEffect(() => {
     if (!cargado) return;
-    sincronizarIglesias().then(sincronizarContenido);
+    sincronizarIglesias().then(() => {
+      sincronizarContenido();
+      // lo que quedo subiendose o fallo (ej: se cerro la app): de nuevo
+      reintentarPendientes();
+    });
     registrarPush();
     const quitarPermiso = alActivarPermiso(registrarPush);
     const sub = AppState.addEventListener("change", (estado) => {
-      if (estado === "active") sincronizarContenido();
+      // al volver: iglesias nuevas del pastor y lo nuevo de la activa
+      if (estado === "active") sincronizarIglesias().then(sincronizarContenido);
     });
     return () => {
       quitarPermiso();
@@ -95,10 +109,18 @@ export default function RootLayout() {
     };
   }, [cargado]);
 
+  // Recien entra a la app: pide permiso para avisarle (una sola vez)
+  useEffect(() => {
+    if (listo && bienvenida) pedirPermisoAlEntrar().catch(() => {});
+  }, [listo, bienvenida]);
+
   // Tocar una notificacion abre su pantalla (cuando la app ya esta lista)
   useEffect(() => {
     if (!listo || !bienvenida) return;
-    return escucharToques((url) => router.push(url as Href));
+    return escucharToques((url, iglesiaId) => {
+      if (iglesiaId) irAIglesia(iglesiaId); // el aviso es de esa iglesia
+      router.push(url as Href);
+    });
   }, [listo, bienvenida]);
 
   if (!listo) return null;

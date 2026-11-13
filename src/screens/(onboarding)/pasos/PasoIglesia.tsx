@@ -78,7 +78,7 @@ export default function PasoIglesia({ onSeguir }: { onSeguir: () => void }) {
       ) : (
         <View style={styles.lista}>
           {iglesias.map((i) => (
-            <View key={`${i.sede}-${i.lat}-${i.lng}`} style={styles.tarjeta}>
+            <View key={i.id ?? `${i.sede}-${i.lat}-${i.lng}`} style={styles.tarjeta}>
               <View style={styles.icono}>
                 <Octicons name="location" size={18} color={TEXT} />
               </View>

@@ -1,3 +1,4 @@
+import { PUSH_ACTIVO } from "@/services/push";
 import { HORARIOS_CULTO } from "@/assets/data/configMocks";
 import { USUARIO } from "@/assets/data/perfilMocks";
 import {
@@ -11,6 +12,8 @@ import {
 import { CATEGORIAS } from "@/constants/constans";
 import {
   marcarTurnosAvisados,
+  olvidarTurnosAvisados,
+  marcarAnunciosAvisados,
   TipoAviso,
   useEstudios,
   useRoles,
@@ -40,10 +43,12 @@ export function useRecordatorios() {
     desafios,
     mensajes,
     turnosAvisados,
+    anunciosAvisados,
   } = useEstudios();
   const quiere = (t: TipoAviso) => avisos[t] ?? true;
   const yo = nombre ?? USUARIO.nombre;
   const roles = useRoles();
+  const nombreIglesia = iglesia?.sede;
 
   const lista: Aviso[] = [];
   const hoy = new Date();
@@ -121,7 +126,8 @@ export function useRecordatorios() {
       hora?: string;
     }[] = JSON.parse(firmaNuevos);
     if (!lista.length) return;
-    if (!primeraVez && avisarTurnos) {
+    // con push, el aviso llega del servidor (aunque la app este cerrada)
+    if (!primeraVez && avisarTurnos && !PUSH_ACTIVO) {
       for (const t of lista) {
         const dia = deKey(t.fecha).toLocaleDateString("es-ES", {
           weekday: "long",
@@ -130,13 +136,96 @@ export function useRecordatorios() {
         });
         avisarAhora(
           "Te asignaron un turno 📋",
-          `${t.rol} · ${dia}${t.hora ? ` · ${t.hora} hrs` : ""}`,
+          [t.rol, dia, t.hora && `${t.hora} hrs`, nombreIglesia]
+            .filter(Boolean)
+            .join(" · "),
           "/eventos?vista=cronograma",
         ).catch(() => {});
       }
     }
     marcarTurnosAvisados(lista.map((t) => t.clave));
-  }, [firmaNuevos, primeraVez, avisarTurnos]);
+  }, [firmaNuevos, primeraVez, avisarTurnos, nombreIglesia]);
+
+  // Anuncios y eventos nuevos (los publico otro): "Nuevo evento" al llegar.
+  // Con push llegan del servidor; esto es para Expo Go. La primera vez solo
+  // se anotan los que ya habia
+  const anunciosNuevos = anuncios.filter(
+    (a) => !(anunciosAvisados ?? []).includes(a.id),
+  );
+  const firmaAnuncios = JSON.stringify(
+    anunciosNuevos.map((a) => ({
+      id: a.id,
+      evento: a.categoria === "evento",
+      titulo: a.titulo,
+      descripcion: a.descripcion,
+      fecha: a.fecha,
+      hora: a.hora,
+    })),
+  );
+  const primeraVezAnuncios = anunciosAvisados === undefined;
+  const avisarAnuncios = quiere("anuncios");
+  useEffect(() => {
+    const lista: {
+      id: string;
+      evento: boolean;
+      titulo: string;
+      descripcion: string;
+      fecha: string;
+      hora?: string;
+    }[] = JSON.parse(firmaAnuncios);
+    if (!lista.length) return;
+    if (!primeraVezAnuncios && avisarAnuncios && !PUSH_ACTIVO) {
+      for (const a of lista) {
+        const dia = deKey(a.fecha).toLocaleDateString("es-ES", {
+          weekday: "short",
+          day: "numeric",
+          month: "short",
+        });
+        avisarAhora(
+          a.evento ? `🗓️ Nuevo evento: ${a.titulo}` : `📣 ${a.titulo}`,
+          // con la iglesia: un hermano puede estar en varias
+          (a.evento
+            ? [dia, a.hora, nombreIglesia]
+            : [a.descripcion || dia, nombreIglesia]
+          )
+            .filter(Boolean)
+            .join(" · "),
+          "/eventos?vista=anuncios",
+        ).catch(() => {});
+      }
+    }
+    marcarAnunciosAvisados(lista.map((a) => a.id));
+  }, [firmaAnuncios, primeraVezAnuncios, avisarAnuncios, nombreIglesia]);
+
+  // Turnos que tenia y ya no (el admin lo saco o puso a otro): "te quitaron".
+  // Se compara por dia y rol (un cambio de hora no cuenta como quitado)
+  const misDiaRol = new Set(misTurnos.map((t) => `${t.fecha}|${t.rol}`));
+  const quitados = (turnosAvisados ?? []).filter((k) => {
+    const [fecha, rol] = k.split("|");
+    return fecha >= hoyKey && !misDiaRol.has(`${fecha}|${rol}`);
+  });
+  const firmaQuitados = JSON.stringify(quitados);
+  useEffect(() => {
+    const claves: string[] = JSON.parse(firmaQuitados);
+    if (!claves.length) return;
+    if (avisarTurnos && !PUSH_ACTIVO) {
+      for (const k of claves) {
+        const [fecha, rol] = k.split("|");
+        const dia = deKey(fecha).toLocaleDateString("es-ES", {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+        });
+        avisarAhora(
+          "Te quitaron de un turno",
+          [roles.de(rol).label, dia, nombreIglesia].filter(Boolean).join(" · "),
+          "/eventos?vista=cronograma",
+        ).catch(() => {});
+      }
+    }
+    olvidarTurnosAvisados(claves);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- roles: solo nombres
+  }, [firmaQuitados, avisarTurnos]);
 
   // Palabra de la semana: su dia a las 9:00 (o el dia antes del plazo), si
   // aun no responde. Va con "Mi sala"

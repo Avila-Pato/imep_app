@@ -110,9 +110,8 @@ export default function PasoGrupo({ onSeguir }: { onSeguir: () => void }) {
       ) : (
         valida && (
           <Text style={styles.ok}>
-            {`Te unirás a ${revision.iglesia ?? "tu iglesia"}${
-              revision.sala ? ` y a la sala ${revision.sala}` : ""
-            } ✓`}
+            {/* sin el nombre de la iglesia: un hermano puede estar en varias */}
+            Código válido ✓ Toca «Unirme a mi iglesia» para continuar.
           </Text>
         )
       )}

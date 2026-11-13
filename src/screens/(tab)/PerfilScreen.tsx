@@ -22,7 +22,8 @@ import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import PanelAdmin from "@/screens/perfil/PanelAdmin";
 import {
-  reiniciarApp,
+  reiniciarTodo,
+  useIglesias,
   useEsPastor,
   useEstudios,
   useGrupos,
@@ -70,23 +71,42 @@ const partesFecha = (key: string) => {
   };
 };
 
-// Pide confirmacion antes de borrar todo (en web no hay Alert con botones)
-const confirmarReinicio = () => {
-  const titulo = "¿Reiniciar la app?";
-  const texto =
-    "Se borrará tu rol, la iglesia, el mapa, las salas y todo lo guardado. Volverás a la bienvenida para empezar de cero.";
+// Pide confirmacion antes de borrar todo (en web no hay Alert con botones).
+// El aviso dice exactamente que se pierde: al pastor, sus iglesias completas
+const confirmarReinicio = (esPastor: boolean, iglesias: string[]) => {
+  const titulo = esPastor
+    ? "¿Borrar todo y empezar de cero?"
+    : "¿Reiniciar la app?";
+  const texto = esPastor
+    ? `Se eliminarán para siempre ${
+        iglesias.length > 1 ? "tus iglesias" : "tu iglesia"
+      }${iglesias.length ? ` (${iglesias.join(", ")})` : ""} y todo lo que tienen: los hermanos unidos, los anuncios, el cronograma y los turnos, las salas y sus chats, las predicaciones y los códigos de invitación.
+
+Los hermanos perderán el acceso. Esto no se puede deshacer.`
+    : "Saldrás de tu iglesia y se borrará todo lo guardado en este teléfono (versículos, estudios y notas). Tu iglesia y sus anuncios no se borran: puedes volver a unirte con una invitación.";
+  const boton = esPastor ? "Borrar todo" : "Reiniciar";
+
+  const reiniciar = () =>
+    reiniciarTodo().catch((e) => {
+      console.warn("[supabase]", e?.message ?? e);
+      const error =
+        "No se pudo borrar del servidor. Revisa tu conexión e inténtalo de nuevo. No se borró nada.";
+      if (Platform.OS === "web") window.alert(error);
+      else Alert.alert("No se pudo reiniciar", error);
+    });
+
   if (Platform.OS === "web") {
     if (
       window.confirm(`${titulo}
 
 ${texto}`)
     )
-      reiniciarApp();
+      reiniciar();
     return;
   }
   Alert.alert(titulo, texto, [
     { text: "Cancelar", style: "cancel" },
-    { text: "Reiniciar", style: "destructive", onPress: reiniciarApp },
+    { text: boton, style: "destructive", onPress: reiniciar },
   ]);
 };
 
@@ -108,6 +128,7 @@ export default function PerfilScreen() {
   } = useEstudios();
   const esPastor = useEsPastor();
   const iglesia = useIglesia();
+  const misIglesias = useIglesias().map((i) => i.sede);
   const miNombre = nombre ?? USUARIO.nombre;
   const misCargos = cargos[miNombre] ?? [];
   // panel de administracion: el pastor y quien tenga roles con permisos
@@ -404,7 +425,8 @@ export default function PerfilScreen() {
                                 : op.id === "notificaciones"
                                   ? () => router.push("/notificaciones" as Href)
                                   : op.id === "reiniciar"
-                                    ? confirmarReinicio
+                                    ? () =>
+                                        confirmarReinicio(esPastor, misIglesias)
                                     : undefined
                   }
                   style={({ pressed }) => [
