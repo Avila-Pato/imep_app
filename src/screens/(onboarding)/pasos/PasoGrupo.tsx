@@ -8,28 +8,42 @@ import {
   PLACEHOLDER,
 } from "@/constants/constans";
 import { useUnirse } from "@/hooks/useUnirse";
-import { useEstudios, useGrupos } from "@/store/estudios";
-import { leerInvitacion } from "@/utils/invitacion";
+import { useVerificarCodigo } from "@/hooks/useVerificarCodigo";
+import { guardarInvitacion, useEstudios } from "@/store/estudios";
 import Octicons from "@expo/vector-icons/Octicons";
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { BotonPrincipal, Paso, Subtitulo, Titulo } from "./ui";
 
 // Hermanos: unirse a su iglesia con la invitacion del pastor (opcional).
 // Al unirse, en Inicio aparece el mapa con la ubicacion de la iglesia; si la
 // invitacion es de un grupo, tambien entra a su sala
+// El codigo se revisa en el servidor: si no existe, no deja unirse
 export default function PasoGrupo({ onSeguir }: { onSeguir: () => void }) {
-  const [enlace, setEnlace] = useState("");
+  // si llego por un enlace de invitacion, el codigo ya viene escrito
+  const { invitacion } = useEstudios();
+  const [enlace, setEnlace] = useState(invitacion ?? "");
   const [error, setError] = useState(false);
-  const grupos = useGrupos();
-  const { codigos } = useEstudios();
+  const [uniendo, setUniendo] = useState(false);
   const unirse = useUnirse();
   // vista previa mientras escribe (a que iglesia/sala lo lleva)
-  const { valida, grupo } = leerInvitacion(enlace, grupos, codigos);
-  const nombreGrupo = grupos.find((g) => g.id === grupo)?.label;
+  const revision = useVerificarCodigo(enlace);
+  const valida = revision.estado === "valido";
 
   const usar = async () => {
-    if (!(await unirse(enlace))) return setError(true);
+    if (!valida || uniendo) return;
+    setUniendo(true);
+    const r = await unirse(enlace);
+    setUniendo(false);
+    if (!r) return setError(true);
+    guardarInvitacion(null);
     onSeguir();
   };
 
@@ -38,9 +52,9 @@ export default function PasoGrupo({ onSeguir }: { onSeguir: () => void }) {
       pie={
         <>
           <BotonPrincipal
-            texto="Unirme a mi iglesia"
+            texto={uniendo ? "Uniéndote…" : "Unirme a mi iglesia"}
             onPress={usar}
-            deshabilitado={!enlace.trim()}
+            deshabilitado={!valida || uniendo}
           />
           <Pressable
             onPress={onSeguir}
@@ -62,7 +76,12 @@ export default function PasoGrupo({ onSeguir }: { onSeguir: () => void }) {
         sala.
       </Subtitulo>
 
-      <View style={[styles.input, error && styles.inputError]}>
+      <View
+        style={[
+          styles.input,
+          (error || revision.estado === "invalido") && styles.inputError,
+        ]}
+      >
         <Octicons name="link" size={14} color={MUTED} />
         <TextInput
           value={enlace}
@@ -78,16 +97,22 @@ export default function PasoGrupo({ onSeguir }: { onSeguir: () => void }) {
           style={styles.inputTexto}
         />
       </View>
-      {error ? (
+      {revision.estado === "revisando" ? (
+        <View style={styles.fila}>
+          <ActivityIndicator size="small" color={MUTED} />
+          <Text style={styles.revisando}>Revisando el código…</Text>
+        </View>
+      ) : error || revision.estado === "invalido" ? (
         <Text style={styles.error}>
-          Ese enlace no es válido. Pídele uno nuevo a tu pastor.
+          Este código no existe. Revisa que esté bien escrito o pídele uno nuevo
+          a tu pastor.
         </Text>
       ) : (
         valida && (
           <Text style={styles.ok}>
-            {nombreGrupo
-              ? `Invitación a tu iglesia y a ${nombreGrupo} ✓`
-              : "Invitación a tu iglesia ✓"}
+            {`Te unirás a ${revision.iglesia ?? "tu iglesia"}${
+              revision.sala ? ` y a la sala ${revision.sala}` : ""
+            } ✓`}
           </Text>
         )
       )}
@@ -120,7 +145,17 @@ const styles = StyleSheet.create({
   },
   error: {
     fontSize: 12,
+    lineHeight: 17,
     color: PRIMARY,
+  },
+  fila: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  revisando: {
+    fontSize: 12,
+    color: MUTED,
   },
   ok: {
     fontSize: 12,

@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.avilapato.congrega",
+      "sha256_cert_fingerprints": [
+        "AA:34:BA:D4:AB:EF:86:AE:1C:C6:F3:3F:27:92:BC:C4:B8:7A:6B:4F:DF:C1:76:6A:71:84:04:57:DD:4D:DB:47"
+      ]
+    }
+  }
+]

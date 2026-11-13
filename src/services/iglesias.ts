@@ -110,13 +110,29 @@ export async function codigosDe(iglesiaId: string) {
   return data;
 }
 
-// "CONGREGA-4K7Q", "4K7Q" o "congrega://unirse/4K7Q" -> "4K7Q"
+// "CONGREGA-4K7Q", "4K7Q", "congrega://unirse/4K7Q" o
+// "https://congrega.expo.app/unirse?codigo=4K7Q" -> "4K7Q"
 export function extraerCodigo(texto: string) {
   const t = texto.trim().toUpperCase();
   const m =
-    t.match(/(?:CONGREGA-|UNIRSE\/)([A-Z0-9]{4})\b/) ??
+    t.match(/(?:CONGREGA-|UNIRSE\/|CODIGO=)([A-Z0-9]{4})\b/) ??
     t.match(/^([A-Z0-9]{4})$/);
   return m?.[1] ?? null;
+}
+
+// Revisa el codigo sin unirse: a que iglesia (y sala) lleva.
+// null = no existe; undefined = no se pudo preguntar (sin servidor)
+export async function verificarCodigo(texto: string) {
+  const codigo = extraerCodigo(texto);
+  if (!supabase) return undefined;
+  if (!codigo) return null;
+  await asegurarSesion();
+  const { data, error } = await supabase.rpc("verificar_codigo", {
+    p_codigo: codigo,
+  });
+  if (error) throw error;
+  const fila = (data as { iglesia: string; sala: string | null }[])?.[0];
+  return fila ? { iglesia: fila.iglesia, sala: fila.sala ?? undefined } : null;
 }
 
 // Un hermano se une con el codigo del pastor. null si el codigo no existe

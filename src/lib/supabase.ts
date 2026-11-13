@@ -1,6 +1,6 @@
 import "expo-sqlite/localStorage/install";
 import { createClient } from "@supabase/supabase-js";
-import { AppState } from "react-native";
+import { AppState, Platform } from "react-native";
 
 // Cliente de Supabase. Sin las variables de .env.local queda en null y la app
 // sigue funcionando solo con lo guardado en el telefono (modo de prueba)
@@ -10,8 +10,12 @@ const url =
   process.env.EXPO_PUBLIC_SUPABASE_URL?.match(/^https?:\/\/[^/]+/)?.[0];
 const clave = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
+// Al armar la web (paginas estaticas en Node) no hay localStorage ni sesion:
+// ahi no se crea el cliente; en el navegador si
+const armandoWeb = Platform.OS === "web" && typeof window === "undefined";
+
 export const supabase =
-  url && clave
+  url && clave && !armandoWeb
     ? createClient(url, clave, {
         auth: {
           storage: localStorage, // la sesion queda guardada en el telefono

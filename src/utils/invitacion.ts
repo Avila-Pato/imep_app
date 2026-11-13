@@ -1,6 +1,8 @@
 import { GRUPOS } from "@/constants/constans";
 import type { CodigoInvitacion } from "@/store/estudios";
 import { Grupo, GrupoId } from "@/types/typesComunidad";
+import Constants, { ExecutionEnvironment } from "expo-constants";
+import * as Linking from "expo-linking";
 
 const limpiar = (texto: string) =>
   texto.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -53,4 +55,19 @@ export function leerInvitacion(
 
 // Como se muestra y comparte un codigo
 export const codigoVisible = (codigo: string) => `CONGREGA-${codigo}`;
-export const enlaceDeCodigo = (codigo: string) => `congrega://unirse/${codigo}`;
+// Enlace web: se puede tocar en WhatsApp. Con la app instalada, Android la
+// abre directo (App Links); sin la app, muestra la pagina para descargarla
+export const SITIO = "https://congrega.expo.app";
+// ?codigo= (no /unirse/4K7Q): la web es estatica y solo sirve paginas fijas.
+// Probando en Expo Go: el enlace lleva tambien la direccion del servidor de
+// desarrollo (&dev=exp://...) y la pagina muestra "Abrir en Expo Go"
+const EN_EXPO_GO =
+  Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+export const enlaceDeCodigo = (codigo: string) => {
+  const enlace = `${SITIO}/unirse?codigo=${codigo}`;
+  if (!EN_EXPO_GO) return enlace;
+  const dev = Linking.createURL("unirse", { queryParams: { codigo } });
+  return `${enlace}&dev=${encodeURIComponent(dev)}`;
+};
+export const PLAY_STORE =
+  "https://play.google.com/store/apps/details?id=com.avilapato.congrega";

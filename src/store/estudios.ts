@@ -23,8 +23,18 @@ import { Rol, RolId, Turno } from "@/types/typesCronogramas";
 import { Iglesia } from "@/types/typesHome";
 import { Predicacion } from "@/types/typesOraciones";
 import { subirPerfil } from "@/services/perfil";
+import { registrarDispositivo } from "@/services/push";
+import {
+  avisarAnuncio,
+  bajarAnuncios,
+  bajarTurnos,
+  borrarAnuncioRemoto,
+  subirAnuncio,
+  subirTurnosDelDia,
+} from "@/services/contenido";
 import {
   borrarIglesia,
+  conectado,
   crearCodigo,
   esUuid,
   misIglesias,
@@ -65,6 +75,7 @@ type Estado = {
   nombre?: string; // como quiere que la llamemos (onboarding)
   avatar?: AvatarElegido; // chibi o foto (Editar perfil); sin esto, sus iniciales
   cuenta?: CuentaConectada; // con que cuenta entro (Google); sin esto, anonimo
+  invitacion?: string; // codigo del enlace que abrio antes del onboarding
   portada?: string; // imagen de fondo arriba del perfil (galeria)
   fuenteBiblia?: FuenteBiblia; // letra para leer la Biblia
   motivos?: string[]; // que la trae a la app (onboarding)
@@ -98,6 +109,7 @@ export type CodigoInvitacion = {
   codigo: string; // ej: "4K7Q" (se muestra como CONGREGA-4K7Q)
   creado: string; // ISO
   usos: number; // cuantos se unieron con el
+  enServidor?: boolean; // lo creo Supabase (los demas solo existen en el telefono)
 };
 
 export type RolIglesia = "pastor" | "hermano";
@@ -194,6 +206,7 @@ const useStore = create<Estado>()(
         nombre: estado.nombre ?? previo.nombre,
         avatar: estado.avatar ?? previo.avatar,
         cuenta: estado.cuenta ?? previo.cuenta,
+        invitacion: estado.invitacion ?? previo.invitacion,
         portada: estado.portada ?? previo.portada,
         fuenteBiblia: estado.fuenteBiblia ?? previo.fuenteBiblia,
         motivos: estado.motivos ?? previo.motivos,
@@ -397,6 +410,20 @@ const vacios = () => tomar(inicial());
 
 // sin id (iglesias antiguas o la de ejemplo): nombre y ubicacion
 const idIglesia = (i: Iglesia) => i.id ?? `${i.sede}|${i.lat}|${i.lng}`;
+// Iglesias que se estan subiendo: antes de crear un codigo hay que esperar
+// a que exista en el servidor (si no, el servidor dice "no eres el pastor")
+const subiendo = new Map<string, Promise<unknown>>();
+function subir(iglesia: Iglesia) {
+  const p = subirIglesia(iglesia);
+  if (iglesia.id)
+    subiendo.set(
+      iglesia.id,
+      p.catch(() => {}),
+    );
+  enFondo(p);
+  return p;
+}
+
 // lo que va al servidor corre aparte: si falla, el telefono ya lo guardo
 const enFondo = (p: Promise<unknown>) =>
   p.catch((e) => console.warn("[supabase]", e?.message ?? e));
@@ -448,7 +475,7 @@ export function fijarIglesia(datos: Iglesia) {
         ? lista.map((x, k) => (k === i ? iglesia : x))
         : [...lista, iglesia],
   });
-  enFondo(subirIglesia(iglesia));
+  subir(iglesia);
 }
 
 // El pastor suma otra iglesia: queda como la activa y parte vacia
@@ -461,12 +488,13 @@ export function agregarIglesia(datos: Iglesia) {
       ? { ...pasarA(s, iglesia), iglesias }
       : { iglesia, iglesias };
   });
-  enFondo(subirIglesia(iglesia));
+  subir(iglesia);
 }
 
 // Cambia de iglesia: el mapa, los anuncios, el cronograma, las salas...
 export function elegirIglesia(iglesia: Iglesia) {
   cambiar((s) => pasarA(s, iglesia));
+  sincronizarContenido();
 }
 
 // Quita una iglesia y lo suyo; si era la activa, pasa a la primera que queda
@@ -502,11 +530,49 @@ export function unirseAIglesia(iglesia: Iglesia, grupo?: GrupoId) {
     const base = s.iglesia ? pasarA(s, iglesia) : { iglesia };
     return { ...base, iglesias, grupo: grupo ?? base.grupo ?? s.grupo };
   });
+  sincronizarContenido();
 }
 
 // Al abrir la app: trae del servidor las iglesias de esta persona y las
 // junta con las del telefono (las del servidor mandan en nombre y ubicacion)
+// Con servidor: las iglesias antiguas (sin uuid, de antes de conectar
+// Supabase) reciben uno y se suben, y se descartan los codigos que solo
+// existian en el telefono (nadie mas podria usarlos). El panel crea otros
+function ponerAlDiaConServidor() {
+  const s = useStore.getState();
+  if (!conectado() || s.rol !== "pastor") return;
+  const soloServidor = (c: DatosIglesia["codigos"] = {}) =>
+    Object.fromEntries(
+      Object.entries(c).filter(([, v]) => v?.enServidor),
+    ) as DatosIglesia["codigos"];
+
+  const lista = listaIglesias(s);
+  const nuevos = new Map(
+    lista
+      .filter((i) => !esUuid(i.id))
+      .map((i) => [idIglesia(i), { ...i, id: nuevoUuid() }] as const),
+  );
+  const iglesias = lista.map((i) => nuevos.get(idIglesia(i)) ?? i);
+  const iglesia = s.iglesia
+    ? (nuevos.get(idIglesia(s.iglesia)) ?? s.iglesia)
+    : undefined;
+  const porIglesia = Object.fromEntries(
+    Object.entries(s.porIglesia ?? {}).map(([k, v]) => [
+      nuevos.get(k)?.id ?? k,
+      { ...v, codigos: soloServidor(v.codigos) },
+    ]),
+  );
+  cambiar({
+    iglesias,
+    iglesia,
+    porIglesia,
+    codigos: soloServidor(s.codigos) ?? {},
+  });
+  nuevos.forEach((i) => subir(i));
+}
+
 export async function sincronizarIglesias() {
+  ponerAlDiaConServidor();
   const remotas = await misIglesias().catch((e) => {
     console.warn("[supabase]", e?.message ?? e);
     return null;
@@ -525,6 +591,31 @@ export async function sincronizarIglesias() {
     const grupo = s.iglesia ? s.grupo : (remotas[0].sala ?? s.grupo);
     return { iglesias, iglesia: activa, grupo };
   });
+}
+
+// Trae los anuncios y turnos de la iglesia activa (lo que publico el pastor).
+// Lo que solo esta en el telefono (anuncios antiguos sin uuid) se conserva
+export async function sincronizarContenido() {
+  const id = useStore.getState().iglesia?.id;
+  if (!esUuid(id)) return;
+  const desde = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10);
+  const [anuncios, turnos] = await Promise.all([
+    bajarAnuncios(id),
+    bajarTurnos(id, desde),
+  ]).catch((e) => {
+    console.warn("[supabase]", e?.message ?? e);
+    return [null, null] as const;
+  });
+  // si mientras tanto cambio de iglesia, no mezclar
+  if (useStore.getState().iglesia?.id !== id) return;
+  cambiar((s) => ({
+    ...(anuncios
+      ? {
+          anuncios: [...anuncios, ...s.anuncios.filter((a) => !esUuid(a.id))],
+        }
+      : {}),
+    ...(turnos ? { turnosEditados: { ...s.turnosEditados, ...turnos } } : {}),
+  }));
 }
 
 // Un hermano se une con la invitacion del pastor: llega la iglesia (con la
@@ -554,24 +645,25 @@ const LETRAS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 // El pastor crea (o renueva) el codigo de la iglesia ("general") o de una
 // sala. Renovar invalida el anterior. Mock: luego lo generara el servidor
 export function generarCodigo(grupo: GrupoId) {
+  // sin servidor (modo de prueba): codigo inventado en el telefono
+  if (!conectado()) return generarCodigoLocal(grupo);
   const iglesia = useStore.getState().iglesia;
-  if (esUuid(iglesia?.id)) {
-    // conectado: lo crea el servidor (unico entre todas las iglesias)
-    const id = iglesia.id;
-    crearCodigo(id, grupo)
-      .then((nuevo) => {
-        if (!nuevo) return generarCodigoLocal(grupo);
-        // solo si sigue en la misma iglesia
-        if (useStore.getState().iglesia?.id !== id) return;
-        cambiar((s) => ({ codigos: { ...s.codigos, [grupo]: nuevo } }));
-      })
-      .catch((e) => {
-        console.warn("[supabase]", e?.message ?? e);
-        generarCodigoLocal(grupo);
-      });
-    return;
-  }
-  generarCodigoLocal(grupo);
+  if (!esUuid(iglesia?.id)) return; // ponerAlDiaConServidor le da uno
+  const id = iglesia.id;
+  (async () => {
+    await subiendo.get(id); // que la iglesia ya este en el servidor
+    const nuevo = await crearCodigo(id, grupo).catch(async (e) => {
+      // la iglesia aun no estaba arriba: se sube y se intenta otra vez
+      console.warn("[supabase]", e?.message ?? e);
+      await subirIglesia(iglesia);
+      return crearCodigo(id, grupo);
+    });
+    if (!nuevo || useStore.getState().iglesia?.id !== id) return;
+    cambiar((s) => ({
+      codigos: { ...s.codigos, [grupo]: { ...nuevo, enServidor: true } },
+    }));
+  })().catch((e) => console.warn("[supabase]", e?.message ?? e));
+  // con servidor NUNCA se inventa uno local: nadie mas podria usarlo
 }
 
 function generarCodigoLocal(grupo: GrupoId) {
@@ -666,6 +758,19 @@ export function alternarAviso(tipo: TipoAviso) {
   cambiar((s) => ({
     avisos: { ...s.avisos, [tipo]: !(s.avisos[tipo] ?? true) },
   }));
+  registrarPush(); // el servidor tambien respeta lo que eligio
+}
+
+// Le da a Supabase el token push de este telefono y los avisos que quiere
+// (al abrir la app, al dar permiso y al cambiar los avisos)
+export function registrarPush() {
+  enFondo(registrarDispositivo(useStore.getState().avisos));
+}
+
+// Abrio un enlace de invitacion antes de terminar el onboarding: se guarda
+// para que en "Unete a tu iglesia" ya este escrito (null = ya se uso)
+export function guardarInvitacion(codigo: string | null) {
+  cambiar({ invitacion: codigo ?? undefined });
 }
 
 // Termina el onboarding (false = volver a verlo, para probar)
@@ -769,17 +874,23 @@ export function resaltar(claves: string[], color: string | null) {
 // El admin asigna (o quita, con null) a la persona de un rol en un culto.
 // Luego esto lo guardara la API para que lo vea toda la iglesia.
 // Publica un anuncio nuevo o guarda los cambios de uno existente
+// (y lo sube: si es nuevo, avisa por push a toda la iglesia)
 export function guardarAnuncio(a: Omit<Anuncio, "id"> & { id?: string }) {
-  cambiar((s) => {
-    if (a.id && s.anuncios.some((x) => x.id === a.id)) {
-      return {
-        anuncios: s.anuncios.map((x) =>
-          x.id === a.id ? { ...a, id: x.id } : x,
-        ),
-      };
-    }
-    return { anuncios: [{ ...a, id: `a-${Date.now()}` }, ...s.anuncios] };
+  const s = useStore.getState();
+  const existe = !!a.id && s.anuncios.some((x) => x.id === a.id);
+  const anuncio: Anuncio = { ...a, id: existe ? a.id! : nuevoUuid() };
+  cambiar({
+    anuncios: existe
+      ? s.anuncios.map((x) => (x.id === anuncio.id ? anuncio : x))
+      : [anuncio, ...s.anuncios],
   });
+  const iglesiaId = s.iglesia?.id;
+  if (!iglesiaId) return;
+  enFondo(
+    subirAnuncio(iglesiaId, anuncio).then((subido) => {
+      if (subido && !existe) return avisarAnuncio(anuncio.id);
+    }),
+  );
 }
 
 // Predicaciones: las que ya ocurrieron, la mas reciente primero
@@ -821,6 +932,7 @@ export function borrarPredicacion(id: string) {
 
 export function borrarAnuncio(id: string) {
   cambiar((s) => ({ anuncios: s.anuncios.filter((a) => a.id !== id) }));
+  enFondo(borrarAnuncioRemoto(id));
 }
 
 // Casillas del cronograma: las de la app + las que agrego la iglesia
@@ -899,6 +1011,19 @@ export function asignarTurno(
       : otros;
     return { turnosEditados: { ...s.turnosEditados, [fecha]: turnos } };
   });
+  subirDia(fecha);
+}
+
+// Sube el dia completo (con el nombre visible de cada rol, para el aviso)
+function subirDia(fecha: string) {
+  const s = useStore.getState();
+  if (!s.iglesia?.id) return;
+  const nombres: Record<string, Rol> = { ...ROLES, ...s.rolesExtra };
+  const turnos = (s.turnosEditados[fecha] ?? []).map((t) => ({
+    ...t,
+    rolNombre: nombres[t.rol]?.label,
+  }));
+  enFondo(subirTurnosDelDia(s.iglesia.id, fecha, turnos));
 }
 
 // Cambia solo la hora de un turno ya asignado
@@ -915,6 +1040,7 @@ export function fijarHoraTurno(fecha: string, rol: RolId, hora: string) {
       },
     };
   });
+  subirDia(fecha);
 }
 
 // Guarda un versiculo (o varios seguidos) en el perfil

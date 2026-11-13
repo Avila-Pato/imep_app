@@ -9,7 +9,8 @@ import {
   LINEA,
 } from "@/constants/constans";
 import { Unido, useUnirse } from "@/hooks/useUnirse";
-import { useIglesia } from "@/store/estudios";
+import { conectado, extraerCodigo, verificarCodigo } from "@/services/iglesias";
+import { guardarInvitacion, useEstudios, useIglesia } from "@/store/estudios";
 import Octicons from "@expo/vector-icons/Octicons";
 import { Href, router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
@@ -22,19 +23,37 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-// Se abre con el enlace del pastor: congrega://unirse/4K7Q
+// Se abre con el enlace del pastor (https://congrega.expo.app/unirse/4K7Q).
+// Ya con la app lista: se une. Antes del onboarding: revisa que el codigo
+// exista y lo guarda para el paso "Unete a tu iglesia". Si no existe, no pasa
 export default function UnirseScreen() {
   const { codigo } = useLocalSearchParams<{ codigo: string }>();
   const unirse = useUnirse();
   const iglesia = useIglesia();
+  const { bienvenida } = useEstudios();
   // undefined = preguntando al servidor; null = el codigo no sirve
   const [unido, setUnido] = useState<Unido | null>();
   const ok = !!unido;
   const sala = unido?.sala;
 
-  // se une una sola vez al abrir el enlace
+  // se une (o revisa, si aun no hace el onboarding) una sola vez al abrir
   useEffect(() => {
     let vivo = true;
+    if (!bienvenida) {
+      const limpio = extraerCodigo(codigo ?? "");
+      (conectado() && limpio
+        ? verificarCodigo(limpio).catch(() => null)
+        : Promise.resolve(limpio ? {} : null)
+      ).then((r) => {
+        if (!vivo) return;
+        if (!r || !limpio) return setUnido(null); // no existe: no pasa
+        guardarInvitacion(limpio);
+        router.replace("/" as Href); // al onboarding, con el codigo listo
+      });
+      return () => {
+        vivo = false;
+      };
+    }
     unirse(codigo ?? "").then((r) => vivo && setUnido(r));
     return () => {
       vivo = false;
@@ -73,7 +92,9 @@ export default function UnirseScreen() {
           onPress={() => router.replace("/" as Href)}
           style={({ pressed }) => [styles.boton, pressed && styles.presionado]}
         >
-          <Text style={styles.botonTexto}>Ir al inicio</Text>
+          <Text style={styles.botonTexto}>
+            {bienvenida ? "Ir al inicio" : "Continuar sin unirme"}
+          </Text>
         </Pressable>
       </View>
     </SafeAreaView>

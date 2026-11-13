@@ -1,3 +1,5 @@
+// Primero: oculta avisos conocidos (antes de que se carguen los modulos)
+import "@/utils/silenciarAvisos";
 // Solo los pesos que usamos (importar el paquete completo trae las 18 variantes)
 import { Inter_500Medium } from "@expo-google-fonts/inter/500Medium";
 import { Inter_600SemiBold } from "@expo-google-fonts/inter/600SemiBold";
@@ -12,7 +14,13 @@ import {
   ES_CLARO,
 } from "@/constants/constans";
 import { useRecordatorios } from "@/hooks/useRecordatorios";
-import { sincronizarIglesias, useCargado, useEstudios } from "@/store/estudios";
+import {
+  registrarPush,
+  sincronizarContenido,
+  sincronizarIglesias,
+  useCargado,
+  useEstudios,
+} from "@/store/estudios";
 import { useFonts } from "expo-font";
 import {
   DarkTheme,
@@ -22,11 +30,12 @@ import {
   Stack,
   ThemeProvider,
 } from "expo-router";
-import { escucharToques } from "@/services/notificaciones";
+import { alActivarPermiso, escucharToques } from "@/services/notificaciones";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
 import { useEffect } from "react";
+import { AppState } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 // La pantalla de carga se queda hasta que esten las fuentes
@@ -70,9 +79,20 @@ export default function RootLayout() {
     SplashScreen.hideAsync();
   }, [listo]);
 
-  // Trae del servidor las iglesias de esta persona (si esta conectada)
+  // Con servidor: trae sus iglesias, anuncios y turnos, y registra este
+  // telefono para recibir push. Al volver a la app, trae lo nuevo
   useEffect(() => {
-    if (cargado) sincronizarIglesias();
+    if (!cargado) return;
+    sincronizarIglesias().then(sincronizarContenido);
+    registrarPush();
+    const quitarPermiso = alActivarPermiso(registrarPush);
+    const sub = AppState.addEventListener("change", (estado) => {
+      if (estado === "active") sincronizarContenido();
+    });
+    return () => {
+      quitarPermiso();
+      sub.remove();
+    };
   }, [cargado]);
 
   // Tocar una notificacion abre su pantalla (cuando la app ya esta lista)
@@ -109,7 +129,6 @@ export default function RootLayout() {
             <Stack.Screen name="megusta" />
             <Stack.Screen name="guardados" />
             <Stack.Screen name="editar-perfil" />
-            <Stack.Screen name="unirse/[codigo]" />
             {/* entra y sale desde abajo, como una hoja */}
             <Stack.Screen
               name="versiculos"
@@ -121,6 +140,10 @@ export default function RootLayout() {
               pantalla inicial cuando "/" esta protegida (antes del onboarding) */}
           <Stack.Screen name="privacidad" />
           <Stack.Screen name="ayuda" />
+          {/* enlace de invitacion: abre antes del onboarding (guarda el
+              codigo) y en la web muestra como descargar la app */}
+          <Stack.Screen name="unirse/[codigo]" />
+          <Stack.Screen name="unirse/index" />
           {/* vuelta del login con Google */}
           <Stack.Screen name="auth" />
         </Stack>

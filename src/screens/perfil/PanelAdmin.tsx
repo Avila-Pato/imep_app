@@ -69,7 +69,8 @@ export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
   // el pastor siempre tiene un codigo de la iglesia listo para compartir
   useEffect(() => {
     if (esPastor && !codigos.general) generarCodigo("general");
-  }, [esPastor, codigos.general]);
+    // iglesia?.id: una iglesia antigua recibe su id del servidor despues
+  }, [esPastor, codigos.general, iglesia?.id]);
 
   // el aviso "Copiado" se va solo
   useEffect(() => {
