@@ -1,4 +1,3 @@
-import { MENSAJES } from "@/assets/data/comunidadMocks";
 import { USUARIO } from "@/assets/data/perfilMocks";
 import {
   BORDER,
@@ -101,7 +100,9 @@ export default function IglesiaView() {
     vistos,
     grupo: miGrupo,
     iglesia: miIglesia,
+    nombre,
   } = useEstudios();
+  const yo = nombre?.trim() || USUARIO.nombre;
   const [invitando, setInvitando] = useState(false);
   const [enlace, setEnlace] = useState("");
   const [error, setError] = useState(false);
@@ -117,13 +118,13 @@ export default function IglesiaView() {
   const puedeAnuncios = usePuede("anuncios");
   const puedeRoles = usePuede("roles");
   const administra = esPastor || puedeCronograma || puedeAnuncios || puedeRoles;
-  const todos = [...MENSAJES, ...mensajes];
+  const todos = mensajes;
 
   // Cada sala con sus mensajes no leidos
   const salas: Sala[] = grupos.map((g) => {
     const visto = vistos[g.id] ?? "";
     const noLeidos = todos.filter(
-      (m) => m.grupo === g.id && m.autor !== USUARIO.nombre && m.fecha > visto,
+      (m) => m.grupo === g.id && !m.mio && m.autor !== yo && m.fecha > visto,
     ).length;
     return { ...g, noLeidos };
   });
@@ -136,7 +137,7 @@ export default function IglesiaView() {
   const privados = [
     ...new Set(
       mensajes
-        .filter((m) => esPrivado(m.grupo) && m.grupo.includes(USUARIO.nombre))
+        .filter((m) => esPrivado(m.grupo) && m.grupo.includes(yo))
         .map((m) => m.grupo),
     ),
   ]
@@ -147,12 +148,10 @@ export default function IglesiaView() {
       const visto = vistos[id] ?? "";
       return {
         id,
-        con: otroDe(id, USUARIO.nombre),
+        con: otroDe(id, yo),
         ultimo: suyos[0]?.texto || "Nota de voz",
         fecha: suyos[0]?.fecha ?? "",
-        noLeidos: suyos.filter(
-          (m) => m.autor !== USUARIO.nombre && m.fecha > visto,
-        ).length,
+        noLeidos: suyos.filter((m) => m.autor !== yo && m.fecha > visto).length,
       };
     })
     .sort((a, b) => b.fecha.localeCompare(a.fecha));

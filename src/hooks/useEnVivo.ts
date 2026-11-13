@@ -3,6 +3,9 @@ import { esUuid } from "@/services/iglesias";
 import {
   sincronizarContenido,
   sincronizarIglesias,
+  sincronizarMensajes,
+  sincronizarPeticiones,
+  sincronizarSalas,
   useIglesia,
 } from "@/store/estudios";
 import { useEffect } from "react";
@@ -49,6 +52,63 @@ export function useEnVivo() {
             refrescar,
           );
         }
+        // chat de las salas: solo se recarga el chat (llegan seguido)
+        let esperaChat: ReturnType<typeof setTimeout> | undefined;
+        canal.on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "mensajes",
+            filter: `iglesia_id=eq.${id}`,
+          },
+          () => {
+            clearTimeout(esperaChat);
+            esperaChat = setTimeout(() => sincronizarMensajes(), 300);
+          },
+        );
+        // privados: solo llegan los mios (RLS), no se filtran por iglesia
+        canal.on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "privados" },
+          () => {
+            clearTimeout(esperaChat);
+            esperaChat = setTimeout(() => sincronizarMensajes(), 300);
+          },
+        );
+        // el pastor creo, cambio o borro una sala
+        canal.on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "salas",
+            filter: `iglesia_id=eq.${id}`,
+          },
+          () => {
+            sincronizarSalas();
+          },
+        );
+        canal.on(
+          "postgres_changes",
+          { event: "DELETE", schema: "public", table: "salas" },
+          () => {
+            sincronizarSalas();
+          },
+        );
+        // peticiones de oracion: llego una (pastor) o la aprobaron (hermano)
+        canal.on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "peticiones",
+            filter: `iglesia_id=eq.${id}`,
+          },
+          () => {
+            sincronizarPeticiones();
+          },
+        );
         // la iglesia misma (ej: el pastor cambio los horarios de culto)
         canal.on(
           "postgres_changes",

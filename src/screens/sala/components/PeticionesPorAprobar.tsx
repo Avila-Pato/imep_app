@@ -1,4 +1,3 @@
-import { PUBLICACIONES } from "@/assets/data/comunidadMocks";
 import {
   BORDER,
   DARK_BG,
@@ -39,10 +38,12 @@ export default function PeticionesPorAprobar({
   const [abierto, setAbierto] = useState(false);
   const lider = useEsLider(grupo);
 
-  const pendientes = [...publicaciones, ...PUBLICACIONES]
+  const pendientes = [...publicaciones]
     .filter(
       (p) =>
-        (p.grupo ?? "general") === grupo &&
+        p.mia !== true &&
+        ((p.grupo ?? "general") === grupo ||
+          (p.grupo ?? "general") === "general") &&
         estadoPeticion(p, revisiones) === "pendiente",
     )
     .sort((a, b) => a.fecha.localeCompare(b.fecha)); // la mas antigua primero

@@ -29,6 +29,7 @@ import { registrarDispositivo } from "@/services/push";
 import { horaTurno, usarHorarios } from "@/utils/cultos";
 import {
   avisarAnuncio,
+  avisarPeticion,
   avisarTurno,
   bajarAnuncios,
   bajarMiembros,
@@ -47,6 +48,20 @@ import {
   nuevoUuid,
   subirIglesia,
 } from "@/services/iglesias";
+import {
+  bajarMensajes,
+  bajarPrivados,
+  subirMensaje,
+  subirPrivado,
+} from "@/services/chat";
+import { bajarSalas, borrarSalaRemota, subirSala } from "@/services/salas";
+import {
+  bajarPeticiones,
+  orarPor,
+  revisarPeticionRemota,
+  subirPeticion,
+} from "@/services/peticiones";
+import { esPrivado, idPrivado, otroDe } from "@/utils/privado";
 import { esLider, sigueGuardada } from "@/utils/peticiones";
 import { unirTurnos } from "@/utils/turnos";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -62,6 +77,8 @@ type Estado = {
   publicaciones: Publicacion[]; // las que compartio esta persona
   orando: string[]; // ids de publicaciones donde marco "Orando"
   mensajes: Mensaje[]; // los que envio esta persona en los chats
+  // "Vaciar chat": desde cuando ve cada sala o privado (solo en su telefono)
+  vaciados?: Record<string, string>;
   desafios: Desafio[]; // "Palabra de la semana" de cada sala
   salasEditadas: Record<string, Partial<Grupo>>; // cambios a las salas de base (Iglesia)
   meGusta: string[]; // versiculos con "me gusta" ("libro-capitulo-verso")
@@ -221,6 +238,7 @@ const useStore = create<Estado>()(
           ...estado.salasEditadas,
         },
         vistos: { ...(previo.vistos ?? {}), ...estado.vistos },
+        vaciados: { ...(previo.vaciados ?? {}), ...(estado.vaciados ?? {}) },
         habitos: { ...(previo.habitos ?? {}), ...estado.habitos },
         grupo: estado.grupo ?? previo.grupo,
         bienvenida: estado.bienvenida || previo.bienvenida,
@@ -541,6 +559,7 @@ const CAMPOS_IGLESIA = [
   "mensajes",
   "revisiones",
   "vistos",
+  "vaciados",
   "turnosEditados",
   "invitados",
   "rolesExtra",
@@ -809,6 +828,9 @@ export async function sincronizarIglesias() {
 export async function sincronizarContenido() {
   const id = useStore.getState().iglesia?.id;
   if (!esUuid(id)) return;
+  sincronizarSalas(); // las salas que creo el pastor
+  sincronizarMensajes(); // el chat de las salas, aparte
+  sincronizarPeticiones(); // y el muro de oracion
   const desde = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10);
   const [anuncios, turnos, miembros] = await Promise.all([
     bajarAnuncios(id),
@@ -944,10 +966,56 @@ export function editarSala(id: GrupoId, cambios: Partial<Omit<Grupo, "id">>) {
           },
         },
   );
+  subirSalaActual(id);
+}
+
+// Sube la sala (como quedo) a la iglesia activa: asi la ven los hermanos
+function subirSalaActual(id: GrupoId) {
+  const s = useStore.getState();
+  const iglesiaId = s.iglesia?.id;
+  if (!esUuid(iglesiaId)) return;
+  const base = GRUPOS.find((g) => g.id === id);
+  const sala = base
+    ? { ...base, ...s.salasEditadas[id] }
+    : s.salas.find((g) => g.id === id);
+  if (sala) enFondo(subirSala(iglesiaId, sala));
+}
+
+// Trae las salas de la iglesia activa (el servidor manda). La primera vez,
+// si el pastor tenia salas solo en su telefono, las sube
+export async function sincronizarSalas() {
+  const s0 = useStore.getState();
+  const id = s0.iglesia?.id;
+  if (!esUuid(id)) return;
+  const remotas = await bajarSalas(id).catch((e) => {
+    console.warn("[supabase]", e?.message ?? e);
+    return null;
+  });
+  if (!remotas || useStore.getState().iglesia?.id !== id) return;
+  const s = useStore.getState();
+  if (!remotas.length && s.rol === "pastor") {
+    const locales = [
+      ...s.salas,
+      ...(s.salasEditadas.general
+        ? [{ ...GRUPOS[0], ...s.salasEditadas.general }]
+        : []),
+    ];
+    for (const g of locales) enFondo(subirSala(id, g));
+    return;
+  }
+  const general = remotas.find((g) => g.id === "general");
+  cambiar((x) => ({
+    salas: remotas.filter((g) => !GRUPOS.some((b) => b.id === g.id)),
+    salasEditadas: general
+      ? { ...x.salasEditadas, general: { ...general, id: undefined } }
+      : x.salasEditadas,
+  }));
 }
 
 // Borra una sala creada (la de toda la iglesia no se puede borrar)
 export function borrarSala(id: GrupoId) {
+  const iglesiaId = useStore.getState().iglesia?.id;
+  if (esUuid(iglesiaId)) enFondo(borrarSalaRemota(iglesiaId, id));
   cambiar((s) => ({
     salas: s.salas.filter((g) => g.id !== id),
     desafios: s.desafios.filter((d) => d.grupo !== id),
@@ -967,13 +1035,16 @@ const aSlug = (texto: string) =>
 
 export function crearSala(sala: Omit<Grupo, "id">) {
   const base = aSlug(sala.label);
+  let nueva: string | undefined;
   cambiar((s) => {
     // id unico aunque se repita el nombre
     const usados = [...GRUPOS, ...s.salas].map((g) => g.id);
     let id = base || "sala";
     for (let n = 2; usados.includes(id); n++) id = `${base}-${n}`;
+    nueva = id;
     return { salas: [...s.salas, { ...sala, id }] };
   });
+  if (nueva) subirSalaActual(nueva);
 }
 
 // El pastor da o quita un rol a un hermano (puede tener varios)
@@ -1022,27 +1093,181 @@ export function guardarEstudio(e: EstudioGuardado) {
   }));
 }
 
-export function publicar(p: Publicacion) {
-  cambiar((s) => ({
+// Pedir oracion: queda pendiente hasta que el pastor (o el lider) la
+// apruebe. Va a la iglesia activa o a las que elija (una copia en cada una,
+// siempre en la sala de toda la iglesia). La de la activa se ve aqui al
+// instante y, si falla, se reintenta al sincronizar
+export function publicar(p: Publicacion, iglesiaIds?: string[]) {
+  const s = useStore.getState();
+  const activa = s.iglesia?.id;
+  // las otras iglesias elegidas: se suben aparte (se ven al cambiar a ellas)
+  for (const otra of (iglesiaIds ?? []).filter(
+    (x) => x !== activa && esUuid(x),
+  )) {
+    subirPeticionPendiente(otra, {
+      ...p,
+      id: nuevoUuid(),
+      autor: s.nombre?.trim() || p.autor,
+    });
+  }
+  if (iglesiaIds && activa && !iglesiaIds.includes(activa)) return;
+  const iglesiaId = activa;
+  const sube = esUuid(iglesiaId);
+  const nueva: Publicacion = {
+    ...p,
+    id: sube ? nuevoUuid() : p.id,
+    autor: s.nombre?.trim() || p.autor,
+    mia: true,
+    ...(sube ? { porSubir: true } : {}),
+  };
+  cambiar((x) => ({
     publicaciones: [
-      p,
-      ...s.publicaciones.filter(
-        (x) => x.id !== p.id && sigueGuardada(x, s.revisiones),
+      nueva,
+      ...x.publicaciones.filter(
+        (y) => y.id !== nueva.id && sigueGuardada(y, x.revisiones),
       ),
     ],
   }));
+  if (sube) subirPeticionPendiente(iglesiaId!, nueva);
 }
 
+function subirPeticionPendiente(iglesiaId: string, p: Publicacion) {
+  enFondo(
+    subirPeticion(iglesiaId, p).then(async (ok) => {
+      if (!ok) return;
+      // la pidio quien aprueba (pastor o lider): va directo al muro
+      if (p.estado === "aprobada") {
+        await revisarPeticionRemota(p.id, "aprobada");
+      } else {
+        // notificacion al pastor (aunque tenga la app cerrada)
+        enFondo(avisarPeticion(p.id));
+      }
+      cambiar((s) => ({
+        publicaciones: s.publicaciones.map((x) =>
+          x.id === p.id ? { ...x, porSubir: undefined } : x,
+        ),
+      }));
+    }),
+  );
+}
+
+// Trae las peticiones de la iglesia activa: las aprobadas (muro), las mias
+// y, si revisa peticiones, las que esperan su aprobacion
+export async function sincronizarPeticiones() {
+  const id = useStore.getState().iglesia?.id;
+  if (!esUuid(id)) return;
+  const r = await bajarPeticiones(id).catch((e) => {
+    console.warn("[supabase]", e?.message ?? e);
+    return null;
+  });
+  if (!r || useStore.getState().iglesia?.id !== id) return;
+  const ids = new Set(r.peticiones.map((p) => p.id));
+  const locales = useStore
+    .getState()
+    .publicaciones.filter(
+      (p) => !esUuid(p.id) || (p.porSubir && !ids.has(p.id)),
+    );
+  cambiar((s) => {
+    const revisiones = { ...s.revisiones, ...r.revisiones };
+    return {
+      revisiones,
+      publicaciones: [...r.peticiones, ...locales].filter((p) =>
+        sigueGuardada(p, revisiones),
+      ),
+    };
+  });
+  for (const p of locales) if (p.porSubir) subirPeticionPendiente(id, p);
+}
+
+// "Estoy orando": se marca al instante y el servidor devuelve cuantos son
 export function alternarOrando(id: string) {
+  const ahora = !useStore.getState().orando.includes(id);
   cambiar((s) => ({
-    orando: s.orando.includes(id)
-      ? s.orando.filter((x) => x !== id)
-      : [...s.orando, id],
+    orando: ahora ? [...s.orando, id] : s.orando.filter((x) => x !== id),
   }));
+  enFondo(
+    orarPor(id, ahora).then((total) => {
+      if (total == null) return;
+      cambiar((s) => ({
+        publicaciones: s.publicaciones.map((p) =>
+          p.id === id ? { ...p, orando: total } : p,
+        ),
+      }));
+    }),
+  );
 }
 
+// Se ve al instante en este telefono y se sube a la iglesia activa (los
+// chats privados quedan solo aqui). Si falla, queda "pendiente" y se
+// reintenta en la proxima sincronizacion
 export function enviarMensaje(m: Mensaje) {
-  cambiar((s) => ({ mensajes: [...s.mensajes, m] }));
+  const s = useStore.getState();
+  const iglesiaId = s.iglesia?.id;
+  const sube = esUuid(iglesiaId);
+  const nuevo: Mensaje = {
+    ...m,
+    id: sube ? nuevoUuid() : m.id,
+    autor: s.nombre?.trim() || m.autor,
+    mio: true,
+    ...(sube ? { pendiente: true } : {}),
+  };
+  cambiar((x) => ({ mensajes: [...x.mensajes, nuevo] }));
+  if (sube) subirMensajePendiente(iglesiaId!, nuevo);
+}
+
+function subirMensajePendiente(iglesiaId: string, m: Mensaje) {
+  enFondo(
+    subirUnMensaje(iglesiaId, m).then((arriba) => {
+      if (!arriba) return;
+      const listo = { ...arriba, pendiente: undefined };
+      cambiar((s) =>
+        s.iglesia?.id === iglesiaId
+          ? { mensajes: s.mensajes.map((x) => (x.id === m.id ? listo : x)) }
+          : {},
+      );
+    }),
+  );
+}
+
+// Privado: va solo a la otra persona (se busca entre los miembros por su
+// nombre). Si aun no esta en la lista, queda pendiente
+function subirUnMensaje(iglesiaId: string, m: Mensaje) {
+  if (!esPrivado(m.grupo)) return subirMensaje(iglesiaId, m);
+  const s = useStore.getState();
+  const yo = s.nombre?.trim() || USUARIO.nombre;
+  const nombre = otroDe(m.grupo, yo);
+  const otro = s.miembros.find(
+    (x) => x.nombre.trim().toLowerCase() === nombre.trim().toLowerCase(),
+  );
+  if (!otro) return Promise.resolve(null);
+  return subirPrivado(iglesiaId, m, { id: otro.id, nombre: otro.nombre });
+}
+
+// Trae el chat de la iglesia activa: lo del servidor + lo que solo esta en
+// este telefono (privados, antiguos y los que aun no suben, que se reintentan)
+export async function sincronizarMensajes() {
+  const id = useStore.getState().iglesia?.id;
+  if (!esUuid(id)) return;
+  const falla = (e: { message?: string }) => {
+    console.warn("[supabase]", e?.message ?? e);
+    return null;
+  };
+  const [salas, privados] = await Promise.all([
+    bajarMensajes(id).catch(falla),
+    bajarPrivados(id, idPrivado).catch(falla),
+  ]);
+  if (!salas || useStore.getState().iglesia?.id !== id) return;
+  const remotos = [...salas, ...(privados ?? [])];
+  const ids = new Set(remotos.map((m) => m.id));
+  const locales = useStore.getState().mensajes.filter(
+    (m) =>
+      !esUuid(m.id) ||
+      (m.pendiente && !ids.has(m.id)) ||
+      // sin la tabla de privados aun: los privados no se pierden
+      (!privados && esPrivado(m.grupo)),
+  );
+  cambiar({ mensajes: [...remotos, ...locales] });
+  for (const m of locales) if (m.pendiente) subirMensajePendiente(id, m);
 }
 
 // El lider da la "Palabra de la semana" (reemplaza la que hubiera en la sala)
@@ -1060,6 +1285,18 @@ export function terminarDesafio(id: string) {
 }
 
 // Marca la sala como leida (para el contador de no leidos)
+// Vaciar chat (como WhatsApp): esta persona deja de ver los mensajes de
+// antes de ahora en esa sala o privado. Solo en su telefono: los demas
+// siguen viendo la conversacion completa
+export function vaciarChat(grupo: GrupoId) {
+  cambiar((s) => ({
+    vaciados: { ...(s.vaciados ?? {}), [grupo]: new Date().toISOString() },
+    // los que solo estaban en este telefono (privados sin subir, antiguos)
+    // se borran de verdad; los del servidor quedan ocultos por la fecha
+    mensajes: s.mensajes.filter((m) => m.grupo !== grupo || m.pendiente),
+  }));
+}
+
 export function marcarVisto(grupo: GrupoId) {
   cambiar((s) => ({
     vistos: { ...s.vistos, [grupo]: new Date().toISOString() },
@@ -1095,6 +1332,7 @@ export function revisarPeticion(id: string, decision: Revision["estado"]) {
       [id]: { estado: decision, fecha: new Date().toISOString() },
     },
   }));
+  enFondo(revisarPeticionRemota(id, decision));
 }
 
 // Resalta versiculos con un color (null = quitar el resaltado)

@@ -8,7 +8,7 @@ import {
   SURFACE,
   TEXT,
 } from "@/constants/constans";
-import { marcarVisto } from "@/store/estudios";
+import { marcarVisto, useEstudios } from "@/store/estudios";
 import { Grupo } from "@/types/typesComunidad";
 import { idPrivado } from "@/utils/privado";
 import { iniciales } from "@/utils/texto";
@@ -26,13 +26,15 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
+import BotonVaciarChat from "./components/BotonVaciarChat";
 import ChatSala from "./components/ChatSala";
 
 // Chat privado entre el lider (o pastor) y un hermano
 export default function PrivadoScreen() {
   const { persona } = useLocalSearchParams<{ persona: string }>();
   const nombre = decodeURIComponent(persona ?? "");
-  const id = idPrivado(USUARIO.nombre, nombre);
+  const { nombre: miNombre } = useEstudios();
+  const id = idPrivado(miNombre?.trim() || USUARIO.nombre, nombre);
   // el teclado se mide desde arriba de la pantalla: se suma la barra de estado
   const { top } = useSafeAreaInsets();
   // se usa el mismo chat de las salas, con una "sala" de dos personas
@@ -72,6 +74,7 @@ export default function PrivadoScreen() {
             <Text style={styles.sub}>Chat privado · solo ustedes dos</Text>
           </View>
         </View>
+        <BotonVaciarChat grupo={id} nombre={nombre} />
       </View>
 
       <KeyboardAvoidingView

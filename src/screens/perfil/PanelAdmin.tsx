@@ -1,4 +1,3 @@
-import { PUBLICACIONES } from "@/assets/data/comunidadMocks";
 import { USUARIO } from "@/assets/data/perfilMocks";
 import {
   BORDER,
@@ -88,7 +87,7 @@ export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
     (t) => t.fecha === diaCulto,
   ).length;
   const sinAsignar = Math.max(0, roles.lista.length - asignados);
-  const porAprobar = [...PUBLICACIONES, ...publicaciones].filter(
+  const porAprobar = [...publicaciones].filter(
     (p) => estadoPeticion(p, revisiones) === "pendiente",
   ).length;
   const hoyKey = aKey(new Date());

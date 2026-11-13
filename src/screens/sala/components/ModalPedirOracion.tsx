@@ -1,4 +1,3 @@
-import { USUARIO } from "@/assets/data/perfilMocks";
 import ConBordes from "@/components/ConBordes";
 import {
   BORDER,
@@ -15,9 +14,8 @@ import {
   RADIO_BORDE,
 } from "@/constants/constans";
 import { sugerirCitas } from "@/services/biblia";
-import { publicar, useEsLider, useEstudios, useGrupos } from "@/store/estudios";
+import { publicar, useEstudios, useIglesias, usePuede } from "@/store/estudios";
 import { GrupoId } from "@/types/typesComunidad";
-import { puedeVerSala } from "@/utils/peticiones";
 import Octicons from "@expo/vector-icons/Octicons";
 import { useState } from "react";
 import {
@@ -32,46 +30,48 @@ import {
   View,
 } from "react-native";
 
-// Pedir oracion: se escribe la peticion, se elige en que muro va y el
-// lider de esa sala la aprueba antes de publicarse (dura 24 horas)
+// Pedir oracion: se escribe la peticion, se elige a que iglesia va (o a
+// todas, si esta en varias) y el pastor la aprueba antes de publicarse en el
+// muro de toda la iglesia (dura 24 horas)
 export default function ModalPedirOracion({
-  grupo,
   onCerrar,
 }: {
-  grupo?: GrupoId; // desde una sala: va a esa sala
+  grupo?: GrupoId; // (ya no se usa: siempre va al muro de toda la iglesia)
   onCerrar: () => void;
 }) {
-  const { grupo: miGrupo } = useEstudios();
-  const grupos = useGrupos();
-  // salas donde puede pedir: la iglesia y la suya
-  const opciones = grupos.filter((g) => puedeVerSala(g.id, miGrupo));
-  const [destino, setDestino] = useState<GrupoId>(grupo ?? "general");
+  const { iglesia, nombre } = useEstudios();
+  const iglesias = useIglesias().filter((i) => !!i.id);
+  // varias iglesias: "todas" o una
+  const [destino, setDestino] = useState<string>(iglesia?.id ?? "todas");
   const [texto, setTexto] = useState("");
   const [cita, setCita] = useState("");
   const [sugerir, setSugerir] = useState(false);
   const [mostrarCita, setMostrarCita] = useState(true);
   const [enviada, setEnviada] = useState(false);
-  // si quien pide es el lider de esa sala, se publica directo
-  const esLider = useEsLider(destino);
+  // si quien pide es quien aprueba (pastor o lider), se publica directo
+  const esLider = usePuede("salas");
 
-  const sala = grupos.find((g) => g.id === destino);
   const sugerencias = sugerir ? sugerirCitas(cita) : [];
   const listo = texto.trim().length >= 5;
+  const destinos = destino === "todas" ? iglesias.map((i) => i.id!) : [destino];
 
   const enviar = () => {
     if (!listo) return;
     const ahora = new Date();
-    publicar({
-      id: `o${ahora.getTime()}`,
-      autor: USUARIO.nombre,
-      grupo: destino,
-      cita: cita.trim(),
-      mostrarCita: !!cita.trim() && mostrarCita,
-      texto: texto.trim(),
-      fecha: ahora.toISOString(),
-      orando: 0,
-      estado: esLider ? "aprobada" : "pendiente",
-    });
+    publicar(
+      {
+        id: `o${ahora.getTime()}`,
+        autor: nombre?.trim() || "Hermano/a",
+        grupo: "general",
+        cita: cita.trim(),
+        mostrarCita: !!cita.trim() && mostrarCita,
+        texto: texto.trim(),
+        fecha: ahora.toISOString(),
+        orando: 0,
+        estado: esLider ? "aprobada" : "pendiente",
+      },
+      iglesias.length > 1 ? destinos : undefined,
+    );
     setEnviada(true);
   };
 
@@ -124,8 +124,8 @@ export default function ModalPedirOracion({
                     </Text>
                     <Text style={styles.ayuda}>
                       {esLider
-                        ? "Los hermanos de la sala ya pueden orar por ti durante 24 horas."
-                        : `El líder de ${sala?.label ?? "la sala"} la revisará. Cuando la apruebe, estará 24 horas en el muro.`}
+                        ? "Los hermanos ya pueden orar por ti durante 24 horas."
+                        : "Tu pastor la revisará. Cuando la apruebe, estará 24 horas en el muro de la iglesia."}
                     </Text>
                     <Pressable
                       onPress={onCerrar}
@@ -146,7 +146,7 @@ export default function ModalPedirOracion({
                       showsVerticalScrollIndicator={false}
                     >
                       <Text style={styles.ayuda}>
-                        Comparte por qué quieres que oren. El líder la revisa
+                        Comparte por qué quieres que oren. Tu pastor la revisa
                         antes de publicarse y queda 24 horas en el muro.
                       </Text>
 
@@ -163,17 +163,23 @@ export default function ModalPedirOracion({
                         style={[styles.input, styles.inputLargo]}
                       />
 
-                      {/* En que muro (solo si no viene de una sala) */}
-                      {!grupo && opciones.length > 1 && (
+                      {/* A que iglesia (solo si esta en varias) */}
+                      {iglesias.length > 1 && (
                         <>
-                          <Text style={styles.etiqueta}>¿EN QUÉ MURO?</Text>
+                          <Text style={styles.etiqueta}>¿A QUÉ IGLESIA?</Text>
                           <View style={styles.chips}>
-                            {opciones.map((g) => {
-                              const activo = g.id === destino;
+                            {[
+                              { id: "todas", nombre: "Todas" },
+                              ...iglesias.map((i) => ({
+                                id: i.id!,
+                                nombre: i.sede,
+                              })),
+                            ].map((o) => {
+                              const activo = o.id === destino;
                               return (
                                 <Pressable
-                                  key={g.id}
-                                  onPress={() => setDestino(g.id)}
+                                  key={o.id}
+                                  onPress={() => setDestino(o.id)}
                                   style={[
                                     styles.chip,
                                     activo && styles.chipActivo,
@@ -181,7 +187,7 @@ export default function ModalPedirOracion({
                                   accessibilityState={{ selected: activo }}
                                 >
                                   <Octicons
-                                    name={g.icono}
+                                    name={o.id === "todas" ? "globe" : "home"}
                                     size={12}
                                     color={activo ? DARK_BG : MUTED}
                                   />
@@ -191,9 +197,7 @@ export default function ModalPedirOracion({
                                       activo && styles.oscuro,
                                     ]}
                                   >
-                                    {g.id === "general"
-                                      ? "Toda la iglesia"
-                                      : g.label}
+                                    {o.nombre}
                                   </Text>
                                 </Pressable>
                               );

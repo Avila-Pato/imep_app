@@ -16,8 +16,10 @@ import {
   TipoAviso,
   useEstudios,
   useHorarios,
+  usePuede,
   useRoles,
 } from "@/store/estudios";
+import { estadoPeticion } from "@/utils/peticiones";
 import { horaTurno } from "@/utils/cultos";
 import { unirTurnos } from "@/utils/turnos";
 import { useEffect, useState } from "react";
@@ -44,7 +46,10 @@ export function useRecordatorios() {
     mensajes,
     turnosAvisados,
     anunciosAvisados,
+    publicaciones,
+    revisiones,
   } = useEstudios();
+  const revisa = usePuede("salas"); // pastor o lider: aprueba peticiones
   const quiere = (t: TipoAviso) => avisos[t] ?? true;
   const yo = nombre ?? USUARIO.nombre;
   const roles = useRoles();
@@ -165,6 +170,7 @@ export function useRecordatorios() {
   );
   const primeraVezAnuncios = anunciosAvisados === undefined;
   const avisarAnuncios = quiere("anuncios");
+  const avisarSalas = quiere("salas");
   useEffect(() => {
     const lista: {
       id: string;
@@ -197,6 +203,43 @@ export function useRecordatorios() {
     }
     marcarAnunciosAvisados(lista.map((a) => a.id));
   }, [firmaAnuncios, primeraVezAnuncios, avisarAnuncios, nombreIglesia]);
+
+  // Peticiones de oracion que esperan aprobacion (solo a quien las revisa):
+  // "Fulano pide oracion". Se anotan con los anuncios avisados (ids unicos)
+  const peticionesNuevas = revisa
+    ? publicaciones.filter(
+        (p) =>
+          p.mia === false &&
+          estadoPeticion(p, revisiones) === "pendiente" &&
+          !(anunciosAvisados ?? []).includes(p.id),
+      )
+    : [];
+  const firmaPeticiones = JSON.stringify(
+    peticionesNuevas.map((p) => ({
+      id: p.id,
+      autor: p.autor,
+      texto: p.texto,
+      grupo: p.grupo ?? "general",
+    })),
+  );
+  useEffect(() => {
+    const lista: { id: string; autor: string; texto: string; grupo: string }[] =
+      JSON.parse(firmaPeticiones);
+    if (!lista.length) return;
+    // con push llega del servidor (avisar-peticion); esto es para Expo Go
+    if (!primeraVezAnuncios && avisarSalas && !PUSH_ACTIVO) {
+      for (const p of lista) {
+        avisarAhora(
+          `🙏 ${p.autor} pide oración`,
+          [p.texto.slice(0, 90), "Toca para aprobarla o rechazarla"]
+            .filter(Boolean)
+            .join(" · "),
+          `/sala/${p.grupo}`,
+        ).catch(() => {});
+      }
+    }
+    marcarAnunciosAvisados(lista.map((p) => p.id));
+  }, [firmaPeticiones, primeraVezAnuncios, avisarSalas]);
 
   // Turnos que tenia y ya no (el admin lo saco o puso a otro): "te quitaron".
   // Se compara por dia y rol (un cambio de hora no cuenta como quitado)

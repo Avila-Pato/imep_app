@@ -1,4 +1,3 @@
-import { MENSAJES } from "@/assets/data/comunidadMocks";
 import { USUARIO } from "@/assets/data/perfilMocks";
 import {
   BORDER,
@@ -13,7 +12,13 @@ import {
   ELEVADO,
   LINEA,
 } from "@/constants/constans";
-import { enviarMensaje, useEsLider, useEstudios } from "@/store/estudios";
+import AvatarPersona from "@/components/AvatarPersona";
+import {
+  enviarMensaje,
+  useAvatarDe,
+  useEsLider,
+  useEstudios,
+} from "@/store/estudios";
 import { Grupo, Mensaje } from "@/types/typesComunidad";
 import { horaMensaje } from "@/utils/tiempo";
 import Octicons from "@expo/vector-icons/Octicons";
@@ -33,6 +38,25 @@ import NotaVoz from "./NotaVoz";
 
 const nuevoId = () => `m${Date.now()}`;
 
+// Como WhatsApp: cada persona con su color de nombre (siempre el mismo)
+const COLORES_NOMBRE = [
+  "#53BDEB",
+  "#F15C6D",
+  "#FFB86C",
+  "#A5D86E",
+  "#C792EA",
+  "#4FD1C5",
+  "#F78FB3",
+  "#FFD166",
+];
+const colorDe = (nombre: string) => {
+  let h = 0;
+  for (const c of nombre) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return COLORES_NOMBRE[h % COLORES_NOMBRE.length];
+};
+const MIO = "#005C4B"; // verde de "mis mensajes"
+const AVATAR = 28;
+
 export default function ChatSala({
   sala,
   cerrado,
@@ -43,7 +67,10 @@ export default function ChatSala({
   privado?: boolean; // chat de dos personas (sin avisos para todos)
 }) {
   const grupo = sala.id;
-  const { mensajes } = useEstudios();
+  const { mensajes, nombre, vaciados } = useEstudios();
+  // vacio el chat: solo ve lo que llego despues
+  const desde = vaciados?.[sala.id] ?? "";
+  const yo = nombre?.trim() || USUARIO.nombre;
   const [texto, setTexto] = useState("");
   // hoja para compartir un versiculo (texto o audio)
   const [compartir, setCompartir] = useState(false);
@@ -51,11 +78,12 @@ export default function ChatSala({
   const [leyendo, setLeyendo] = useState<Mensaje | null>(null);
   // lider del grupo (o pastor/administrador): avisos y devocionales
   const lider = useEsLider(grupo) && !privado;
+  const avatarDe = useAvatarDe();
   const [publicando, setPublicando] = useState(false);
 
   // Mas nuevo primero: la lista va invertida (el ultimo queda abajo)
-  const lista = [...MENSAJES, ...mensajes]
-    .filter((m) => m.grupo === grupo)
+  const lista = [...mensajes]
+    .filter((m) => m.grupo === grupo && m.fecha > desde)
     .sort((a, b) => b.fecha.localeCompare(a.fecha));
 
   const enviar = () => {
@@ -64,7 +92,7 @@ export default function ChatSala({
     enviarMensaje({
       id: nuevoId(),
       grupo,
-      autor: USUARIO.nombre,
+      autor: yo,
       texto: limpio,
       fecha: new Date().toISOString(),
     });
@@ -122,19 +150,24 @@ export default function ChatSala({
               </View>
             );
           }
-          const mio = item.autor === USUARIO.nombre;
+          const mio = item.mio ?? item.autor === yo;
           // en la lista invertida, el mensaje anterior es el siguiente indice
           const anterior = lista[index + 1];
-          const mostrarNombre = !mio && anterior?.autor !== item.autor;
-          return (
+          const primero = anterior?.autor !== item.autor || !!anterior?.tipo;
+          const mostrarNombre = !mio && !privado && primero;
+          const burbuja = (
             <View
               style={[
                 styles.burbuja,
                 mio ? styles.burbujaMia : styles.burbujaOtra,
-                !mostrarNombre && !mio && styles.seguido,
+                !primero && (mio ? styles.seguidoMio : styles.seguido),
               ]}
             >
-              {mostrarNombre && <Text style={styles.autor}>{item.autor}</Text>}
+              {mostrarNombre && (
+                <Text style={[styles.autor, { color: colorDe(item.autor) }]}>
+                  {item.autor}
+                </Text>
+              )}
               {!!item.desafio && (
                 <Text style={styles.desafio}>★ PALABRA DE LA SEMANA</Text>
               )}
@@ -158,8 +191,33 @@ export default function ChatSala({
                 </Pressable>
               )}
               {item.audio && <NotaVoz audio={item.audio} />}
+              {item.audioVencido && (
+                <Text style={styles.vencido}>
+                  🎤 Nota de voz (ya no está disponible)
+                </Text>
+              )}
               {!!item.texto && <Text style={styles.texto}>{item.texto}</Text>}
-              <Text style={styles.hora}>{horaMensaje(item.fecha)}</Text>
+              <Text style={styles.hora}>
+                {horaMensaje(item.fecha)}
+                {/* reloj: aun no llega a los demas (se reintenta solo) */}
+                {mio ? (item.pendiente ? "  🕓" : "  ✓") : ""}
+              </Text>
+            </View>
+          );
+          if (mio || privado) return burbuja;
+          // de otro: su foto a la izquierda (solo en el primero de la tanda)
+          return (
+            <View style={styles.filaOtro}>
+              {primero ? (
+                <AvatarPersona
+                  nombre={item.autor}
+                  avatar={avatarDe(item.autor)}
+                  tamano={AVATAR}
+                />
+              ) : (
+                <View style={styles.sinAvatar} />
+              )}
+              {burbuja}
             </View>
           );
         }}
@@ -271,21 +329,32 @@ const styles = StyleSheet.create({
   },
   burbujaMia: {
     alignSelf: "flex-end",
-    backgroundColor: ELEVADO,
-    borderBottomRightRadius: 4,
+    backgroundColor: MIO,
+    borderTopRightRadius: 4,
   },
   burbujaOtra: {
     alignSelf: "flex-start",
-    backgroundColor: SURFACE,
-    borderBottomLeftRadius: 4,
-  },
-  seguido: {
+    backgroundColor: ELEVADO,
     borderTopLeftRadius: 4,
+  },
+  // los siguientes de la misma persona: sin "colita"
+  seguido: {
+    borderTopLeftRadius: 16,
+  },
+  seguidoMio: {
+    borderTopRightRadius: 16,
+  },
+  filaOtro: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 6,
+  },
+  sinAvatar: {
+    width: AVATAR,
   },
   autor: {
     fontSize: 12,
-    fontWeight: "600",
-    color: "#BDBDBD",
+    fontWeight: "700",
     marginBottom: 2,
   },
   cerrado: {
@@ -359,6 +428,11 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "600",
     letterSpacing: 0.8,
+    color: MUTED,
+  },
+  vencido: {
+    fontSize: 13,
+    fontStyle: "italic",
     color: MUTED,
   },
   texto: {

@@ -32,9 +32,12 @@ export type Mensaje = {
   cita?: string; // versiculo sobre el que se comparte
   versiculo?: string; // texto de ese versiculo
   audio?: NotaDeVoz;
+  audioVencido?: boolean; // la nota de voz se borro (tenia mas de 3 meses)
   desafio?: string; // id de la "Palabra de la semana" que responde
   tipo?: "aviso" | "devocional"; // publicado por el lider para todo el grupo
   titulo?: string; // titulo del devocional
+  mio?: boolean; // lo escribio esta persona
+  pendiente?: boolean; // aun no llega al servidor
 };
 
 // "Palabra de la semana": el lider elige hermanos de su sala para que cada
@@ -76,6 +79,8 @@ export type Publicacion = {
   fecha: string; // ISO
   orando: number; // cuantos hermanos estan orando
   estado?: EstadoPeticion; // sin estado = aprobada
+  mia?: boolean; // la pidio esta persona
+  porSubir?: boolean; // aun no llega al servidor
 };
 
 // Toda peticion pasa por el lider de la sala antes de llegar al muro

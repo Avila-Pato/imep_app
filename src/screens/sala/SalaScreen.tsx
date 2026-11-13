@@ -34,9 +34,11 @@ import {
 } from "react-native-safe-area-context";
 import TabsSuperiores from "../(tab)/components/TabsSuperiores";
 import VistaAnimada from "../(tab)/components/VistaAnimada";
+import BotonVaciarChat from "./components/BotonVaciarChat";
 import ChatSala from "./components/ChatSala";
 import MiembrosSala, { miembrosDe } from "./components/MiembrosSala";
 import MuroOracion from "./components/MuroOracion";
+import OracionPastor from "./components/OracionPastor";
 import ModalNuevaSala from "../(tab)/components/ModalNuevaSala";
 import { useTecladoAbierto } from "@/hooks/useEspacioBarra";
 import DesafioSala from "./components/DesafioSala";
@@ -58,6 +60,8 @@ export default function SalaScreen() {
   const [elegida, setVista] = useState<Vista>(params.vista ?? "chat");
   // solo lo que el pastor activo al crear la sala (Miembros siempre)
   // el chat siempre se ve: si se apago, dice que no se puede hablar
+  // Oracion: los hermanos ven el muro; el pastor tiene su propia vista
+  // (aprobar o rechazar peticiones y pedir oracion el tambien)
   const vistas = VISTAS.filter(
     (v) => v.id !== "oracion" || grupo.funciones?.oracion !== false,
   );
@@ -111,6 +115,10 @@ export default function SalaScreen() {
             {grupo.lider ? `Líder: ${grupo.lider}` : grupo.descripcion}
           </Text>
         </Pressable>
+        {/* cada uno puede vaciar el chat (solo para el) */}
+        {vista === "chat" && (
+          <BotonVaciarChat grupo={grupo.id} nombre={grupo.label} />
+        )}
         {/* pastor / administrador: editar la sala */}
         {puedeEditar && (
           <Pressable
@@ -146,7 +154,7 @@ export default function SalaScreen() {
               contentContainerStyle={styles.muro}
               showsVerticalScrollIndicator={false}
             >
-              <MuroOracion grupo={grupo.id} />
+              {esPastor ? <OracionPastor /> : <MuroOracion grupo={grupo.id} />}
             </ScrollView>
           )}
           {vista === "miembros" && (

@@ -1,4 +1,3 @@
-import { NOTIFICACIONES } from "@/assets/data/homeMocks";
 import {
   BORDER,
   HOME_PADDING as PADDING,
@@ -40,7 +39,6 @@ export default function CabeceraHoy() {
           accessibilityLabel="Notificaciones"
         >
           <Octicons name="bell" size={18} color={TEXT} />
-          {NOTIFICACIONES > 0 && <View style={styles.badge} />}
         </Pressable>
       </View>
     </View>

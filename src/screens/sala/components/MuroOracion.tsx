@@ -1,4 +1,3 @@
-import { PUBLICACIONES } from "@/assets/data/comunidadMocks";
 import {
   BORDER,
   DARK_BG,
@@ -51,10 +50,13 @@ export default function MuroOracion({ grupo }: Props) {
   const [pidiendo, setPidiendo] = useState(false);
 
   // las publicaciones antiguas sin sala cuentan como "Iglesia"
-  const todas = [...publicaciones, ...PUBLICACIONES].filter(
+  const todas = [...publicaciones].filter(
     (p) =>
       puedeVerSala(p.grupo ?? "general", miGrupo) &&
-      (!grupo || (p.grupo ?? "general") === grupo),
+      // las de toda la iglesia se ven en todas las salas
+      (!grupo ||
+        (p.grupo ?? "general") === grupo ||
+        (p.grupo ?? "general") === "general"),
   );
 
   // Solo las aprobadas por el lider y dentro de las 24 horas
@@ -69,6 +71,7 @@ export default function MuroOracion({ grupo }: Props) {
   // Mis peticiones que aun esperan aprobacion
   const misPendientes = publicaciones.filter(
     (p) =>
+      p.mia !== false &&
       estadoPeticion(p, revisiones) === "pendiente" &&
       (!grupo || p.grupo === grupo),
   ).length;

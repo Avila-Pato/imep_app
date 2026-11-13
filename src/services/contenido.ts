@@ -147,6 +147,12 @@ export async function avisarAnuncio(id: string) {
   await llamarFuncion("avisar-anuncio", { anuncio_id: id });
 }
 
+// Pidio oracion: avisa al pastor y a los lideres (para aprobarla)
+export async function avisarPeticion(id: string) {
+  if (!supabase) return;
+  await llamarFuncion("avisar-peticion", { peticion_id: id });
+}
+
 // ───────────── Turnos ─────────────
 
 // Reemplaza los turnos de un dia (asi tambien se borran los que se quitaron)

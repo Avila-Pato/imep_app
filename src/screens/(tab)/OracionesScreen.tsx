@@ -1,7 +1,6 @@
 import { PASAJES, PREGUNTAS } from "@/assets/data/oracionesMocks";
 import {
   BORDER,
-  GRUPOS,
   DARK_BG,
   HOME_PADDING as PADDING,
   MUTED,
@@ -13,8 +12,13 @@ import {
 } from "@/constants/constans";
 import { USUARIO } from "@/assets/data/perfilMocks";
 import { usePasaje } from "@/hooks/usePasaje";
-import { guardarEstudio, publicar, useEstudios } from "@/store/estudios";
-import { GrupoId } from "@/types/typesComunidad";
+import {
+  guardarEstudio,
+  publicar,
+  useEstudios,
+  useIglesias,
+  usePuede,
+} from "@/store/estudios";
 import { partirTitulo } from "@/utils/texto";
 import Octicons from "@expo/vector-icons/Octicons";
 import { Href, router } from "expo-router";
@@ -126,22 +130,38 @@ export default function OracionesScreen() {
   // Biblia: versiculos tocados y el que se adjunta a una peticion
   const [seleccion, setSeleccion] = useState<SeleccionBiblia | null>(null);
   const insets = useSafeAreaInsets();
-  // a donde va la peticion: muro general (Iglesia) o la sala de su grupo
-  const [destino, setDestino] = useState<GrupoId>("general");
+  // a que iglesia va la peticion (o a todas, si esta en varias)
+  const [destino, setDestino] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
-  const { guardados, grupo } = useEstudios();
+  const { guardados, iglesia, nombre } = useEstudios();
   // Aviso "Guardado correctamente" despues de guardar
   const [avisoGuardado, setAvisoGuardado] = useState(false);
-  // Sala de la persona segun el grupo que eligio (varones, jovenes, dorcas...)
-  const miSala = GRUPOS.find((g) => g.id === grupo && g.id !== "general");
+  // Siempre va al muro de toda la iglesia (no a las salas de grupo)
+  const iglesias = useIglesias().filter((i) => !!i.id);
   const opcionesDestino = [
-    { sala: GRUPOS[0], titulo: "Muro general", sub: "Toda la iglesia" },
-    ...(miSala
-      ? [{ sala: miSala, titulo: miSala.label, sub: "Solo tu grupo" }]
+    ...(iglesias.length > 1
+      ? [
+          {
+            id: "todas",
+            titulo: "Todas mis iglesias",
+            sub: `${iglesias.length} iglesias`,
+            icono: "globe" as const,
+          },
+        ]
       : []),
+    ...iglesias.map((i) => ({
+      id: i.id!,
+      titulo: i.sede,
+      sub: "Muro de toda la iglesia",
+      icono: "home" as const,
+    })),
   ];
-  const salaPeticion =
-    opcionesDestino.find((o) => o.sala.id === destino)?.sala ?? GRUPOS[0];
+  const elegido = destino ?? iglesia?.id ?? opcionesDestino[0]?.id;
+  const nombreDestino =
+    elegido === "todas"
+      ? "tus iglesias"
+      : (iglesias.find((i) => i.id === elegido)?.sede ?? "tu iglesia");
+  const revisa = usePuede("salas"); // el pastor: va directo al muro
 
   // Texto del pasaje: desde la API de la Biblia (o el de ejemplo si falla)
   const pasaje = PASAJES.find(
@@ -190,21 +210,29 @@ export default function OracionesScreen() {
     setAvisoGuardado(true);
   };
 
-  // Pedir oracion: va a la sala de su grupo (o a Iglesia si no tiene) y la aprueba su lider
+  // Pedir oracion: va al muro de la iglesia elegida (o de todas) y la
+  // aprueba el pastor
   const pedirOracion = () => {
     const texto = peticion.trim();
     if (!texto) return;
     const ahora = new Date();
-    publicar({
-      id: `o${ahora.getTime()}`,
-      autor: USUARIO.nombre,
-      grupo: salaPeticion.id,
-      cita: "",
-      texto,
-      fecha: ahora.toISOString(),
-      orando: 0,
-      estado: "pendiente", // la aprueba el lider de la sala
-    });
+    publicar(
+      {
+        id: `o${ahora.getTime()}`,
+        autor: nombre?.trim() || USUARIO.nombre,
+        grupo: "general",
+        cita: "",
+        texto,
+        fecha: ahora.toISOString(),
+        orando: 0,
+        estado: revisa ? "aprobada" : "pendiente",
+      },
+      elegido === "todas"
+        ? iglesias.map((i) => i.id!)
+        : elegido
+          ? [elegido]
+          : undefined,
+    );
     setPeticion("");
     setEnviada(true);
   };
@@ -280,12 +308,11 @@ export default function OracionesScreen() {
                 <Octicons name="clock" size={20} color={DARK_BG} />
               </View>
               <Text style={styles.enviadaTitulo}>
-                Enviada al <Text style={styles.tituloCursiva}>líder</Text>
+                Enviada al <Text style={styles.tituloCursiva}>pastor</Text>
               </Text>
               <Text style={styles.enviadaSub}>
-                Tu petición aparecerá en el muro de {salaPeticion.label} cuando
-                el líder de la sala la apruebe. Desde ahí estará visible por 24
-                horas.
+                Tu petición aparecerá en el muro de {nombreDestino} cuando el
+                pastor la apruebe. Desde ahí estará visible por 24 horas.
               </Text>
               <Pressable
                 onPress={() => setEnviada(false)}
@@ -314,41 +341,39 @@ export default function OracionesScreen() {
                 />
               </View>
 
-              {/* Enviar al muro general o a su grupo */}
-              <View>
-                <Seccion texto="ENVIAR A" />
-                <View style={[styles.card, styles.cardLista]}>
-                  {opcionesDestino.map((o, i) => {
-                    const activo = o.sala.id === salaPeticion.id;
-                    return (
-                      <Pressable
-                        key={o.sala.id}
-                        onPress={() => setDestino(o.sala.id)}
-                        style={[styles.destino, i > 0 && styles.conLinea]}
-                        accessibilityRole="radio"
-                        accessibilityState={{ selected: activo }}
-                      >
-                        <View style={styles.destinoIcono}>
-                          <Octicons
-                            name={o.sala.icono}
-                            size={16}
-                            color={TEXT}
-                          />
-                        </View>
-                        <View style={styles.flex}>
-                          <Text style={styles.destinoTitulo}>{o.titulo}</Text>
-                          <Text style={styles.destinoSub}>{o.sub}</Text>
-                        </View>
-                        <View
-                          style={[styles.radio, activo && styles.radioActivo]}
+              {/* A que iglesia (o a todas) */}
+              {opcionesDestino.length > 1 && (
+                <View>
+                  <Seccion texto="ENVIAR A" />
+                  <View style={[styles.card, styles.cardLista]}>
+                    {opcionesDestino.map((o, i) => {
+                      const activo = o.id === elegido;
+                      return (
+                        <Pressable
+                          key={o.id}
+                          onPress={() => setDestino(o.id)}
+                          style={[styles.destino, i > 0 && styles.conLinea]}
+                          accessibilityRole="radio"
+                          accessibilityState={{ selected: activo }}
                         >
-                          {activo && <View style={styles.radioPunto} />}
-                        </View>
-                      </Pressable>
-                    );
-                  })}
+                          <View style={styles.destinoIcono}>
+                            <Octicons name={o.icono} size={16} color={TEXT} />
+                          </View>
+                          <View style={styles.flex}>
+                            <Text style={styles.destinoTitulo}>{o.titulo}</Text>
+                            <Text style={styles.destinoSub}>{o.sub}</Text>
+                          </View>
+                          <View
+                            style={[styles.radio, activo && styles.radioActivo]}
+                          >
+                            {activo && <View style={styles.radioPunto} />}
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
                 </View>
-              </View>
+              )}
 
               <Boton
                 principal
@@ -358,8 +383,9 @@ export default function OracionesScreen() {
                 deshabilitado={!peticion.trim()}
               />
               <Text style={styles.aviso}>
-                El líder de {salaPeticion.label} la revisará antes de publicarla
-                en el muro.
+                {revisa
+                  ? "Como pastor, tu petición se publica directo en el muro."
+                  : "Tu pastor la revisará antes de publicarla en el muro."}
               </Text>
             </>
           )}
