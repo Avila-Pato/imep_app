@@ -157,9 +157,9 @@ export default function IglesiaView() {
     })
     .sort((a, b) => b.fecha.localeCompare(a.fecha));
 
-  const usarInvitacion = () => {
+  const usarInvitacion = async () => {
     // tambien llega la iglesia (y su mapa en Inicio)
-    const r = unirse(enlace);
+    const r = await unirse(enlace);
     if (!r) return setError(true);
     setEnlace("");
     setInvitando(false);

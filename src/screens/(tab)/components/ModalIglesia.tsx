@@ -7,7 +7,7 @@ import {
   TEXT,
   LINEA,
 } from "@/constants/constans";
-import { fijarIglesia, useIglesia } from "@/store/estudios";
+import { agregarIglesia, fijarIglesia, useIglesia } from "@/store/estudios";
 import Octicons from "@expo/vector-icons/Octicons";
 import {
   KeyboardAvoidingView,
@@ -21,15 +21,19 @@ import {
 import ConBordes from "@/components/ConBordes";
 import FormIglesia from "./FormIglesia";
 
-// Hoja para que el pastor ponga o cambie la ubicacion de la iglesia
+// Hoja para que el pastor ponga o cambie la ubicacion de la iglesia,
+// o sume otra (nueva) si dirige mas de una
 export default function ModalIglesia({
   visible,
   onCerrar,
+  nueva = false,
 }: {
   visible: boolean;
   onCerrar: () => void;
+  nueva?: boolean;
 }) {
-  const iglesia = useIglesia();
+  const actual = useIglesia();
+  const iglesia = nueva ? undefined : actual;
 
   return (
     <Modal
@@ -64,9 +68,11 @@ export default function ModalIglesia({
                 >
                   <View style={styles.cabecera}>
                     <Text style={styles.titulo}>
-                      {iglesia
-                        ? "Cambiar ubicación"
-                        : "Ubicación de tu iglesia"}
+                      {nueva
+                        ? "Agregar otra iglesia"
+                        : iglesia
+                          ? "Cambiar ubicación"
+                          : "Ubicación de tu iglesia"}
                     </Text>
                     <Pressable
                       onPress={onCerrar}
@@ -82,7 +88,8 @@ export default function ModalIglesia({
                     inicial={iglesia}
                     textoBoton="Guardar"
                     onGuardar={(i) => {
-                      fijarIglesia(i);
+                      if (nueva) agregarIglesia(i);
+                      else fijarIglesia(i);
                       onCerrar();
                     }}
                   />

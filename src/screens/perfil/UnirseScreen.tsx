@@ -8,13 +8,18 @@ import {
   TEXT,
   LINEA,
 } from "@/constants/constans";
-import { useUnirse } from "@/hooks/useUnirse";
-import { useEstudios, useGrupos, useIglesia } from "@/store/estudios";
-import { leerInvitacion } from "@/utils/invitacion";
+import { Unido, useUnirse } from "@/hooks/useUnirse";
+import { useIglesia } from "@/store/estudios";
 import Octicons from "@expo/vector-icons/Octicons";
 import { Href, router, useLocalSearchParams } from "expo-router";
-import { useEffect } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 // Se abre con el enlace del pastor: congrega://unirse/4K7Q
@@ -22,17 +27,31 @@ export default function UnirseScreen() {
   const { codigo } = useLocalSearchParams<{ codigo: string }>();
   const unirse = useUnirse();
   const iglesia = useIglesia();
-  const grupos = useGrupos();
-  const { codigos } = useEstudios();
-  // que trae el enlace (se calcula, no se guarda)
-  const { valida: ok, grupo } = leerInvitacion(codigo ?? "", grupos, codigos);
-  const sala = grupos.find((g) => g.id === grupo)?.label;
+  // undefined = preguntando al servidor; null = el codigo no sirve
+  const [unido, setUnido] = useState<Unido | null>();
+  const ok = !!unido;
+  const sala = unido?.sala;
 
   // se une una sola vez al abrir el enlace
   useEffect(() => {
-    unirse(codigo ?? "");
+    let vivo = true;
+    unirse(codigo ?? "").then((r) => vivo && setUnido(r));
+    return () => {
+      vivo = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al abrir
   }, [codigo]);
+
+  if (unido === undefined) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.centro}>
+          <ActivityIndicator color={MUTED} />
+          <Text style={styles.texto}>Uniéndote a tu iglesia…</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -45,7 +64,7 @@ export default function UnirseScreen() {
         </Text>
         <Text style={styles.texto}>
           {ok
-            ? `Te uniste a ${iglesia?.sede ?? "tu iglesia"}${
+            ? `Te uniste a ${unido.iglesia ?? iglesia?.sede ?? "tu iglesia"}${
                 sala ? ` y a la sala de ${sala}` : ""
               }.`
             : "Este enlace ya no sirve o está incompleto. Pídele uno nuevo a tu pastor."}

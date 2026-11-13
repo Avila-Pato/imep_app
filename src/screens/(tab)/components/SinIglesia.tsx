@@ -32,8 +32,8 @@ export default function SinIglesia({
   const [enlace, setEnlace] = useState("");
   const [error, setError] = useState(false);
 
-  const usar = () => {
-    if (!unirse(enlace)) setError(true);
+  const usar = async () => {
+    if (!(await unirse(enlace))) setError(true);
   };
 
   return (

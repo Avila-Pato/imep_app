@@ -21,20 +21,31 @@ const ROLES: {
   id: RolIglesia;
   titulo: string;
   texto: string;
+  puede: string[];
   icono: IconName;
 }[] = [
   {
     id: "hermano",
     titulo: "Hermano/a de la iglesia",
     texto:
-      "Lee la Biblia, ora con tu grupo, revisa tus turnos y entérate de todo.",
+      "Para todos los miembros de la congregación. Es la opción correcta para la mayoría.",
+    puede: [
+      "Leer la Biblia, orar y unirte a tu grupo",
+      "Ver el cronograma, tus turnos y los anuncios",
+      "Participar en las salas de tu iglesia",
+    ],
     icono: "person",
   },
   {
     id: "pastor",
     titulo: "Pastor",
     texto:
-      "Administra la iglesia: los roles de cada persona, los turnos, los anuncios y las salas.",
+      "Solo para quien dirige la iglesia. Tiene control sobre la congregación.",
+    puede: [
+      "Asignar roles y permisos a cada hermano",
+      "Crear y editar el cronograma y los turnos",
+      "Publicar anuncios y administrar las salas",
+    ],
     icono: "shield-check",
   },
 ];
@@ -88,20 +99,48 @@ export default function PasoRol({ onSeguir }: { onSeguir: () => void }) {
               </View>
               <Text style={styles.titulo}>{r.titulo}</Text>
               <Text style={styles.texto}>{r.texto}</Text>
+              <View style={styles.puede}>
+                {r.puede.map((p) => (
+                  <View key={p} style={styles.puedeFila}>
+                    <Octicons
+                      name="check"
+                      size={13}
+                      color={activo ? PRIMARY : MUTED}
+                    />
+                    <Text style={styles.puedeTexto}>{p}</Text>
+                  </View>
+                ))}
+              </View>
             </Pressable>
           );
         })}
       </View>
 
-      {rol === "pastor" && (
+      {rol === "pastor" ? (
+        <View style={styles.aviso}>
+          <Octicons name="alert" size={16} color={AVISO} />
+          <Text style={styles.avisoTexto}>
+            <Text style={styles.avisoFuerte}>Elige “Pastor” solo si diriges
+            la iglesia.</Text>{" "}
+            Esta elección no se puede cambiar después: tendrías que
+            reinstalar la app y comenzar de nuevo. Si eres miembro, ayudas en el ministerio o eres líder de un grupo,
+            elige “Hermano/a”: el pastor puede darte permisos (editar el
+            cronograma, publicar anuncios…) desde su Perfil.
+          </Text>
+        </View>
+      ) : (
         <Text style={styles.nota}>
-          Como pastor podrás asignar roles y dar permisos a otros hermanos
-          (editar el cronograma, publicar anuncios…) desde tu Perfil.
+          Elige con cuidado: el rol no se puede cambiar después. ¿Tienes
+          alguna responsabilidad? Elige “Hermano/a”; tu pastor puede darte
+          permisos extra más adelante.
         </Text>
       )}
     </Paso>
   );
 }
+
+const AVISO = "#E0A33A";
+const RADIO_BORDE_AVISO = 16;
 
 const styles = StyleSheet.create({
   presionado: {
@@ -167,6 +206,40 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     color: MUTED,
+  },
+  puede: {
+    gap: SPACING / 1.6,
+    marginTop: SPACING / 2,
+  },
+  puedeFila: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING * 0.8,
+  },
+  puedeTexto: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+    color: TEXT,
+  },
+  aviso: {
+    flexDirection: "row",
+    gap: SPACING,
+    marginTop: SPACING * 1.4,
+    padding: SPACING * 1.4,
+    borderRadius: RADIO_BORDE_AVISO,
+    borderWidth: 1,
+    borderColor: "rgba(224,163,58,0.45)",
+    backgroundColor: "rgba(224,163,58,0.10)",
+  },
+  avisoTexto: {
+    flex: 1,
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: TEXT,
+  },
+  avisoFuerte: {
+    fontFamily: FUENTE.semibold,
   },
   nota: {
     fontSize: 12,

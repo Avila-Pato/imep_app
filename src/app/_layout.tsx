@@ -12,7 +12,7 @@ import {
   ES_CLARO,
 } from "@/constants/constans";
 import { useRecordatorios } from "@/hooks/useRecordatorios";
-import { useCargado, useEstudios } from "@/store/estudios";
+import { sincronizarIglesias, useCargado, useEstudios } from "@/store/estudios";
 import { useFonts } from "expo-font";
 import {
   DarkTheme,
@@ -70,6 +70,11 @@ export default function RootLayout() {
     SplashScreen.hideAsync();
   }, [listo]);
 
+  // Trae del servidor las iglesias de esta persona (si esta conectada)
+  useEffect(() => {
+    if (cargado) sincronizarIglesias();
+  }, [cargado]);
+
   // Tocar una notificacion abre su pantalla (cuando la app ya esta lista)
   useEffect(() => {
     if (!listo || !bienvenida) return;
@@ -116,7 +121,8 @@ export default function RootLayout() {
               pantalla inicial cuando "/" esta protegida (antes del onboarding) */}
           <Stack.Screen name="privacidad" />
           <Stack.Screen name="ayuda" />
-
+          {/* vuelta del login con Google */}
+          <Stack.Screen name="auth" />
         </Stack>
       </ThemeProvider>
     </GestureHandlerRootView>

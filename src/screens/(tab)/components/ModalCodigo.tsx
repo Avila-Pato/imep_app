@@ -48,10 +48,11 @@ export default function ModalCodigo({
     onCerrar();
   };
 
-  const usar = () => {
-    const r = unirse(codigo);
+  const usar = async () => {
+    const r = await unirse(codigo);
     if (!r) return setError(true);
-    setUnido(r.sala ? `tu iglesia y a ${r.sala}` : "tu iglesia");
+    const iglesia = r.iglesia ?? "tu iglesia";
+    setUnido(r.sala ? `${iglesia} y a ${r.sala}` : iglesia);
   };
 
   return (

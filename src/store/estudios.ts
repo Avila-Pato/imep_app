@@ -22,6 +22,15 @@ import {
 import { Rol, RolId, Turno } from "@/types/typesCronogramas";
 import { Iglesia } from "@/types/typesHome";
 import { Predicacion } from "@/types/typesOraciones";
+import { subirPerfil } from "@/services/perfil";
+import {
+  borrarIglesia,
+  crearCodigo,
+  esUuid,
+  misIglesias,
+  nuevoUuid,
+  subirIglesia,
+} from "@/services/iglesias";
 import { esLider, sigueGuardada } from "@/utils/peticiones";
 import { unirTurnos } from "@/utils/turnos";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -55,19 +64,30 @@ type Estado = {
   version?: string; // version de la Biblia elegida (RV1960, NTV, LBLA)
   nombre?: string; // como quiere que la llamemos (onboarding)
   avatar?: AvatarElegido; // chibi o foto (Editar perfil); sin esto, sus iniciales
+  cuenta?: CuentaConectada; // con que cuenta entro (Google); sin esto, anonimo
   portada?: string; // imagen de fondo arriba del perfil (galeria)
   fuenteBiblia?: FuenteBiblia; // letra para leer la Biblia
   motivos?: string[]; // que la trae a la app (onboarding)
   rol?: RolIglesia; // quien es en la iglesia (el pastor administra)
   cargos: Record<string, CargoId[]>; // nombre -> roles que le dio el pastor
   salas: Grupo[]; // salas nuevas que creo el pastor (ademas de las de base)
-  iglesia?: Iglesia; // la puso el pastor, o llega al unirse con una invitacion
+  iglesia?: Iglesia; // la activa: la puso el pastor, o llega al unirse con una invitacion
+  iglesias?: Iglesia[]; // todas las suyas (sin dato = solo "iglesia")
+  porIglesia?: Record<string, DatosIglesia>; // lo de las iglesias que no estan activas
   codigos: Partial<Record<GrupoId, CodigoInvitacion>>; // del pastor: "general" = iglesia
   avisos: Partial<Record<TipoAviso, boolean>>; // notificaciones que quiere (sin dato = si)
   invitados: string[]; // nombres agregados a mano en el cronograma (sin cuenta en la app)
   rolesExtra: Record<string, Rol>; // casillas nuevas del cronograma (ej: Devocional)
   anuncios: Anuncio[]; // los que publico el pastor / secretaria / comunicaciones
   predicaciones: Predicacion[]; // las sube el pastor (o quien publica anuncios)
+};
+
+// La cuenta de Google con la que entro (para mostrarla en el Perfil)
+export type CuentaConectada = {
+  proveedor: "google";
+  correo?: string;
+  nombre?: string; // nombre completo en Google
+  foto?: string; // URL de su foto de Google
 };
 
 // Notificaciones que la persona puede activar o apagar
@@ -173,6 +193,7 @@ const useStore = create<Estado>()(
         version: estado.version ?? previo.version,
         nombre: estado.nombre ?? previo.nombre,
         avatar: estado.avatar ?? previo.avatar,
+        cuenta: estado.cuenta ?? previo.cuenta,
         portada: estado.portada ?? previo.portada,
         fuenteBiblia: estado.fuenteBiblia ?? previo.fuenteBiblia,
         motivos: estado.motivos ?? previo.motivos,
@@ -180,6 +201,8 @@ const useStore = create<Estado>()(
         cargos: { ...(previo.cargos ?? {}), ...estado.cargos },
         salas: unir(estado.salas, previo.salas ?? []),
         iglesia: estado.iglesia ?? previo.iglesia,
+        iglesias: estado.iglesias ?? previo.iglesias,
+        porIglesia: { ...(previo.porIglesia ?? {}), ...estado.porIglesia },
         codigos: { ...(previo.codigos ?? {}), ...estado.codigos },
         avisos: { ...(previo.avisos ?? {}), ...estado.avisos },
         rolesExtra: { ...(previo.rolesExtra ?? {}), ...estado.rolesExtra },
@@ -247,6 +270,35 @@ export function guardarPerfil(datos: {
   fuenteBiblia?: FuenteBiblia;
 }) {
   cambiar(datos);
+  // su iglesia ve su nombre (y su foto, si es una URL)
+  if (datos.nombre || datos.avatar?.tipo === "foto") {
+    const { nombre, avatar } = useStore.getState();
+    enFondo(
+      subirPerfil({
+        nombre,
+        foto: avatar?.tipo === "foto" ? avatar.uri : undefined,
+      }),
+    );
+  }
+}
+
+// Entro con Google: guarda la cuenta y completa lo que falte del perfil
+// (el nombre que escribio se respeta; la foto de Google solo si no eligio)
+export function conectarCuenta(cuenta: CuentaConectada) {
+  cambiar((s) => ({
+    cuenta,
+    nombre: s.nombre ?? cuenta.nombre,
+    avatar:
+      s.avatar ??
+      (cuenta.foto ? { tipo: "foto", uri: cuenta.foto } : undefined),
+  }));
+  const { nombre, avatar } = useStore.getState();
+  enFondo(
+    subirPerfil({
+      nombre,
+      foto: avatar?.tipo === "foto" ? avatar.uri : undefined,
+    }),
+  );
 }
 
 // Foto del perfil: un chibi (por su semilla) o una foto de la galeria
@@ -315,9 +367,164 @@ export function useIglesia() {
   return useStore((s) => s.iglesia);
 }
 
-// El pastor guarda o cambia la ubicacion de su iglesia
-export function fijarIglesia(iglesia: Iglesia) {
-  cambiar({ iglesia });
+// Iglesias de esta persona (el pastor puede dirigir mas de una). La activa
+// es "iglesia": la del mapa, las invitaciones y todo lo de la congregacion.
+// Lo de cada iglesia (anuncios, cronograma, salas...) se guarda aparte: al
+// cambiar de iglesia se guarda lo de la activa y se carga lo de la otra, asi
+// las pantallas siguen leyendo los mismos campos
+const CAMPOS_IGLESIA = [
+  "anuncios",
+  "predicaciones",
+  "salas",
+  "salasEditadas",
+  "desafios",
+  "publicaciones",
+  "mensajes",
+  "revisiones",
+  "vistos",
+  "turnosEditados",
+  "invitados",
+  "rolesExtra",
+  "cargos",
+  "codigos",
+  "grupo",
+] as const satisfies readonly (keyof Estado)[];
+type DatosIglesia = Partial<Pick<Estado, (typeof CAMPOS_IGLESIA)[number]>>;
+
+const tomar = (s: Estado): DatosIglesia =>
+  Object.fromEntries(CAMPOS_IGLESIA.map((c) => [c, s[c]])) as DatosIglesia;
+const vacios = () => tomar(inicial());
+
+// sin id (iglesias antiguas o la de ejemplo): nombre y ubicacion
+const idIglesia = (i: Iglesia) => i.id ?? `${i.sede}|${i.lat}|${i.lng}`;
+// lo que va al servidor corre aparte: si falla, el telefono ya lo guardo
+const enFondo = (p: Promise<unknown>) =>
+  p.catch((e) => console.warn("[supabase]", e?.message ?? e));
+const misma = (a?: Iglesia, b?: Iglesia) =>
+  !!a && !!b && idIglesia(a) === idIglesia(b);
+const listaIglesias = (s: Estado) =>
+  s.iglesias ?? (s.iglesia ? [s.iglesia] : []);
+
+// Guarda lo de la iglesia activa y carga lo de "destino"
+function pasarA(s: Estado, destino?: Iglesia): Partial<Estado> {
+  if (misma(s.iglesia, destino)) return { iglesia: destino };
+  const porIglesia = s.iglesia
+    ? { ...s.porIglesia, [idIglesia(s.iglesia)]: tomar(s) }
+    : (s.porIglesia ?? {});
+  return {
+    porIglesia,
+    iglesia: destino,
+    ...vacios(),
+    ...(destino ? porIglesia[idIglesia(destino)] : undefined),
+  };
+}
+
+export function useIglesias() {
+  const iglesias = useStore((s) => s.iglesias);
+  const activa = useStore((s) => s.iglesia);
+  return iglesias ?? (activa ? [activa] : []);
+}
+
+// ¿Es esta la iglesia activa?
+export function esActiva(iglesia: Iglesia, activa?: Iglesia) {
+  return misma(iglesia, activa);
+}
+
+// El pastor guarda o cambia el nombre y la ubicacion de la iglesia activa
+// (sigue siendo la misma: conserva su id y sus datos)
+export function fijarIglesia(datos: Iglesia) {
+  const s = useStore.getState();
+  const iglesia = {
+    ...datos,
+    // las antiguas (sin uuid) reciben uno para poder subirse
+    id: esUuid(s.iglesia?.id) ? s.iglesia.id : nuevoUuid(),
+  };
+  const lista = listaIglesias(s);
+  const i = lista.findIndex((x) => misma(x, s.iglesia));
+  cambiar({
+    iglesia,
+    iglesias:
+      i >= 0
+        ? lista.map((x, k) => (k === i ? iglesia : x))
+        : [...lista, iglesia],
+  });
+  enFondo(subirIglesia(iglesia));
+}
+
+// El pastor suma otra iglesia: queda como la activa y parte vacia
+// (la primera se queda con lo que ya habia)
+export function agregarIglesia(datos: Iglesia) {
+  const iglesia = { ...datos, id: nuevoUuid() };
+  cambiar((s) => {
+    const iglesias = [...listaIglesias(s), iglesia];
+    return s.iglesia
+      ? { ...pasarA(s, iglesia), iglesias }
+      : { iglesia, iglesias };
+  });
+  enFondo(subirIglesia(iglesia));
+}
+
+// Cambia de iglesia: el mapa, los anuncios, el cronograma, las salas...
+export function elegirIglesia(iglesia: Iglesia) {
+  cambiar((s) => pasarA(s, iglesia));
+}
+
+// Quita una iglesia y lo suyo; si era la activa, pasa a la primera que queda
+export function quitarIglesia(iglesia: Iglesia) {
+  enFondo(borrarIglesia(iglesia.id));
+  cambiar((s) => {
+    const id = idIglesia(iglesia);
+    const iglesias = listaIglesias(s).filter((x) => !misma(x, iglesia));
+    const porIglesia = Object.fromEntries(
+      Object.entries(s.porIglesia ?? {}).filter(([k]) => k !== id),
+    );
+    if (!misma(s.iglesia, iglesia)) return { iglesias, porIglesia };
+    const siguiente = iglesias[0];
+    return {
+      iglesias,
+      porIglesia,
+      iglesia: siguiente,
+      ...vacios(),
+      ...(siguiente ? porIglesia[idIglesia(siguiente)] : undefined),
+    };
+  });
+}
+
+// Se unio con un codigo del servidor: suma esa iglesia (o vuelve a ella si
+// ya la tenia), la deja activa y entra a la sala del codigo
+export function unirseAIglesia(iglesia: Iglesia, grupo?: GrupoId) {
+  cambiar((s) => {
+    const lista = listaIglesias(s);
+    const ya = lista.some((x) => misma(x, iglesia));
+    const iglesias = ya
+      ? lista.map((x) => (misma(x, iglesia) ? iglesia : x))
+      : [...lista, iglesia];
+    const base = s.iglesia ? pasarA(s, iglesia) : { iglesia };
+    return { ...base, iglesias, grupo: grupo ?? base.grupo ?? s.grupo };
+  });
+}
+
+// Al abrir la app: trae del servidor las iglesias de esta persona y las
+// junta con las del telefono (las del servidor mandan en nombre y ubicacion)
+export async function sincronizarIglesias() {
+  const remotas = await misIglesias().catch((e) => {
+    console.warn("[supabase]", e?.message ?? e);
+    return null;
+  });
+  if (!remotas?.length) return;
+  cambiar((s) => {
+    let iglesias = listaIglesias(s);
+    for (const { iglesia } of remotas) {
+      iglesias = iglesias.some((x) => misma(x, iglesia))
+        ? iglesias.map((x) => (misma(x, iglesia) ? iglesia : x))
+        : [...iglesias, iglesia];
+    }
+    const activa =
+      iglesias.find((x) => misma(x, s.iglesia)) ?? s.iglesia ?? iglesias[0];
+    // sin activa (telefono nuevo): entra a la primera con su sala
+    const grupo = s.iglesia ? s.grupo : (remotas[0].sala ?? s.grupo);
+    return { iglesias, iglesia: activa, grupo };
+  });
 }
 
 // Un hermano se une con la invitacion del pastor: llega la iglesia (con la
@@ -347,6 +554,27 @@ const LETRAS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 // El pastor crea (o renueva) el codigo de la iglesia ("general") o de una
 // sala. Renovar invalida el anterior. Mock: luego lo generara el servidor
 export function generarCodigo(grupo: GrupoId) {
+  const iglesia = useStore.getState().iglesia;
+  if (esUuid(iglesia?.id)) {
+    // conectado: lo crea el servidor (unico entre todas las iglesias)
+    const id = iglesia.id;
+    crearCodigo(id, grupo)
+      .then((nuevo) => {
+        if (!nuevo) return generarCodigoLocal(grupo);
+        // solo si sigue en la misma iglesia
+        if (useStore.getState().iglesia?.id !== id) return;
+        cambiar((s) => ({ codigos: { ...s.codigos, [grupo]: nuevo } }));
+      })
+      .catch((e) => {
+        console.warn("[supabase]", e?.message ?? e);
+        generarCodigoLocal(grupo);
+      });
+    return;
+  }
+  generarCodigoLocal(grupo);
+}
+
+function generarCodigoLocal(grupo: GrupoId) {
   cambiar((s) => {
     const usados = Object.values(s.codigos).map((c) => c?.codigo);
     let codigo = "";

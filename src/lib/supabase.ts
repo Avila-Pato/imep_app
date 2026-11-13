@@ -1,0 +1,49 @@
+import "expo-sqlite/localStorage/install";
+import { createClient } from "@supabase/supabase-js";
+import { AppState } from "react-native";
+
+// Cliente de Supabase. Sin las variables de .env.local queda en null y la app
+// sigue funcionando solo con lo guardado en el telefono (modo de prueba)
+// solo https://xxxx.supabase.co: si se pego con /rest/v1/ u otra ruta, las
+// llamadas fallan con "Invalid path specified in request URL"
+const url =
+  process.env.EXPO_PUBLIC_SUPABASE_URL?.match(/^https?:\/\/[^/]+/)?.[0];
+const clave = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+
+export const supabase =
+  url && clave
+    ? createClient(url, clave, {
+        auth: {
+          storage: localStorage, // la sesion queda guardada en el telefono
+          autoRefreshToken: true,
+          persistSession: true,
+          detectSessionInUrl: false,
+        },
+      })
+    : null;
+
+// Renueva la sesion solo mientras la app esta abierta
+if (supabase) {
+  AppState.addEventListener("change", (estado) => {
+    if (estado === "active") supabase.auth.startAutoRefresh();
+    else supabase.auth.stopAutoRefresh();
+  });
+}
+
+// Mientras no haya cuentas (PasoCuenta), cada telefono entra como usuario
+// anonimo: asi las reglas RLS saben quien es. Luego se vincula a su email
+let entrando: Promise<string | null> | null = null;
+export function asegurarSesion(): Promise<string | null> {
+  if (!supabase) return Promise.resolve(null);
+  entrando ??= (async () => {
+    const { data } = await supabase.auth.getSession();
+    if (data.session) return data.session.user.id;
+    const { data: nueva, error } = await supabase.auth.signInAnonymously();
+    if (error) throw error;
+    return nueva.user?.id ?? null;
+  })().catch((e) => {
+    entrando = null; // reintenta la proxima vez
+    throw e;
+  });
+  return entrando;
+}

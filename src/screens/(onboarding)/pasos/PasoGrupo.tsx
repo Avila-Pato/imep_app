@@ -28,8 +28,8 @@ export default function PasoGrupo({ onSeguir }: { onSeguir: () => void }) {
   const { valida, grupo } = leerInvitacion(enlace, grupos, codigos);
   const nombreGrupo = grupos.find((g) => g.id === grupo)?.label;
 
-  const usar = () => {
-    if (!unirse(enlace)) return setError(true);
+  const usar = async () => {
+    if (!(await unirse(enlace))) return setError(true);
     onSeguir();
   };
 

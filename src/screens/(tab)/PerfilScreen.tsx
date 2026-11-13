@@ -34,6 +34,7 @@ import {
 } from "@/store/estudios";
 import { horaTurno } from "@/utils/cultos";
 import { unirTurnos } from "@/utils/turnos";
+import FontAwesome from "@expo/vector-icons/FontAwesome";
 import Octicons from "@expo/vector-icons/Octicons";
 import { Href, router } from "expo-router";
 import { useState } from "react";
@@ -103,6 +104,7 @@ export default function PerfilScreen() {
     meGustaTextos,
     avatar,
     portada,
+    cuenta,
   } = useEstudios();
   const esPastor = useEsPastor();
   const iglesia = useIglesia();
@@ -224,6 +226,15 @@ export default function PerfilScreen() {
             {!esPastor && miGrupo && ` · ${miGrupo.label}`}
           </Text>
           <Text style={styles.meta}>MIEMBRO DESDE {USUARIO.miembroDesde}</Text>
+          {/* la cuenta con la que entro */}
+          {cuenta && (
+            <View style={styles.cuenta}>
+              <FontAwesome name="google" size={11} color={MUTED} />
+              <Text style={styles.cuentaTexto} numberOfLines={1}>
+                {[cuenta.nombre, cuenta.correo].filter(Boolean).join(" · ")}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Pastor / secretaria: panel de administracion arriba */}
@@ -551,6 +562,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: MUTED,
     marginTop: 4,
+  },
+  cuenta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    maxWidth: "90%",
+    marginTop: SPACING / 2,
+  },
+  cuentaTexto: {
+    fontSize: 12,
+    color: MUTED,
   },
   meta: {
     fontSize: 10,

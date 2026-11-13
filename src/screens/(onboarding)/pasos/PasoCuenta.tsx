@@ -8,19 +8,52 @@ import {
 } from "@/constants/constans";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import Octicons from "@expo/vector-icons/Octicons";
+import { conectado } from "@/services/iglesias";
+import { entrarConGoogle, miCuenta } from "@/services/cuenta";
+import { conectarCuenta, sincronizarIglesias } from "@/store/estudios";
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { BotonPrincipal, estilosPaso, Paso, Subtitulo, Titulo } from "./ui";
 
 const correoValido = (c: string) => /^\S+@\S+\.\S+$/.test(c.trim());
 
-// Crear cuenta. Mock: todavia no hay backend, los tres caminos siguen al
-// proximo paso (luego: registro real, login con Google y modo invitado)
+// Crear cuenta. Google es real (Supabase): vincula la cuenta a lo que ya
+// hizo (sus iglesias, su rol). Correo e invitado aun siguen sin cuenta
 export default function PasoCuenta({ onSeguir }: { onSeguir: () => void }) {
+  const [conGoogle, setConGoogle] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [correo, setCorreo] = useState("");
   const [clave, setClave] = useState("");
   const [verClave, setVerClave] = useState(false);
   const listo = correoValido(correo) && clave.length >= 6;
+
+  const google = async () => {
+    // sin servidor (modo de prueba) sigue como antes
+    if (!conectado()) return onSeguir();
+    setError(null);
+    setConGoogle(true);
+    try {
+      if ((await entrarConGoogle()) === "cancelado") return;
+      // guarda la cuenta (nombre, correo y foto de Google) para el Perfil
+      const cuenta = await miCuenta();
+      if (cuenta) conectarCuenta(cuenta);
+      // si entro a una cuenta que ya existia, trae sus iglesias
+      await sincronizarIglesias();
+      onSeguir();
+    } catch (e) {
+      console.warn("[supabase]", (e as Error)?.message ?? e);
+      setError("No se pudo entrar con Google. Inténtalo de nuevo.");
+    } finally {
+      setConGoogle(false);
+    }
+  };
 
   return (
     <Paso>
@@ -87,12 +120,21 @@ export default function PasoCuenta({ onSeguir }: { onSeguir: () => void }) {
       </View>
 
       <Pressable
-        onPress={onSeguir}
-        style={({ pressed }) => [styles.google, pressed && styles.presionado]}
+        onPress={google}
+        disabled={conGoogle}
+        style={({ pressed }) => [
+          styles.google,
+          (pressed || conGoogle) && styles.presionado,
+        ]}
       >
-        <FontAwesome name="google" size={16} color={DARK_BG} />
+        {conGoogle ? (
+          <ActivityIndicator size="small" color="#121212" />
+        ) : (
+          <FontAwesome name="google" size={16} color={DARK_BG} />
+        )}
         <Text style={styles.googleTexto}>Continuar con Google</Text>
       </Pressable>
+      {error && <Text style={styles.error}>{error}</Text>}
 
       <Pressable
         onPress={onSeguir}
@@ -167,6 +209,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     color: "#121212",
+  },
+  error: {
+    fontSize: 13,
+    color: MUTED,
+    textAlign: "center",
   },
   invitado: {
     flexDirection: "row",

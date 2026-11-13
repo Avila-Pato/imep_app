@@ -10,6 +10,87 @@ import { elegirVersion, useVersion } from "@/store/estudios";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { BotonPrincipal, Paso, Subtitulo, Titulo } from "./ui";
 
+const VERSION_RECOMENDADA = "RV1960";
+const recomendada =
+  VERSIONES_BIBLIA.find((v) => v.id === VERSION_RECOMENDADA) ??
+  VERSIONES_BIBLIA[0];
+const otras = VERSIONES_BIBLIA.filter((v) => v.id !== recomendada.id);
+
+function Libro({
+  v,
+  activa,
+  recomendada = false,
+}: {
+  v: (typeof VERSIONES_BIBLIA)[number];
+  activa: boolean;
+  recomendada?: boolean;
+}) {
+  const p = PORTADAS[v.id];
+  return (
+    <Pressable
+      onPress={() => elegirVersion(v.id)}
+      style={[styles.libro, recomendada && styles.libroGrande]}
+      accessibilityRole="radio"
+      accessibilityState={{ selected: activa }}
+      accessibilityLabel={recomendada ? `${v.nombre}, recomendada` : v.nombre}
+    >
+      <View
+        style={[
+          styles.portada,
+          { backgroundColor: p.fondo },
+          activa && styles.portadaActiva,
+        ]}
+      >
+        {/* lomo del libro */}
+        <View style={styles.lomo} />
+        <View style={[styles.filete, { borderColor: p.letras }]}>
+          <Text
+            style={[
+              styles.santa,
+              recomendada && styles.santaGrande,
+              { color: p.letras },
+            ]}
+          >
+            SANTA BIBLIA
+          </Text>
+          <View
+            style={[
+              styles.cruz,
+              recomendada && styles.cruzGrande,
+              { backgroundColor: p.letras },
+            ]}
+          />
+          <View
+            style={[
+              styles.cruzBrazo,
+              recomendada && styles.cruzBrazoGrande,
+              { backgroundColor: p.letras },
+            ]}
+          />
+          <Text
+            style={[
+              styles.codigo,
+              recomendada && styles.codigoGrande,
+              { color: p.letras },
+            ]}
+          >
+            {v.id}
+          </Text>
+        </View>
+      </View>
+      <Text
+        style={[
+          styles.nombre,
+          recomendada && styles.nombreGrande,
+          activa && styles.nombreActivo,
+        ]}
+      >
+        {v.nombre}
+      </Text>
+    </Pressable>
+  );
+}
+
 // "Elige tu Biblia": las versiones como portadas de libro.
 // Elegir una cambia la version de toda la app
 export default function PasoVersiones({ onSeguir }: { onSeguir: () => void }) {
@@ -22,64 +103,44 @@ export default function PasoVersiones({ onSeguir }: { onSeguir: () => void }) {
         Lee en la versión que prefieras. Puedes cambiarla cuando quieras.
       </Subtitulo>
 
+      {/* la recomendada arriba y mas grande; las demas debajo */}
+      <View style={styles.estanteArriba}>
+        <Libro
+          v={recomendada}
+          activa={recomendada.id === version}
+          recomendada
+        />
+      </View>
       <View style={styles.estante}>
-        {VERSIONES_BIBLIA.map((v) => {
-          const activa = v.id === version;
-          const p = PORTADAS[v.id];
-          return (
-            <Pressable
-              key={v.id}
-              onPress={() => elegirVersion(v.id)}
-              style={styles.libro}
-              accessibilityRole="radio"
-              accessibilityState={{ selected: activa }}
-              accessibilityLabel={v.nombre}
-            >
-              <View
-                style={[
-                  styles.portada,
-                  { backgroundColor: p.fondo },
-                  activa && styles.portadaActiva,
-                ]}
-              >
-                {/* lomo del libro */}
-                <View style={styles.lomo} />
-                <View style={[styles.filete, { borderColor: p.letras }]}>
-                  <Text style={[styles.santa, { color: p.letras }]}>
-                    SANTA BIBLIA
-                  </Text>
-                  <View style={[styles.cruz, { backgroundColor: p.letras }]} />
-                  <View
-                    style={[styles.cruzBrazo, { backgroundColor: p.letras }]}
-                  />
-                  <Text style={[styles.codigo, { color: p.letras }]}>
-                    {v.id}
-                  </Text>
-                </View>
-              </View>
-              <Text style={[styles.nombre, activa && styles.nombreActivo]}>
-                {v.nombre}
-              </Text>
-            </Pressable>
-          );
-        })}
+        {otras.map((v) => (
+          <Libro key={v.id} v={v} activa={v.id === version} />
+        ))}
       </View>
     </Paso>
   );
 }
 
 const styles = StyleSheet.create({
+  estanteArriba: {
+    alignItems: "center",
+    marginTop: SPACING * 3,
+  },
   estante: {
     flexDirection: "row",
     justifyContent: "center",
-    gap: SPACING * 1.4,
-    marginTop: SPACING * 3,
+    gap: SPACING * 2.4,
+    marginTop: SPACING * 2.4,
   },
   libro: {
     flex: 1,
     maxWidth: 110,
     alignItems: "center",
     gap: SPACING,
+  },
+  libroGrande: {
+    flex: 0,
+    width: 150,
+    maxWidth: 150,
   },
   portada: {
     width: "100%",
@@ -123,11 +184,17 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
     textAlign: "center",
   },
+  santaGrande: {
+    fontSize: 12,
+  },
   // cruz dibujada con dos barras
   cruz: {
     width: 3,
     height: 26,
     borderRadius: 1,
+  },
+  cruzGrande: {
+    height: 36,
   },
   cruzBrazo: {
     position: "absolute",
@@ -136,16 +203,26 @@ const styles = StyleSheet.create({
     height: 3,
     borderRadius: 1,
   },
+  cruzBrazoGrande: {
+    width: 22,
+  },
   codigo: {
     fontFamily: FUENTE.semibold,
     fontSize: 10,
     letterSpacing: 1,
+  },
+  codigoGrande: {
+    fontSize: 13,
   },
   nombre: {
     fontSize: 11,
     lineHeight: 15,
     color: MUTED,
     textAlign: "center",
+  },
+  nombreGrande: {
+    fontSize: 13,
+    lineHeight: 17,
   },
   nombreActivo: {
     color: TEXT,
