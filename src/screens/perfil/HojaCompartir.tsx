@@ -5,6 +5,7 @@ import {
   FUENTE,
   LINEA,
   MUTED,
+  PRIMARY,
   SPACING,
   SURFACE,
   TEXT,
@@ -262,7 +263,7 @@ const styles = StyleSheet.create({
   },
   error: {
     fontSize: 12,
-    color: "#E5484D",
+    color: PRIMARY,
     textAlign: "center",
   },
 });

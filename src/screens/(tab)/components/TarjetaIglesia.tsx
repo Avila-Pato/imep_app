@@ -176,7 +176,8 @@ export default function TarjetaIglesia() {
                 PRÓXIMO CULTO · {culto.cuando.toUpperCase()}
               </Text>
               <Text style={styles.fichaLugar} numberOfLines={1}>
-                {culto.horario.nombre ?? iglesia.lugar}
+                {/* el nombre del culto, o de que iglesia es (no "Templo principal") */}
+                {culto.horario.nombre ?? `Culto en ${iglesia.sede}`}
               </Text>
             </View>
           </View>

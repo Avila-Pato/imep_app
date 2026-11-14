@@ -31,9 +31,9 @@ const PUNTOS: {
   {
     icono: "book",
     tono: TEXT,
-    titulo: "Capítulo",
+    titulo: "Capítulo completo",
     texto:
-      "Lee un capítulo de a un versículo, en orden. Toca el nombre del libro para elegir otro.",
+      "Arriba, «Capítulo completo» abre el capítulo del versículo que estás viendo, para leerlo entero.",
   },
   {
     icono: "heart-fill",
@@ -58,16 +58,16 @@ const PUNTOS: {
   {
     icono: "typography",
     tono: "#4C9AFF",
-    titulo: "Tamaño de letra",
+    titulo: "Tamaño y tipo de letra",
     texto:
-      "Arriba ajustas la letra. «Leer capítulo completo» vuelve a la lectura normal.",
+      "Con la barra A ── A agrandas o achicas la letra. Con «Aa Letra» eliges el tipo de letra: clásica, moderna, muy legible o de libro.",
   },
 ];
 
 // Explicacion de como funciona "versiculo por versiculo" (Para ti y Capitulo).
 // Sale solo la primera vez que se entra. Al cambiar lo que explica se cambia
 // el id, para que quien vio la anterior vea la nueva una vez
-const AYUDA = "versiculos-para-ti";
+const AYUDA = "versiculos-para-ti-2";
 
 export default function AyudaVersiculos() {
   const cargado = useCargado();

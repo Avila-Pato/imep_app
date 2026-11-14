@@ -10,7 +10,12 @@ import {
   LINEA,
   RADIO_BORDE,
 } from "@/constants/constans";
-import { useEsPastor, useEstudios, useGrupos } from "@/store/estudios";
+import {
+  useEsPastor,
+  useEstudios,
+  useGrupos,
+  useIglesia,
+} from "@/store/estudios";
 import { Grupo } from "@/types/typesComunidad";
 import { puedeVerSala } from "@/utils/peticiones";
 import Octicons from "@expo/vector-icons/Octicons";
@@ -28,6 +33,7 @@ export default function ElegirSala({
 }) {
   const { grupo: miGrupo } = useEstudios();
   const esPastor = useEsPastor();
+  const iglesia = useIglesia(); // la sala general lleva su nombre
   // las salas donde puede escribir (con el chat abierto)
   const salas = useGrupos().filter(
     (g) =>
@@ -75,7 +81,9 @@ export default function ElegirSala({
                       <Octicons name={g.icono} size={14} color={DARK_BG} />
                     </View>
                     <Text style={styles.nombre}>
-                      {g.id === "general" ? "Mi iglesia" : g.label}
+                      {g.id === "general"
+                        ? (iglesia?.sede ?? "Mi iglesia")
+                        : g.label}
                     </Text>
                     <Octicons name="chevron-right" size={16} color={MUTED} />
                   </Pressable>

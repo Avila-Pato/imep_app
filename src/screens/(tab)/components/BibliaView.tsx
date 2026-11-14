@@ -23,7 +23,15 @@ import BotonLetra from "@/screens/biblia/BotonLetra";
 import BotonVersion from "@/screens/biblia/BotonVersion";
 import SelectorLibro from "@/screens/biblia/SelectorLibro";
 import Octicons from "@expo/vector-icons/Octicons";
-import { ReactNode, useCallback, useEffect, useState } from "react";
+import {
+  ReactNode,
+  Ref,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   BackHandler,
@@ -75,6 +83,7 @@ function Pagina({ lado, children }: { lado: Lado; children: ReactNode }) {
 function VersoTexto({
   color,
   seleccionado,
+  onUbicar,
   onPress,
   style,
   tamano,
@@ -82,6 +91,8 @@ function VersoTexto({
 }: {
   color?: string;
   seleccionado?: boolean;
+  // el versiculo que se vino a leer: dice donde quedo (para bajar hasta el)
+  onUbicar?: (yEnPantalla: number) => void;
   onPress: () => void;
   style?: object;
   tamano?: { fontSize: number; lineHeight: number }; // letra elegida
@@ -89,9 +100,20 @@ function VersoTexto({
 }) {
   // letra elegida en Editar perfil (clasica o moderna)
   const fuente = useFuenteBiblia();
+  const caja = useRef<View>(null);
+  const avisado = useRef(false);
 
   return (
     <Pressable
+      ref={caja}
+      onLayout={() => {
+        if (!onUbicar || avisado.current) return;
+        avisado.current = true;
+        // se mide ya dibujado (en pantalla) para bajar justo hasta el
+        requestAnimationFrame(() =>
+          caja.current?.measureInWindow((_x, y) => onUbicar(y)),
+        );
+      }}
       onPress={onPress}
       style={[
         style,
@@ -132,6 +154,12 @@ type Props = {
   seleccion: SeleccionBiblia | null; // versiculos tocados
   onSeleccion: (s: SeleccionBiblia | null) => void;
   inicio?: { libro: number; capitulo: number }; // capitulo abierto al entrar
+  verso?: number; // versiculo a mostrar al entrar (viene de "Para ti")
+  onUbicarVerso?: (yEnPantalla: number) => void; // donde quedo ese versiculo
+  // el capitulo que se esta leyendo (null = en el indice): la barra fija
+  // "‹ Génesis 1 ›" de la pantalla lo muestra y cambia con ref.irCapitulo
+  onCapitulo?: (c: { libro: number; capitulo: number } | null) => void;
+  ref?: Ref<{ irCapitulo: (capitulo: number) => void }>;
 };
 
 // Biblia completa: libros -> capitulos -> lectura del capitulo
@@ -140,6 +168,10 @@ export default function BibliaView({
   seleccion,
   onSeleccion,
   inicio,
+  verso,
+  onUbicarVerso,
+  onCapitulo,
+  ref,
 }: Props) {
   const [libro, setLibro] = useState<number | null>(inicio?.libro ?? null); // 1..66
   const [capitulo, setCapitulo] = useState<number | null>(
@@ -161,6 +193,18 @@ export default function BibliaView({
     onSeleccion(null);
     onNavegar?.();
   };
+
+  // la barra fija de afuera: que capitulo se lee, y como cambiarlo
+  useEffect(() => {
+    onCapitulo?.(libro && capitulo ? { libro, capitulo } : null);
+  }, [libro, capitulo, onCapitulo]);
+  useImperativeHandle(ref, () => ({
+    irCapitulo: (c: number) => {
+      if (!libro || !capitulo) return;
+      if (c < 1 || c > CAPITULOS_BIBLIA[libro - 1]) return;
+      ir(libro, c, c > capitulo ? "izquierda" : "derecha");
+    },
+  }));
 
   // Volver un nivel: lectura -> capitulos -> indice (false = ya esta arriba)
   const volver = useCallback(() => {
@@ -203,6 +247,13 @@ export default function BibliaView({
         <Lectura
           libro={libro}
           capitulo={capitulo}
+          // solo en el capitulo con el que se entro
+          destacado={
+            inicio && libro === inicio.libro && capitulo === inicio.capitulo
+              ? verso
+              : undefined
+          }
+          onUbicarVerso={onUbicarVerso}
           onIr={(c) => ir(libro, c, c > capitulo ? "izquierda" : "derecha")}
           onElegir={(l, c) => ir(l, c)}
           seleccionados={
@@ -361,7 +412,11 @@ function Lectura({
   onElegir,
   seleccionados,
   onTocar,
+  destacado,
+  onUbicarVerso,
 }: {
+  destacado?: number; // versiculo que se vino a leer (marcado y a la vista)
+  onUbicarVerso?: (yEnPantalla: number) => void;
   onElegir: (libro: number, capitulo: number) => void; // otro libro / capitulo
   libro: number;
   capitulo: number;
@@ -455,7 +510,9 @@ function Lectura({
                 </Text>
                 <VersoTexto
                   color={colorDe(versos[0].numero)}
-                  seleccionado={marca(versos[0].numero)}
+                  seleccionado={
+                    marca(versos[0].numero) || versos[0].numero === destacado
+                  }
                   onPress={() => onTocar(versos[0])}
                   style={styles.flex}
                   tamano={tamano}
@@ -469,7 +526,8 @@ function Lectura({
                 <VersoTexto
                   key={v.numero}
                   color={colorDe(v.numero)}
-                  seleccionado={marca(v.numero)}
+                  seleccionado={marca(v.numero) || v.numero === destacado}
+                  onUbicar={v.numero === destacado ? onUbicarVerso : undefined}
                   onPress={() => onTocar(v)}
                   tamano={tamano}
                 >
@@ -488,39 +546,6 @@ function Lectura({
             — {capitulo} de {total} · {version} —
           </Text>
         </View>
-      </View>
-
-      {/* Navegacion entre capitulos: ‹ Génesis 1 › */}
-      <View style={styles.navegador}>
-        <Pressable
-          onPress={() => onIr(capitulo - 1)}
-          disabled={capitulo <= 1}
-          hitSlop={8}
-          style={({ pressed }) => [
-            styles.navBoton,
-            capitulo <= 1 && styles.navApagado,
-            pressed && styles.presionado,
-          ]}
-          accessibilityLabel="Capítulo anterior"
-        >
-          <Octicons name="chevron-left" size={18} color={TEXT} />
-        </Pressable>
-        <Text style={styles.navTexto}>
-          {nombre} {capitulo}
-        </Text>
-        <Pressable
-          onPress={() => onIr(capitulo + 1)}
-          disabled={capitulo >= total}
-          hitSlop={8}
-          style={({ pressed }) => [
-            styles.navBoton,
-            capitulo >= total && styles.navApagado,
-            pressed && styles.presionado,
-          ]}
-          accessibilityLabel="Capítulo siguiente"
-        >
-          <Octicons name="chevron-right" size={18} color={TEXT} />
-        </Pressable>
       </View>
     </View>
   );
@@ -634,8 +659,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  // al tocar: del color del tema (se ve en claro y en oscuro)
   capituloPresionado: {
-    backgroundColor: "rgba(237, 230, 218, 0.12)",
+    backgroundColor: primarioAlfa(0.16),
   },
   capituloTexto: {
     fontFamily: FUENTE.biblia,
@@ -817,30 +843,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: PRIMARY,
     opacity: 0.85,
-  },
-  navegador: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 6,
-    borderRadius: 999,
-    backgroundColor: SURFACE,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: BORDER,
-  },
-  navBoton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  navApagado: {
-    opacity: 0.25,
-  },
-  navTexto: {
-    fontFamily: FUENTE.semibold,
-    fontSize: 14,
-    color: TEXT,
   },
 });

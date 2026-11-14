@@ -165,12 +165,6 @@ export default function VersiculosScreen() {
   };
   const siguienteCapitulo = () => irCapitulo(libro, capitulo + 1);
   const [eligiendo, setEligiendo] = useState(false);
-  const cambiarModo = (m: Modo) => {
-    if (m === modo) return;
-    setActual(0);
-    setPaleta(false);
-    setModo(m);
-  };
 
   const lista: Item[] = paraTi
     ? feed.items.map((v) => ({
@@ -190,15 +184,17 @@ export default function VersiculosScreen() {
   const visto = lista[actual];
 
   // Lectura normal del capitulo que se esta viendo (vuelve a la pestaña Biblia).
-  // En "Para ti": el capitulo del versiculo de ahora
-  const leerCompleto = () =>
+  // En "Para ti": el capitulo del versiculo de ahora (y baja hasta el)
+  const leerCapitulo = (item?: Item) =>
     router.navigate({
       pathname: "/oraciones",
       params: {
-        libro: String(visto?.libro ?? libro),
-        capitulo: String(visto?.capitulo ?? capitulo),
+        libro: String(item?.libro ?? libro),
+        capitulo: String(item?.capitulo ?? capitulo),
+        ...(paraTi && item ? { verso: String(item.verso.numero) } : {}),
       },
     } as Href);
+  const leerCompleto = () => leerCapitulo(visto);
 
   const progreso = lista.length ? (actual + 1) / lista.length : 0;
   const cargandoLista = paraTi ? !feed.items.length && !feed.error : cargando;
@@ -206,45 +202,25 @@ export default function VersiculosScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      {/* Cabecera: Para ti / Capitulo, y el libro (en Capitulo) y la version */}
+      {/* Cabecera: (en capitulo) el libro, la version y leer el capitulo */}
       <View style={styles.cabecera}>
-        <View style={styles.cabeceraCentro}>
-          <View style={styles.modos}>
-            {(
-              [
-                ["paraTi", "Para ti"],
-                ["capitulo", "Capítulo"],
-              ] as const
-            ).map(([id, label]) => (
-              <Pressable
-                key={id}
-                onPress={() => cambiarModo(id)}
-                hitSlop={6}
-                style={styles.modoBoton}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: modo === id }}
-              >
-                <Text style={[styles.modo, modo === id && styles.modoActivo]}>
-                  {label}
-                </Text>
-                <View
-                  style={[
-                    styles.modoLinea,
-                    modo === id && styles.modoLineaActiva,
-                  ]}
-                />
-              </Pressable>
-            ))}
-          </View>
-          <View style={styles.titulos}>
-            {!paraTi && (
-              <BotonLibro
-                titulo={`${nombre} ${capitulo}`}
-                onPress={() => setEligiendo(true)}
-              />
-            )}
-            <BotonVersion />
-          </View>
+        <View style={styles.titulos}>
+          {!paraTi && (
+            <BotonLibro
+              titulo={`${nombre} ${capitulo}`}
+              onPress={() => setEligiendo(true)}
+            />
+          )}
+          <BotonVersion />
+          <Pressable
+            onPress={leerCompleto}
+            hitSlop={6}
+            style={({ pressed }) => [styles.leer, pressed && styles.presionado]}
+            accessibilityLabel="Leer el capítulo completo"
+          >
+            <Octicons name="list-unordered" size={13} color={TEXT} />
+            <Text style={styles.leerTexto}>Capítulo completo</Text>
+          </Pressable>
         </View>
       </View>
       {/* Progreso del capitulo: barra + "3/25" */}
@@ -263,20 +239,10 @@ export default function VersiculosScreen() {
         </View>
       )}
 
-      {/* Leer el capitulo normal y tamaño de letra */}
+      {/* Tamaño y tipo de letra: su propia fila, a lo ancho */}
       <View style={styles.herramientas}>
-        <Pressable
-          onPress={leerCompleto}
-          hitSlop={6}
-          style={({ pressed }) => [styles.leer, pressed && styles.presionado]}
-        >
-          <Octicons name="list-unordered" size={13} color={TEXT} />
-          <Text style={styles.leerTexto}>Leer capítulo completo</Text>
-        </Pressable>
-        <View style={styles.letra}>
-          <TamanoLetra />
-          <BotonLetra />
-        </View>
+        <TamanoLetra />
+        <BotonLetra />
       </View>
 
       <View
@@ -340,6 +306,8 @@ export default function VersiculosScreen() {
                 onPaleta={() => setPaleta((p) => !p)}
                 onAviso={setAviso}
                 onOrar={() => setOrando(item)}
+                // Para ti: seguir leyendo ese capitulo desde este versiculo
+                onLeerMas={paraTi ? () => leerCapitulo(item) : undefined}
                 onSiguiente={siguienteCapitulo}
               />
             )}
@@ -435,6 +403,7 @@ type PaginaProps = {
   onAviso: (texto: string) => void;
   onOrar: () => void;
   onSiguiente: () => void;
+  onLeerMas?: () => void; // "Leer Juan 3 completo"
 };
 
 // Una pantalla: el versiculo grande al centro y las acciones abajo
@@ -452,6 +421,7 @@ function Pagina({
   onAviso,
   onOrar,
   onSiguiente,
+  onLeerMas,
 }: PaginaProps) {
   const {
     resaltados,
@@ -573,6 +543,23 @@ function Pagina({
           )}
           <Text style={styles.cita}>{cita}</Text>
         </View>
+        {/* seguir leyendo: abre el capitulo en este versiculo */}
+        {onLeerMas && (
+          <Pressable
+            onPress={onLeerMas}
+            hitSlop={8}
+            style={({ pressed }) => [
+              styles.leerMas,
+              pressed && styles.presionado,
+            ]}
+            accessibilityLabel={`Leer ${LIBROS_BIBLIA[libro - 1]} ${capitulo} completo`}
+          >
+            <Text style={styles.leerMasTexto}>
+              Leer {LIBROS_BIBLIA[libro - 1]} {capitulo} completo
+            </Text>
+            <Octicons name="chevron-right" size={13} color={TEXT} />
+          </Pressable>
+        )}
         {corazones.map((k) => (
           <CorazonMeGusta key={k.id} x={k.x} y={k.y} giro={k.giro} />
         ))}
@@ -693,43 +680,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING * 2,
     paddingVertical: SPACING,
   },
-  cabeceraCentro: {
-    flex: 1,
-    alignItems: "center",
-    gap: 6,
-  },
-  modos: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: SPACING * 2.4,
-  },
-  modoBoton: {
-    alignItems: "center",
-    gap: 5,
-  },
-  modo: {
-    fontFamily: FUENTE.semibold,
-    fontSize: 15,
-    color: MUTED,
-  },
-  modoActivo: {
-    color: TEXT,
-  },
-  modoLinea: {
-    width: 22,
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: "transparent",
-  },
-  modoLineaActiva: {
-    backgroundColor: TEXT,
-  },
-  eyebrow: {
-    fontFamily: FUENTE.semibold,
-    fontSize: 10,
-    letterSpacing: 2.4,
-    color: MUTED,
-  },
   progreso: {
     flexDirection: "row",
     alignItems: "center",
@@ -768,6 +718,22 @@ const styles = StyleSheet.create({
     fontFamily: FUENTE.biblia,
     color: TEXT,
     textAlign: "center",
+  },
+  leerMas: {
+    flexDirection: "row",
+    alignSelf: "center",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: BORDER,
+  },
+  leerMasTexto: {
+    fontFamily: FUENTE.semibold,
+    fontSize: 12,
+    color: TEXT,
   },
   citaFila: {
     flexDirection: "row",
@@ -850,19 +816,15 @@ const styles = StyleSheet.create({
   },
   titulos: {
     flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-  },
-  letra: {
-    flexDirection: "row",
-    alignItems: "center",
     gap: 8,
   },
   herramientas: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "center",
     gap: SPACING,
     paddingHorizontal: SPACING * 2,
     paddingTop: SPACING,

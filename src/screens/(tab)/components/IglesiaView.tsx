@@ -15,6 +15,7 @@ import {
   useEstudios,
   useGrupos,
   usePuede,
+  useNombreIglesiaSiVarias,
 } from "@/store/estudios";
 import { Grupo } from "@/types/typesComunidad";
 import { useUnirse } from "@/hooks/useUnirse";
@@ -95,6 +96,8 @@ function SalaAbierta({
 
 // Salas: la iglesia, la sala de tu grupo y el resto (solo con invitacion)
 export default function IglesiaView() {
+  // nombre de la iglesia activa (solo si tiene varias)
+  const nombreVarias = useNombreIglesiaSiVarias();
   const {
     mensajes,
     vistos,
@@ -172,13 +175,44 @@ export default function IglesiaView() {
           Somos <Text style={styles.cursiva}>una iglesia</Text>
         </Text>
         <Text style={styles.sub}>Entra a una sala para conversar y orar.</Text>
+        {/* con varias iglesias: de cual son estas salas */}
+        {!!nombreVarias && (
+          <View style={styles.deIglesia}>
+            <Octicons name="home" size={12} color={TEXT} />
+            <Text style={styles.deIglesiaTexto} numberOfLines={1}>
+              Salas de {nombreVarias}
+            </Text>
+          </View>
+        )}
       </View>
+
+      {/* El pastor: crear una sala nueva, bien a la vista */}
+      {esPastor && !sinIglesia && (
+        <Pressable
+          onPress={() => setCreando(true)}
+          style={({ pressed }) => [styles.crear, pressed && styles.presionado]}
+          accessibilityLabel="Crear una sala nueva"
+        >
+          <View style={styles.crearIcono}>
+            <Octicons name="plus" size={20} color="#FFFFFF" />
+          </View>
+          <View style={styles.flex}>
+            <Text style={styles.crearTitulo}>Crear una sala nueva</Text>
+            <Text style={styles.crearTexto}>
+              Para jóvenes, damas, varones, alabanza… con su chat y su muro de
+              oración
+            </Text>
+          </View>
+          <Octicons name="chevron-right" size={16} color={MUTED} />
+        </Pressable>
+      )}
 
       {/* Salas a las que tiene acceso */}
       <View style={styles.bloque}>
         <Text style={styles.seccion}>TUS SALAS</Text>
         <SalaAbierta
-          titulo="Mi iglesia"
+          // el nombre de su iglesia (si aun no se une: "Mi iglesia")
+          titulo={miIglesia?.sede ?? "Mi iglesia"}
           meta={
             sinIglesia
               ? "Aún no te has unido a una iglesia"
@@ -308,20 +342,8 @@ export default function IglesiaView() {
         <View style={styles.seccionFila}>
           <Text style={styles.seccion}>
             {esPastor ? "TODAS LAS SALAS" : "OTROS GRUPOS"}
+            {nombreVarias ? ` · ${nombreVarias.toUpperCase()}` : ""}
           </Text>
-          {esPastor && (
-            <Pressable
-              onPress={() => setCreando(true)}
-              hitSlop={8}
-              style={({ pressed }) => [
-                styles.nueva,
-                pressed && styles.presionado,
-              ]}
-            >
-              <Octicons name="plus" size={12} color={DARK_BG} />
-              <Text style={styles.nuevaTexto}>Nueva sala</Text>
-            </Pressable>
-          )}
         </View>
         <View style={styles.lista}>
           {otras.map((g, i) => (
@@ -381,6 +403,53 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+  },
+  deIglesia: {
+    flexDirection: "row",
+    alignSelf: "flex-start",
+    alignItems: "center",
+    gap: 6,
+    marginTop: SPACING * 0.8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: BORDER,
+  },
+  deIglesiaTexto: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: TEXT,
+  },
+  crear: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING * 1.2,
+    padding: SPACING * 1.4,
+    borderRadius: 18,
+    backgroundColor: SURFACE,
+    borderWidth: 1.5,
+    borderColor: PRIMARY,
+    borderStyle: "dashed",
+  },
+  crearIcono: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: PRIMARY,
+  },
+  crearTitulo: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: TEXT,
+  },
+  crearTexto: {
+    marginTop: 2,
+    fontSize: 12,
+    lineHeight: 17,
+    color: MUTED,
   },
   nueva: {
     flexDirection: "row",

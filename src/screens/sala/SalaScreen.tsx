@@ -14,6 +14,7 @@ import {
   useEsLider,
   useGrupos,
   usePuede,
+  useIglesia,
 } from "@/store/estudios";
 import { puedeVerSala } from "@/utils/peticiones";
 import { GrupoId } from "@/types/typesComunidad";
@@ -53,6 +54,7 @@ const VISTAS: { id: Vista; label: string }[] = [
 ];
 
 export default function SalaScreen() {
+  const iglesiaActiva = useIglesia();
   const params = useLocalSearchParams<{ id: GrupoId; vista?: Vista }>();
   const grupos = useGrupos(); // incluye las salas que creo el pastor
   const grupo = grupos.find((g) => g.id === params.id) ?? grupos[0];
@@ -109,7 +111,12 @@ export default function SalaScreen() {
           <Octicons name={grupo.icono} size={18} color={TEXT} />
         </View>
         <Pressable style={styles.flex} onPress={() => setVista("miembros")}>
-          <Text style={styles.nombre}>{grupo.label}</Text>
+          {/* la sala de todos lleva el nombre de la iglesia */}
+          <Text style={styles.nombre} numberOfLines={1}>
+            {grupo.id === "general"
+              ? (iglesiaActiva?.sede ?? grupo.label)
+              : grupo.label}
+          </Text>
           <Text style={styles.sub}>
             {cantidad} miembros ·{" "}
             {grupo.lider ? `Líder: ${grupo.lider}` : grupo.descripcion}

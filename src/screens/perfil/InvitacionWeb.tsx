@@ -10,7 +10,11 @@ import {
   TEXT,
 } from "@/constants/constans";
 import { extraerCodigo } from "@/services/iglesias";
-import { codigoVisible, PLAY_STORE } from "@/utils/invitacion";
+import {
+  codigoVisible,
+  DESCARGA_ANDROID,
+  EN_PLAY_STORE,
+} from "@/utils/invitacion";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import Octicons from "@expo/vector-icons/Octicons";
 import * as Clipboard from "expo-clipboard";
@@ -33,9 +37,9 @@ export default function InvitacionWeb() {
   const abrirApp = () => {
     if (!codigo) return;
     const android = /android/i.test(navigator.userAgent);
-    // Android: abre la app si esta; si no, va a Google Play
+    // Android: abre la app si esta; si no, la descarga (Google Play o el APK)
     const url = android
-      ? `intent://unirse/${codigo}#Intent;scheme=congrega;package=com.avilapato.congrega;S.browser_fallback_url=${encodeURIComponent(PLAY_STORE)};end`
+      ? `intent://unirse/${codigo}#Intent;scheme=congrega;package=com.avilapato.congrega;S.browser_fallback_url=${encodeURIComponent(DESCARGA_ANDROID)};end`
       : `congrega://unirse/${codigo}`;
     window.location.href = url;
   };
@@ -90,15 +94,21 @@ export default function InvitacionWeb() {
             </Pressable>
 
             <Pressable
-              onPress={() => Linking.openURL(PLAY_STORE)}
+              onPress={() => Linking.openURL(DESCARGA_ANDROID)}
               style={({ pressed }) => [
                 styles.botonSecundario,
                 pressed && styles.presionado,
               ]}
             >
-              <FontAwesome name="play" size={13} color={TEXT} />
+              <FontAwesome
+                name={EN_PLAY_STORE ? "play" : "android"}
+                size={13}
+                color={TEXT}
+              />
               <Text style={styles.botonSecundarioTexto}>
-                Descargar en Google Play
+                {EN_PLAY_STORE
+                  ? "Descargar en Google Play"
+                  : "Descargar la app (Android)"}
               </Text>
             </Pressable>
 

@@ -173,11 +173,6 @@ export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
             icono: "pencil" as IconName,
             onPress: () => setEscribiendo(true),
           },
-          {
-            label: "Anuncios",
-            icono: "megaphone" as IconName,
-            onPress: () => router.push("/gestion/anuncios" as Href),
-          },
         ]
       : []),
     ...(puedeRoles
@@ -195,11 +190,6 @@ export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
             label: "Salas",
             icono: "comment-discussion" as IconName,
             onPress: () => router.push("/gestion/salas" as Href),
-          },
-          {
-            label: "Nueva sala",
-            icono: "plus" as IconName,
-            onPress: () => setCreandoSala(true),
           },
           {
             label: "Ubicación",

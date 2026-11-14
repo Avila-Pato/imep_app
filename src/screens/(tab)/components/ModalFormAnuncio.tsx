@@ -11,7 +11,13 @@ import {
   PLACEHOLDER,
   LINEA,
 } from "@/constants/constans";
-import { guardarAnuncio, useEstudios } from "@/store/estudios";
+import {
+  guardarAnuncio,
+  useEsPastor,
+  useEstudios,
+  useIglesia,
+  useIglesias,
+} from "@/store/estudios";
 import { Anuncio } from "@/types/typesAnuncios";
 import Octicons from "@expo/vector-icons/Octicons";
 import { Image } from "expo-image";
@@ -72,6 +78,12 @@ export default function ModalFormAnuncio({ anuncio, autor, onCerrar }: Props) {
   );
   // categorias: Eventos + las que ya uso la iglesia + las nuevas de ahora
   const { anuncios } = useEstudios();
+  // pastor con varias iglesias (anuncio nuevo): en esta o en todas
+  const esPastor = useEsPastor();
+  const activa = useIglesia();
+  const otras = useIglesias().filter((i) => !!i.id && i.id !== activa?.id);
+  const elegirDonde = esPastor && !anuncio && otras.length > 0;
+  const [enTodas, setEnTodas] = useState(false);
   const [nuevas, setNuevas] = useState<string[]>([]);
   const opciones = [
     ...new Set([
@@ -147,20 +159,23 @@ export default function ModalFormAnuncio({ anuncio, autor, onCerrar }: Props) {
 
   const publicar = () => {
     if (!listo) return;
-    guardarAnuncio({
-      id: anuncio?.id,
-      // si escribio una categoria nueva y no toco "Agregar", se usa esa
-      categoria: creando && categoriaLista ? nombreNueva : categoria,
-      titulo: titulo.trim(),
-      descripcion: descripcion.trim(),
-      fecha,
-      hora: conHora ? hora : undefined,
-      lugar: lugar.trim() || undefined,
-      detalle: detalle.trim() || undefined,
-      imagen,
-      imagenAspecto: imagen ? aspecto : undefined,
-      autor: anuncio?.autor ?? autor,
-    });
+    guardarAnuncio(
+      {
+        id: anuncio?.id,
+        // si escribio una categoria nueva y no toco "Agregar", se usa esa
+        categoria: creando && categoriaLista ? nombreNueva : categoria,
+        titulo: titulo.trim(),
+        descripcion: descripcion.trim(),
+        fecha,
+        hora: conHora ? hora : undefined,
+        lugar: lugar.trim() || undefined,
+        detalle: detalle.trim() || undefined,
+        imagen,
+        imagenAspecto: imagen ? aspecto : undefined,
+        autor: anuncio?.autor ?? autor,
+      },
+      elegirDonde && enTodas ? otras : [],
+    );
     onCerrar();
   };
 
@@ -263,6 +278,49 @@ export default function ModalFormAnuncio({ anuncio, autor, onCerrar }: Props) {
                         imagen.
                       </Text>
                     </Pressable>
+                  )}
+
+                  {/* En que iglesia se publica (pastor con varias) */}
+                  {elegirDonde && (
+                    <>
+                      <Text style={styles.etiqueta}>¿DÓNDE SE PUBLICA?</Text>
+                      <View style={styles.chips}>
+                        {[
+                          {
+                            todas: false,
+                            texto: `Solo en ${activa?.sede ?? "esta iglesia"}`,
+                          },
+                          {
+                            todas: true,
+                            texto: `En todas mis iglesias (${otras.length + 1})`,
+                          },
+                        ].map((o) => {
+                          const activo = o.todas === enTodas;
+                          return (
+                            <Pressable
+                              key={String(o.todas)}
+                              onPress={() => setEnTodas(o.todas)}
+                              style={[styles.chip, activo && styles.chipActivo]}
+                              accessibilityState={{ selected: activo }}
+                            >
+                              <Octicons
+                                name={o.todas ? "globe" : "home"}
+                                size={13}
+                                color={activo ? DARK_BG : MUTED}
+                              />
+                              <Text
+                                style={[
+                                  styles.chipTexto,
+                                  activo && styles.chipTextoActivo,
+                                ]}
+                              >
+                                {o.texto}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </>
                   )}
 
                   {/* Para quien es */}

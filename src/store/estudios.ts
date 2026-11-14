@@ -766,6 +766,18 @@ export function fijarIglesia(datos: Iglesia) {
   subir(iglesia);
 }
 
+// El pastor cambia una de sus iglesias (nombre, ubicacion, logo) sin
+// cambiar cual esta activa
+export function actualizarIglesia(id: string, datos: Iglesia) {
+  const s = useStore.getState();
+  if (s.iglesia?.id === id) return fijarIglesia(datos);
+  const iglesia = { ...datos, id };
+  cambiar({
+    iglesias: listaIglesias(s).map((x) => (x.id === id ? iglesia : x)),
+  });
+  subir(iglesia);
+}
+
 // El pastor suma otra iglesia: queda como la activa y parte vacia
 // (la primera se queda con lo que ya habia)
 export function agregarIglesia(datos: Iglesia) {
@@ -1562,7 +1574,13 @@ export function resaltar(claves: string[], color: string | null) {
 // Luego esto lo guardara la API para que lo vea toda la iglesia.
 // Publica un anuncio nuevo o guarda los cambios de uno existente
 // (y lo sube: si es nuevo, avisa por push a toda la iglesia)
-export function guardarAnuncio(a: Omit<Anuncio, "id"> & { id?: string }) {
+export function guardarAnuncio(
+  a: Omit<Anuncio, "id"> & { id?: string },
+  // el pastor con varias iglesias: tambien se publica en estas (una copia
+  // en cada una, cada iglesia recibe su aviso). Solo al crear
+  otras: Iglesia[] = [],
+) {
+  publicarEnOtras(a, otras);
   const s = useStore.getState();
   const existe = !!a.id && s.anuncios.some((x) => x.id === a.id);
   const anuncio: Anuncio = { ...a, id: existe ? a.id! : nuevoUuid() };
@@ -1576,6 +1594,36 @@ export function guardarAnuncio(a: Omit<Anuncio, "id"> & { id?: string }) {
   const iglesiaId = s.iglesia?.id;
   if (!conectado() || !esUuid(iglesiaId)) return;
   subirAnuncioConEstado(iglesiaId, anuncio, !existe);
+}
+
+// Copia de un anuncio NUEVO en otras iglesias del pastor (no la activa)
+function publicarEnOtras(
+  a: Omit<Anuncio, "id"> & { id?: string },
+  otras: Iglesia[],
+) {
+  const s = useStore.getState();
+  if (a.id && s.anuncios.some((x) => x.id === a.id)) return; // editando
+  for (const otra of otras) {
+    if (misma(otra, s.iglesia)) continue;
+    const copia: Anuncio = { ...a, id: nuevoUuid() };
+    const k = idIglesia(otra);
+    cambiar((st) => {
+      const datos = st.porIglesia?.[k] ?? {};
+      return {
+        porIglesia: {
+          ...st.porIglesia,
+          [k]: {
+            ...datos,
+            anuncios: [copia, ...(datos.anuncios ?? [])],
+            // lo publico esta persona: a ella no se le avisa
+            anunciosAvisados: [...(datos.anunciosAvisados ?? []), copia.id],
+          },
+        },
+      };
+    });
+    if (conectado() && esUuid(otra.id))
+      subirAnuncioConEstado(otra.id, copia, true);
+  }
 }
 
 // ───────────── Estado de las subidas ─────────────

@@ -1,5 +1,6 @@
 import {
   BORDER,
+  DARK_BG,
   FUENTE,
   MUTED,
   SPACING,
@@ -7,7 +8,14 @@ import {
   TEXT,
   LINEA,
 } from "@/constants/constans";
-import { agregarIglesia, fijarIglesia, useIglesia } from "@/store/estudios";
+import {
+  actualizarIglesia,
+  agregarIglesia,
+  fijarIglesia,
+  useIglesia,
+  useIglesias,
+} from "@/store/estudios";
+import { useState } from "react";
 import Octicons from "@expo/vector-icons/Octicons";
 import {
   KeyboardAvoidingView,
@@ -33,7 +41,13 @@ export default function ModalIglesia({
   nueva?: boolean;
 }) {
   const actual = useIglesia();
-  const iglesia = nueva ? undefined : actual;
+  // con varias iglesias: cual se esta editando (parte en la activa)
+  const todas = useIglesias().filter((i) => !!i.id);
+  const [elegidaId, setElegidaId] = useState<string | undefined>();
+  const elegida =
+    todas.find((i) => i.id === (elegidaId ?? actual?.id)) ?? actual;
+  const iglesia = nueva ? undefined : elegida;
+  const varias = !nueva && todas.length > 1;
 
   return (
     <Modal
@@ -82,14 +96,46 @@ export default function ModalIglesia({
                       <Octicons name="x" size={18} color={MUTED} />
                     </Pressable>
                   </View>
-                  {/* key: al abrir de nuevo parte con lo guardado */}
+                  {/* con varias: cual iglesia se cambia */}
+                  {varias && (
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.chips}
+                    >
+                      {todas.map((i) => {
+                        const activo = i.id === iglesia?.id;
+                        return (
+                          <Pressable
+                            key={i.id}
+                            onPress={() => setElegidaId(i.id)}
+                            style={[styles.chip, activo && styles.chipActivo]}
+                            accessibilityState={{ selected: activo }}
+                          >
+                            <Text
+                              style={[
+                                styles.chipTexto,
+                                activo && styles.chipTextoActivo,
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {i.sede}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </ScrollView>
+                  )}
+                  {/* key: al abrir de nuevo (o cambiar de iglesia) parte con lo guardado */}
                   <FormIglesia
-                    key={String(visible)}
+                    key={`${visible}-${iglesia?.id ?? "nueva"}`}
                     inicial={iglesia}
                     textoBoton="Guardar"
                     onGuardar={(i) => {
                       if (nueva) agregarIglesia(i);
+                      else if (iglesia?.id) actualizarIglesia(iglesia.id, i);
                       else fijarIglesia(i);
+                      setElegidaId(undefined);
                       onCerrar();
                     }}
                   />
@@ -104,6 +150,29 @@ export default function ModalIglesia({
 }
 
 const styles = StyleSheet.create({
+  chips: {
+    gap: 6,
+  },
+  chip: {
+    height: 34,
+    paddingHorizontal: 14,
+    borderRadius: 17,
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: BORDER,
+  },
+  chipActivo: {
+    backgroundColor: TEXT,
+    borderColor: TEXT,
+  },
+  chipTexto: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: TEXT,
+  },
+  chipTextoActivo: {
+    color: DARK_BG,
+  },
   fondo: {
     ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(0,0,0,0.55)",

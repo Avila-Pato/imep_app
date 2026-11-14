@@ -72,3 +72,9 @@ export const enlaceDeCodigo = (codigo: string) => {
 };
 export const PLAY_STORE =
   "https://play.google.com/store/apps/details?id=com.avilapato.congrega";
+// Mientras la app no este en Google Play: el APK de EAS (variable
+// EXPO_PUBLIC_DESCARGA_ANDROID). Al publicar, se borra la variable y vuelve
+// a Google Play solo
+const APK = process.env.EXPO_PUBLIC_DESCARGA_ANDROID;
+export const DESCARGA_ANDROID = APK || PLAY_STORE;
+export const EN_PLAY_STORE = !APK;
