@@ -10,7 +10,12 @@ import FontAwesome from "@expo/vector-icons/FontAwesome";
 import Octicons from "@expo/vector-icons/Octicons";
 import { conectado } from "@/services/iglesias";
 import { entrarConGoogle, miCuenta } from "@/services/cuenta";
-import { conectarCuenta, sincronizarIglesias } from "@/store/estudios";
+import AvatarPersona from "@/components/AvatarPersona";
+import {
+  conectarCuenta,
+  sincronizarIglesias,
+  useEstudios,
+} from "@/store/estudios";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -33,6 +38,8 @@ export default function PasoCuenta({ onSeguir }: { onSeguir: () => void }) {
   const [clave, setClave] = useState("");
   const [verClave, setVerClave] = useState(false);
   const listo = correoValido(correo) && clave.length >= 6;
+  // ya entro con Google antes: no se le pide crear otra cuenta
+  const { cuenta } = useEstudios();
 
   const google = async () => {
     // sin servidor (modo de prueba) sigue como antes
@@ -55,11 +62,42 @@ export default function PasoCuenta({ onSeguir }: { onSeguir: () => void }) {
     }
   };
 
+  if (cuenta) {
+    return (
+      <Paso>
+        <Titulo texto="Tu cuenta está " destacado="lista." centrado />
+        <Subtitulo centrado>
+          Tu progreso y tu iglesia quedan guardados en tu cuenta de Google.
+        </Subtitulo>
+        <View style={styles.conectada}>
+          <AvatarPersona
+            nombre={cuenta.nombre ?? cuenta.correo ?? "Tú"}
+            avatar={
+              cuenta.foto ? { tipo: "foto", uri: cuenta.foto } : undefined
+            }
+            tamano={72}
+          />
+          {!!cuenta.nombre && (
+            <Text style={styles.conectadaNombre}>{cuenta.nombre}</Text>
+          )}
+          <View style={styles.conectadaFila}>
+            <FontAwesome name="google" size={13} color={MUTED} />
+            <Text style={styles.conectadaCorreo}>
+              {cuenta.correo ?? "Conectada con Google"}
+            </Text>
+          </View>
+        </View>
+        <BotonPrincipal texto="Continuar" onPress={onSeguir} />
+      </Paso>
+    );
+  }
+
   return (
     <Paso>
       <Titulo texto="Crea tu " destacado="cuenta." centrado />
       <Subtitulo centrado>
-        Guarda tu progreso y mantente conectado con tu iglesia.
+        Guarda tu progreso y mantente conectado con tu iglesia. ¿Ya tienes
+        cuenta? Entra con Google y recuperas todo.
       </Subtitulo>
 
       <View style={styles.campos}>
@@ -141,8 +179,8 @@ export default function PasoCuenta({ onSeguir }: { onSeguir: () => void }) {
         hitSlop={8}
         style={({ pressed }) => [styles.invitado, pressed && styles.presionado]}
       >
-        <Octicons name="person" size={15} color={MUTED} />
-        <Text style={styles.invitadoTexto}>Entrar como invitado</Text>
+        <Octicons name="clock" size={15} color={MUTED} />
+        <Text style={styles.invitadoTexto}>Crear mi cuenta después</Text>
       </Pressable>
     </Paso>
   );
@@ -214,6 +252,25 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: MUTED,
     textAlign: "center",
+  },
+  conectada: {
+    alignItems: "center",
+    gap: 8,
+    marginVertical: SPACING * 3,
+  },
+  conectadaNombre: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: TEXT,
+  },
+  conectadaFila: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  conectadaCorreo: {
+    fontSize: 14,
+    color: MUTED,
   },
   invitado: {
     flexDirection: "row",

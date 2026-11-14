@@ -205,7 +205,7 @@ export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
       message:
         `Únete a ${iglesia?.sede ?? "nuestra iglesia"}${sala ? ` (sala ${sala})` : ""} en la app:\n` +
         `${enlaceDeCodigo(codigo)}\n\n` +
-        `O escribe el código ${codigoVisible(codigo)} en Perfil → Tengo un código.`,
+        `Tu código de invitación es: ${codigoVisible(codigo)}`,
     }).catch(() => {});
 
   return (

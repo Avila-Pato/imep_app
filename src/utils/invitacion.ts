@@ -53,8 +53,9 @@ export function leerInvitacion(
   return { valida, grupo };
 }
 
-// Como se muestra y comparte un codigo
-export const codigoVisible = (codigo: string) => `CONGREGA-${codigo}`;
+// Como se muestra y comparte un codigo: solo sus 4 letras (lo que se escribe).
+// Los codigos viejos "CONGREGA-4K7Q" igual se aceptan al pegarlos
+export const codigoVisible = (codigo: string) => codigo;
 // Enlace web: se puede tocar en WhatsApp. Con la app instalada, Android la
 // abre directo (App Links); sin la app, muestra la pagina para descargarla
 export const SITIO = "https://congrega.expo.app";

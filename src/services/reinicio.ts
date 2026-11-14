@@ -1,3 +1,4 @@
+import { salirGoogleNativo } from "./googleNativo";
 import { supabase } from "@/lib/supabase";
 
 // "Reiniciar la app" tambien borra lo del servidor (si no, al abrir la app
@@ -37,4 +38,5 @@ export async function borrarDelServidor() {
   if (e3) throw e3;
 
   await supabase.auth.signOut();
+  await salirGoogleNativo();
 }

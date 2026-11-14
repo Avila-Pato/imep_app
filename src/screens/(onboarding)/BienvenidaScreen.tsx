@@ -166,7 +166,10 @@ const styles = StyleSheet.create({
   },
   flex: {
     flex: 1,
-    overflow: "hidden",
+    // web: "hidden" igual se puede desplazar (el navegador lo corre para
+    // mostrar el campo con foco mientras el paso entra de lado) y todo
+    // queda pegado a la izquierda. "clip" recorta sin dejar desplazarse
+    overflow: (Platform.OS === "web" ? "clip" : "hidden") as "hidden",
   },
   arriba: {
     flexDirection: "row",

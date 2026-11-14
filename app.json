@@ -74,7 +74,8 @@
         {
           "locationWhenInUsePermission": "Congrega usa tu ubicación solo para marcar dónde está tu iglesia."
         }
-      ]
+      ],
+      "@react-native-google-signin/google-signin"
     ],
     "experiments": {
       "typedRoutes": true,
