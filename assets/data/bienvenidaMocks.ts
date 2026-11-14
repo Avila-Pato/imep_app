@@ -110,39 +110,39 @@ export const FUNCIONES: {
 }[] = [
   {
     titulo: "Biblia",
-    texto: "Versículo a versículo",
+    texto: "Lee, resalta y descubre versículos nuevos",
     icono: "book",
-    tono: "#D8C8A8",
+    tono: "#E0B35A",
   },
   {
     titulo: "Oración",
-    texto: "Muro de peticiones",
+    texto: "Pide oración y acompaña a tus hermanos",
     icono: "heart",
-    tono: "#D5C1BF",
+    tono: "#E5484D",
   },
   {
     titulo: "Salas",
-    texto: "Chat de tu grupo",
+    texto: "Conversa con tu grupo y tus líderes",
     icono: "comment-discussion",
-    tono: "#B8C4CC",
+    tono: "#4C9AFF",
   },
   {
     titulo: "Servicio",
-    texto: "Cronograma de turnos",
+    texto: "Tus turnos, con recordatorio",
     icono: "calendar",
-    tono: "#C2CCB6",
+    tono: "#46A758",
   },
   {
     titulo: "Anuncios",
-    texto: "Cultos y actividades",
+    texto: "Cultos, actividades y avisos",
     icono: "megaphone",
-    tono: "#C9B7D6",
+    tono: "#A78BFA",
   },
   {
     titulo: "Predicaciones",
-    texto: "Vuelve a leerlas",
+    texto: "Vuelve a leer cada mensaje",
     icono: "quote",
-    tono: "#E0B9A0",
+    tono: "#F2994A",
   },
 ];
 
@@ -151,4 +151,8 @@ export const PORTADAS: Record<string, { fondo: string; letras: string }> = {
   RV1960: { fondo: "#5E2328", letras: "#E3C58B" },
   NTV: { fondo: "#22344F", letras: "#D9DEE8" },
   LBLA: { fondo: "#2C4335", letras: "#D8CBA4" },
+  PDT: { fondo: "#4A3A28", letras: "#E8D3A8" },
+  RV2004: { fondo: "#1F1F24", letras: "#C9A962" },
+  BTX3: { fondo: "#3B2D4A", letras: "#DCCFE8" },
+  NTBT: { fondo: "#20424A", letras: "#CFE3E6" },
 };

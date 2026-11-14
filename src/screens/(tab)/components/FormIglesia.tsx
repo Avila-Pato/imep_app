@@ -10,14 +10,12 @@ import {
   ELEVADO,
   PLACEHOLDER,
 } from "@/constants/constans";
-import {
-  buscarDireccion,
-  Lugar,
-  ubicacionActual,
-} from "@/services/direcciones";
+import { Lugar, ubicacionActual } from "@/services/direcciones";
 import { Iglesia } from "@/types/typesHome";
 import Octicons from "@expo/vector-icons/Octicons";
-import { useEffect, useState } from "react";
+import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
+import { useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -41,45 +39,31 @@ export default function FormIglesia({
   onGuardar: (iglesia: Iglesia) => void;
 }) {
   const [nombre, setNombre] = useState(inicial?.sede ?? "");
-  const [busqueda, setBusqueda] = useState(inicial?.direccion ?? "");
   const [elegido, setElegido] = useState<Lugar | null>(
     inicial
       ? { direccion: inicial.direccion, lat: inicial.lat, lng: inicial.lng }
       : null,
   );
-  const [resultados, setResultados] = useState<Lugar[]>([]);
-  const [buscando, setBuscando] = useState(false);
-  // la ultima busqueda que no encontro nada (para decirlo)
-  const [sinResultados, setSinResultados] = useState("");
   // "Usar mi ubicacion actual": null = no esta buscando
   const [ubicando, setUbicando] = useState<"buscando" | "sin-permiso" | null>(
     null,
   );
   const [error, setError] = useState(false);
-  const [enMapa, setEnMapa] = useState(false); // elegir en el mapa
+  // mapa a pantalla completa: "buscar" abre con el teclado en el buscador
+  const [enMapa, setEnMapa] = useState<"buscar" | "mover" | null>(null);
   const [ancho, setAncho] = useState(0); // para dibujar la vista previa
+  // logo: URL, foto recien elegida, o "" si lo quito
+  const [logo, setLogo] = useState(inicial?.logo ?? "");
 
-  // busca cuando deja de escribir (y no si ya eligio esa direccion)
-  useEffect(() => {
-    const texto = busqueda.trim();
-    if (texto.length < 4 || texto === elegido?.direccion) return;
-    const ctrl = new AbortController();
-    const espera = setTimeout(() => {
-      setBuscando(true);
-      setError(false);
-      buscarDireccion(texto, ctrl.signal)
-        .then((r) => {
-          setResultados(r);
-          setSinResultados(r.length ? "" : texto);
-        })
-        .catch(() => !ctrl.signal.aborted && setError(true))
-        .finally(() => !ctrl.signal.aborted && setBuscando(false));
-    }, 700);
-    return () => {
-      clearTimeout(espera);
-      ctrl.abort();
-    };
-  }, [busqueda, elegido?.direccion]);
+  const elegirLogo = async () => {
+    const r = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1], // cuadrado: va en un circulo
+      quality: 0.7,
+    });
+    if (!r.canceled && r.assets[0]) setLogo(r.assets[0].uri);
+  };
 
   // el pastor esta en el templo: un toque y listo (sin escribir la direccion)
   const usarMiUbicacion = async () => {
@@ -96,24 +80,37 @@ export default function FormIglesia({
     }
   };
 
-  const elegir = (l: Lugar) => {
-    setElegido(l);
-    setBusqueda(l.direccion);
-    setResultados([]);
-  };
+  const elegir = (l: Lugar) => setElegido(l);
 
-  const listo = nombre.trim().length >= 2 && !!elegido;
+  const sinNombre = nombre.trim().length < 2;
+  const listo = !sinNombre && !!elegido;
+  // toco el boton sin completar: se le dice que falta (en vez de no hacer nada)
+  const [falta, setFalta] = useState(false);
+  const guardar = () => {
+    if (!listo || !elegido) return setFalta(true);
+    onGuardar({
+      // lo demas de la iglesia (horarios...) se mantiene
+      ...inicial,
+      sede: nombre.trim(),
+      lugar: inicial?.lugar ?? "Templo principal",
+      direccion: elegido.direccion,
+      lat: elegido.lat,
+      lng: elegido.lng,
+      // URL: se mantiene; foto nueva: se sube; "": se quita
+      logo,
+    });
+  };
 
   return (
     <View style={styles.contenedor}>
       {enMapa && (
         <SelectorMapa
-          // parte en lo elegido, o en lo primero que encontro la busqueda
-          inicial={elegido ?? resultados[0]}
-          onCerrar={() => setEnMapa(false)}
+          inicial={elegido ?? undefined}
+          buscar={enMapa === "buscar"}
+          onCerrar={() => setEnMapa(null)}
           onElegir={(l) => {
             elegir(l);
-            setEnMapa(false);
+            setEnMapa(null);
           }}
         />
       )}
@@ -125,148 +122,195 @@ export default function FormIglesia({
           placeholder="Ej: Iglesia Central"
           placeholderTextColor={PLACEHOLDER}
           autoCapitalize="words"
-          style={styles.input}
+          style={[styles.input, falta && sinNombre && styles.inputFalta]}
         />
       </View>
 
       <View style={styles.campo}>
         <Text style={styles.etiqueta}>DIRECCIÓN</Text>
-        {/* lo mas facil: estando en la iglesia, su ubicacion */}
-        <Pressable
-          onPress={usarMiUbicacion}
-          disabled={ubicando === "buscando"}
-          style={({ pressed }) => [
-            styles.miUbicacion,
-            pressed && styles.presionado,
-          ]}
-        >
-          {ubicando === "buscando" ? (
-            <ActivityIndicator size="small" color={TEXT} />
-          ) : (
-            <Octicons name="location" size={15} color={TEXT} />
-          )}
-          <View style={styles.flex}>
-            <Text style={styles.miUbicacionTitulo}>
-              {ubicando === "buscando"
-                ? "Buscando dónde estás…"
-                : "Usar mi ubicación actual"}
-            </Text>
-            <Text style={styles.miUbicacionTexto}>
-              Si estás en la iglesia ahora, tócalo y listo
-            </Text>
-          </View>
-        </Pressable>
-        {ubicando === "sin-permiso" && (
-          <Text style={styles.error}>
-            Sin permiso de ubicación. Actívalo en los ajustes del teléfono o
-            escribe la dirección.
-          </Text>
-        )}
-        {/* o moviendo el mapa hasta el templo */}
-        <Pressable
-          onPress={() => setEnMapa(true)}
-          style={({ pressed }) => [
-            styles.miUbicacion,
-            pressed && styles.presionado,
-          ]}
-        >
-          <Octicons name="globe" size={15} color={TEXT} />
-          <View style={styles.flex}>
-            <Text style={styles.miUbicacionTitulo}>Elegir en el mapa</Text>
-            <Text style={styles.miUbicacionTexto}>
-              Mueve el mapa y deja el pin en tu iglesia
-            </Text>
-          </View>
-          <Octicons name="chevron-right" size={14} color={MUTED} />
-        </Pressable>
-        <Text style={styles.o}>o busca la dirección</Text>
-        <View style={styles.buscador}>
-          <Octicons name="location" size={14} color={MUTED} />
-          <TextInput
-            value={busqueda}
-            onChangeText={(t) => {
-              setBusqueda(t);
-              if (elegido && t !== elegido.direccion) setElegido(null);
-            }}
-            placeholder="Calle, número y comuna"
-            placeholderTextColor={PLACEHOLDER}
-            autoCorrect={false}
-            style={styles.buscadorInput}
-          />
-          {buscando && <ActivityIndicator size="small" color={MUTED} />}
-        </View>
-        {error && (
-          <Text style={styles.error}>
-            No se pudo buscar. Revisa tu conexión.
-          </Text>
-        )}
-        {!error &&
-          !buscando &&
-          !elegido &&
-          !!sinResultados &&
-          sinResultados === busqueda.trim() && (
-            <Text style={styles.ayudaBusqueda}>
-              No encontramos esa dirección. Revisa cómo se escribe o agrega la
-              comuna.
-            </Text>
-          )}
-
-        {/* Opciones encontradas */}
-        {resultados.length > 0 && (
-          <View style={styles.resultados}>
-            {resultados.map((r, i) => (
-              <Pressable
-                key={`${r.lat}-${r.lng}-${i}`}
-                onPress={() => elegir(r)}
-                style={({ pressed }) => [
-                  styles.resultado,
-                  i > 0 && styles.conLinea,
-                  pressed && styles.presionado,
-                ]}
-              >
-                <Octicons name="location" size={14} color={PRIMARY} />
-                <Text style={styles.resultadoTexto} numberOfLines={2}>
-                  {r.direccion}
+        {elegido ? (
+          // Ya la encontro: tarjeta aparte, con el mapa (asi la veran)
+          <View style={styles.encontrada}>
+            <View style={styles.encontradaFila}>
+              <View style={styles.encontradaIcono}>
+                <Octicons name="check" size={14} color="#FFFFFF" />
+              </View>
+              <View style={styles.flex}>
+                <Text style={styles.encontradaTitulo}>Ubicación elegida</Text>
+                <Text style={styles.encontradaTexto} numberOfLines={3}>
+                  {elegido.direccion}
                 </Text>
-              </Pressable>
-            ))}
+              </View>
+            </View>
+            <View
+              style={styles.previa}
+              onLayout={(e) => setAncho(e.nativeEvent.layout.width)}
+            >
+              {ancho > 0 && (
+                <MapaIglesia
+                  lat={elegido.lat}
+                  lng={elegido.lng}
+                  ancho={ancho}
+                  alto={PREVIA_ALTO}
+                  logo={logo || undefined}
+                />
+              )}
+              <View style={styles.previaChip}>
+                <Octicons name="eye" size={12} color={TEXT} />
+                <Text style={styles.previaTexto}>
+                  Así la verán los hermanos
+                </Text>
+              </View>
+            </View>
+            {/* un solo boton: el mapa ya trae el buscador arriba */}
+            <Pressable
+              onPress={() => setEnMapa("mover")}
+              hitSlop={6}
+              style={({ pressed }) => [
+                styles.cambiar,
+                pressed && styles.presionado,
+              ]}
+            >
+              <Octicons name="pencil" size={13} color={TEXT} />
+              <Text style={styles.cambiarTexto}>Cambiar ubicación</Text>
+            </Pressable>
           </View>
+        ) : (
+          <>
+            {/* Buscar: abre el mapa con el buscador ARRIBA (el teclado no lo tapa) */}
+            <Pressable
+              onPress={() => setEnMapa("buscar")}
+              style={({ pressed }) => [
+                styles.buscador,
+                falta && styles.buscadorFalta,
+                pressed && styles.presionado,
+              ]}
+              accessibilityRole="search"
+            >
+              <Octicons name="search" size={15} color={MUTED} />
+              <Text style={[styles.buscadorTexto, styles.buscadorVacio]}>
+                Busca la calle o un lugar cercano
+              </Text>
+            </Pressable>
+
+            {/* o de otra forma */}
+            <Text style={styles.o}>o ubícala de otra forma</Text>
+            <Pressable
+              onPress={usarMiUbicacion}
+              disabled={ubicando === "buscando"}
+              style={({ pressed }) => [
+                styles.miUbicacion,
+                pressed && styles.presionado,
+              ]}
+            >
+              {ubicando === "buscando" ? (
+                <ActivityIndicator size="small" color={TEXT} />
+              ) : (
+                <Octicons name="location" size={15} color={TEXT} />
+              )}
+              <View style={styles.flex}>
+                <Text style={styles.miUbicacionTitulo}>
+                  {ubicando === "buscando"
+                    ? "Buscando dónde estás…"
+                    : "Usar mi ubicación actual"}
+                </Text>
+                <Text style={styles.miUbicacionTexto}>
+                  Si estás en la iglesia ahora, tócalo y listo
+                </Text>
+              </View>
+            </Pressable>
+            {ubicando === "sin-permiso" && (
+              <Text style={styles.error}>
+                Sin permiso de ubicación. Actívalo en los ajustes del teléfono o
+                busca la dirección.
+              </Text>
+            )}
+            {error && (
+              <Text style={styles.error}>
+                No se pudo obtener la ubicación. Revisa tu conexión.
+              </Text>
+            )}
+            {/* si la direccion no aparece: mover el mapa hasta el templo */}
+            <Pressable
+              onPress={() => setEnMapa("mover")}
+              style={({ pressed }) => [
+                styles.miUbicacion,
+                pressed && styles.presionado,
+              ]}
+            >
+              <Octicons name="globe" size={15} color={TEXT} />
+              <View style={styles.flex}>
+                <Text style={styles.miUbicacionTitulo}>Elegir en el mapa</Text>
+                <Text style={styles.miUbicacionTexto}>
+                  ¿No aparece la dirección? Mueve el mapa y deja el pin en tu
+                  iglesia
+                </Text>
+              </View>
+              <Octicons name="chevron-right" size={14} color={MUTED} />
+            </Pressable>
+          </>
         )}
       </View>
 
-      {/* Vista previa del punto elegido */}
-      {elegido && (
-        <View
-          style={styles.previa}
-          onLayout={(e) => setAncho(e.nativeEvent.layout.width)}
-        >
-          {ancho > 0 && (
-            <MapaIglesia
-              lat={elegido.lat}
-              lng={elegido.lng}
-              ancho={ancho}
-              alto={PREVIA_ALTO}
-            />
-          )}
-          <View style={styles.previaChip}>
-            <Octicons name="check" size={12} color={TEXT} />
-            <Text style={styles.previaTexto}>Así la verán los hermanos</Text>
+      {/* Logo (opcional): va en el pin del mapa */}
+      <View style={styles.campo}>
+        <Text style={styles.etiqueta}>LOGO DE LA IGLESIA (OPCIONAL)</Text>
+        <View style={styles.logoFila}>
+          <Pressable
+            onPress={elegirLogo}
+            style={({ pressed }) => [
+              styles.logoCaja,
+              pressed && styles.presionado,
+            ]}
+            accessibilityLabel={logo ? "Cambiar el logo" : "Elegir un logo"}
+          >
+            {logo ? (
+              <Image
+                source={{ uri: logo }}
+                style={styles.logoImagen}
+                contentFit="cover"
+              />
+            ) : (
+              <Octicons name="image" size={20} color={MUTED} />
+            )}
+          </Pressable>
+          <View style={styles.flex}>
+            <Text style={styles.miUbicacionTitulo}>
+              {logo ? "Logo listo" : "Agrega el logo de tu iglesia"}
+            </Text>
+            <Text style={styles.miUbicacionTexto}>
+              Se verá en el mapa, en lugar de la casita.
+            </Text>
+            <View style={styles.logoAcciones}>
+              <Pressable onPress={elegirLogo} hitSlop={6}>
+                <Text style={styles.logoAccion}>
+                  {logo ? "Cambiar" : "Elegir imagen"}
+                </Text>
+              </Pressable>
+              {!!logo && (
+                <Pressable onPress={() => setLogo("")} hitSlop={6}>
+                  <Text style={[styles.logoAccion, styles.logoQuitar]}>
+                    Quitar
+                  </Text>
+                </Pressable>
+              )}
+            </View>
           </View>
         </View>
-      )}
+      </View>
 
+      {falta && !listo && (
+        <View style={styles.falta}>
+          <Octicons name="alert" size={14} color={PRIMARY} />
+          <Text style={styles.faltaTexto}>
+            {sinNombre
+              ? "Escribe el nombre de tu iglesia para continuar."
+              : "Elige dónde está tu iglesia para continuar."}
+          </Text>
+        </View>
+      )}
       <Pressable
-        onPress={() =>
-          elegido &&
-          onGuardar({
-            sede: nombre.trim(),
-            lugar: inicial?.lugar ?? "Templo principal",
-            direccion: elegido.direccion,
-            lat: elegido.lat,
-            lng: elegido.lng,
-          })
-        }
-        disabled={!listo}
+        onPress={guardar}
         style={({ pressed }) => [
           styles.boton,
           !listo && styles.botonApagado,
@@ -327,60 +371,142 @@ const styles = StyleSheet.create({
     color: MUTED,
     marginTop: 2,
   },
-  o: {
-    fontSize: 12,
-    color: MUTED,
-    textAlign: "center",
-    marginVertical: 2,
-  },
   buscador: {
     flexDirection: "row",
     alignItems: "center",
     gap: SPACING,
-    height: 48,
+    minHeight: 50,
     paddingHorizontal: SPACING * 1.4,
+    paddingVertical: SPACING,
     borderRadius: 14,
     backgroundColor: SURFACE,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     borderColor: BORDER,
   },
-  buscadorInput: {
+  buscadorTexto: {
     flex: 1,
     fontSize: 15,
     color: TEXT,
   },
+  buscadorVacio: {
+    color: PLACEHOLDER,
+  },
+  inputFalta: {
+    borderBottomColor: PRIMARY,
+  },
+  falta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  faltaTexto: {
+    flex: 1,
+    fontSize: 13,
+    color: PRIMARY,
+  },
+  buscadorFalta: {
+    borderColor: PRIMARY,
+  },
+  o: {
+    fontSize: 12,
+    color: MUTED,
+    textAlign: "center",
+    marginTop: 4,
+  },
+  // la direccion encontrada: tarjeta aparte, con borde del color de la app
+  encontrada: {
+    gap: SPACING,
+    padding: SPACING,
+    borderRadius: 18,
+    backgroundColor: SURFACE,
+    borderWidth: 1.5,
+    borderColor: PRIMARY,
+  },
+  encontradaFila: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: SPACING,
+    padding: 4,
+  },
+  encontradaIcono: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: PRIMARY,
+  },
+  encontradaTitulo: {
+    fontFamily: FUENTE.semibold,
+    fontSize: 11,
+    letterSpacing: 1,
+    color: PRIMARY,
+    textTransform: "uppercase",
+  },
+  encontradaTexto: {
+    marginTop: 3,
+    fontSize: 15,
+    lineHeight: 21,
+    color: TEXT,
+  },
+  cambiar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: BORDER,
+  },
+  cambiarTexto: {
+    fontFamily: FUENTE.semibold,
+    fontSize: 13,
+    color: TEXT,
+  },
+  logoFila: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING * 1.2,
+    padding: SPACING * 1.2,
+    borderRadius: 14,
+    backgroundColor: SURFACE,
+    borderWidth: 1,
+    borderColor: BORDER,
+  },
+  logoCaja: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    backgroundColor: DARK_BG,
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderStyle: "dashed",
+  },
+  logoImagen: {
+    width: 64,
+    height: 64,
+  },
+  logoAcciones: {
+    flexDirection: "row",
+    gap: SPACING * 1.6,
+    marginTop: 6,
+  },
+  logoAccion: {
+    fontFamily: FUENTE.semibold,
+    fontSize: 13,
+    color: TEXT,
+    textDecorationLine: "underline",
+  },
+  logoQuitar: {
+    color: MUTED,
+  },
   error: {
     fontSize: 12,
     color: PRIMARY,
-  },
-  ayudaBusqueda: {
-    fontSize: 12,
-    lineHeight: 17,
-    color: MUTED,
-  },
-  resultados: {
-    borderRadius: 14,
-    backgroundColor: SURFACE,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: BORDER,
-    overflow: "hidden",
-  },
-  resultado: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SPACING,
-    paddingHorizontal: SPACING * 1.4,
-    paddingVertical: SPACING * 1.1,
-  },
-  conLinea: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: BORDER,
-  },
-  resultadoTexto: {
-    flex: 1,
-    fontSize: 13,
-    lineHeight: 18,
-    color: TEXT,
   },
   previa: {
     height: PREVIA_ALTO,

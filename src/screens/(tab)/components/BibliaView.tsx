@@ -19,6 +19,7 @@ import { useEstudios, useFuenteBiblia, useVersion } from "@/store/estudios";
 import { claveVerso, SeleccionBiblia } from "./AccionesVersiculo";
 import TamanoLetra from "./TamanoLetra";
 import BotonLibro from "@/screens/biblia/BotonLibro";
+import BotonLetra from "@/screens/biblia/BotonLetra";
 import BotonVersion from "@/screens/biblia/BotonVersion";
 import SelectorLibro from "@/screens/biblia/SelectorLibro";
 import Octicons from "@expo/vector-icons/Octicons";
@@ -69,18 +70,18 @@ function Pagina({ lado, children }: { lado: Lado; children: ReactNode }) {
   return <Animated.View style={estilo}>{children}</Animated.View>;
 }
 
-// Versiculo tocable. Si esta resaltado, cada linea lleva su propia franja
-// de color con esquinas redondas (se miden las lineas del texto)
-type Linea = { x: number; y: number; width: number; height: number };
-
+// Versiculo tocable. Resaltado: el color cubre el versiculo completo (un
+// solo bloque redondeado). Tocado: un fondo suave del color de la app
 function VersoTexto({
   color,
+  seleccionado,
   onPress,
   style,
   tamano,
   children,
 }: {
   color?: string;
+  seleccionado?: boolean;
   onPress: () => void;
   style?: object;
   tamano?: { fontSize: number; lineHeight: number }; // letra elegida
@@ -88,48 +89,20 @@ function VersoTexto({
 }) {
   // letra elegida en Editar perfil (clasica o moderna)
   const fuente = useFuenteBiblia();
-  const [lineas, setLineas] = useState<Linea[]>([]);
-  // en web no se miden las lineas: se pinta el bloque completo
-  const sinLineas = !!color && lineas.length === 0;
 
   return (
     <Pressable
       onPress={onPress}
       style={[
         style,
-        sinLineas && { backgroundColor: `${color}55`, borderRadius: 8 },
+        styles.versoCaja,
+        seleccionado && styles.versoSeleccionado,
+        color && { backgroundColor: `${color}55` },
+        // con color y tocado: un borde para que se note la seleccion
+        color && seleccionado && { borderColor: color },
       ]}
     >
-      {color &&
-        lineas.map((l, i) => (
-          <View
-            key={i}
-            pointerEvents="none"
-            style={[
-              styles.franja,
-              {
-                left: l.x - 4,
-                top: l.y + 2,
-                width: l.width + 8,
-                height: l.height - 4,
-                backgroundColor: `${color}55`,
-              },
-            ]}
-          />
-        ))}
-      <Text
-        style={[styles.parrafo, { fontFamily: fuente.normal }, tamano]}
-        onTextLayout={(e) =>
-          setLineas(
-            e.nativeEvent.lines.map((l) => ({
-              x: l.x,
-              y: l.y,
-              width: l.width,
-              height: l.height,
-            })),
-          )
-        }
-      >
+      <Text style={[styles.parrafo, { fontFamily: fuente.normal }, tamano]}>
         {children}
       </Text>
     </Pressable>
@@ -137,8 +110,15 @@ function VersoTexto({
 }
 
 // Un versiculo por pantalla (deslizando, como videos)
-const abrirVersiculos = (libro: number, capitulo: number) =>
-  router.push(`/versiculos?libro=${libro}&capitulo=${capitulo}` as Href);
+// "Para ti" (al azar) o el capitulo elegido, de a un versiculo
+const abrirVersiculos = (
+  libro: number,
+  capitulo: number,
+  modo: "paraTi" | "capitulo",
+) =>
+  router.push(
+    `/versiculos?libro=${libro}&capitulo=${capitulo}&modo=${modo}` as Href,
+  );
 
 // Los primeros 39 libros son del Antiguo Testamento
 const FIN_AT = 39;
@@ -272,7 +252,7 @@ export default function BibliaView({
                     onPress={() => {
                       // abre los versiculos uno a uno; al volver queda la lectura
                       ir(libro, c);
-                      abrirVersiculos(libro, c);
+                      abrirVersiculos(libro, c, "capitulo");
                     }}
                     style={styles.capitulo}
                   >
@@ -399,8 +379,8 @@ function Lectura({
   // color del resaltado de un versiculo
   const colorDe = (n: number) =>
     resaltados[claveVerso(libro, capitulo, n)] as string | undefined;
-  // subrayado punteado si esta seleccionado
-  const marca = (n: number) => seleccionados.includes(n) && styles.seleccionado;
+  // seleccionado: fondo suave detras del versiculo
+  const marca = (n: number) => seleccionados.includes(n);
   const nombre = LIBROS_BIBLIA[libro - 1];
   const total = CAPITULOS_BIBLIA[libro - 1];
   const { versos, cargando, error } = usePasaje(`${nombre} ${capitulo}`);
@@ -429,22 +409,20 @@ function Lectura({
           />
           {/* Versiculo por versiculo: tarjeta destacada (leer de a uno) */}
           <Pressable
-            onPress={() => abrirVersiculos(libro, capitulo)}
+            onPress={() => abrirVersiculos(libro, capitulo, "paraTi")}
             style={({ pressed }) => [
               styles.modoVersos,
               pressed && styles.presionado,
             ]}
-            accessibilityLabel="Leer versículo por versículo"
+            accessibilityLabel="Para ti: versículos al azar"
           >
             <View style={styles.modoVersosIcono}>
               <Octicons name="versions" size={16} color={PRIMARY} />
             </View>
             <View style={styles.flex}>
-              <Text style={styles.modoVersosTitulo}>
-                Versículo por versículo
-              </Text>
+              <Text style={styles.modoVersosTitulo}>Para ti</Text>
               <Text style={styles.modoVersosSub}>
-                Lee de a un versículo, deslizando
+                Desliza y descubre versículos nuevos
               </Text>
             </View>
             <Octicons name="chevron-right" size={16} color={PRIMARY} />
@@ -452,6 +430,7 @@ function Lectura({
 
           <View style={styles.herramientas}>
             <TamanoLetra />
+            <BotonLetra />
           </View>
 
           {cargando && (
@@ -476,11 +455,12 @@ function Lectura({
                 </Text>
                 <VersoTexto
                   color={colorDe(versos[0].numero)}
+                  seleccionado={marca(versos[0].numero)}
                   onPress={() => onTocar(versos[0])}
                   style={styles.flex}
                   tamano={tamano}
                 >
-                  <Text style={marca(versos[0].numero)}>{versos[0].texto}</Text>
+                  <Text>{versos[0].texto}</Text>
                 </VersoTexto>
               </View>
 
@@ -489,6 +469,7 @@ function Lectura({
                 <VersoTexto
                   key={v.numero}
                   color={colorDe(v.numero)}
+                  seleccionado={marca(v.numero)}
                   onPress={() => onTocar(v)}
                   tamano={tamano}
                 >
@@ -496,7 +477,7 @@ function Lectura({
                     {v.numero}
                     {"  "}
                   </Text>
-                  <Text style={marca(v.numero)}>{v.texto}</Text>
+                  <Text>{v.texto}</Text>
                 </VersoTexto>
               ))}
             </View>
@@ -818,15 +799,17 @@ const styles = StyleSheet.create({
     letterSpacing: 0.15,
     color: LECTURA, // blanco calido (o tinta en modo claro)
   },
-  // franja de color detras de cada linea de un versiculo resaltado
-  franja: {
-    position: "absolute",
-    borderRadius: 7,
+  versoCaja: {
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: "transparent",
+    marginHorizontal: -8,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
   },
-  seleccionado: {
-    textDecorationLine: "underline",
-    textDecorationStyle: "dotted",
-    textDecorationColor: MUTED,
+  // versiculo tocado: un fondo suave del color de la app
+  versoSeleccionado: {
+    backgroundColor: primarioAlfa(0.14),
   },
   // numero del versiculo en rojo suave: se ubica rapido sin estorbar
   numeroVerso: {

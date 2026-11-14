@@ -15,13 +15,14 @@ import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 // Lunes primero (como el calendario); el valor es Date.getDay()
 const DIAS = [
-  { dia: 1, corto: "L", largo: "Lunes" },
-  { dia: 2, corto: "M", largo: "Martes" },
-  { dia: 3, corto: "M", largo: "Miércoles" },
-  { dia: 4, corto: "J", largo: "Jueves" },
-  { dia: 5, corto: "V", largo: "Viernes" },
-  { dia: 6, corto: "S", largo: "Sábado" },
-  { dia: 0, corto: "D", largo: "Domingo" },
+  // abreviado de 3 letras: "M" se confundia entre martes y miercoles
+  { dia: 1, corto: "Lun", largo: "Lunes" },
+  { dia: 2, corto: "Mar", largo: "Martes" },
+  { dia: 3, corto: "Mié", largo: "Miércoles" },
+  { dia: 4, corto: "Jue", largo: "Jueves" },
+  { dia: 5, corto: "Vie", largo: "Viernes" },
+  { dia: 6, corto: "Sáb", largo: "Sábado" },
+  { dia: 0, corto: "Dom", largo: "Domingo" },
 ];
 export const nombreDia = (dia: number) =>
   DIAS.find((d) => d.dia === dia)?.largo ?? "";
@@ -57,7 +58,8 @@ export default function EditorHorarios({
     <View style={styles.contenedor}>
       {horarios.length === 0 && (
         <Text style={styles.vacio}>
-          Aún no hay cultos. Agrega el primero (ej: Domingo 11:00).
+          Aún no hay cultos. Toca «Agregar culto» y elige el día y la hora
+          (ej: Domingo 11:00).
         </Text>
       )}
 
@@ -159,12 +161,12 @@ const styles = StyleSheet.create({
   },
   dias: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    gap: 4,
   },
   dia: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    flex: 1,
+    height: 38,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: DARK_BG,
@@ -173,7 +175,7 @@ const styles = StyleSheet.create({
     backgroundColor: TEXT,
   },
   diaTexto: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600",
     color: MUTED,
   },

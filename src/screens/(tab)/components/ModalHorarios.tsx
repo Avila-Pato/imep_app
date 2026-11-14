@@ -9,6 +9,7 @@ import {
   SPACING,
   SURFACE,
   TEXT,
+  PRIMARY,
 } from "@/constants/constans";
 import { fijarHorarios, useHorarios, useIglesia } from "@/store/estudios";
 import { HorarioCulto } from "@/types/typesAnuncios";
@@ -42,7 +43,10 @@ function Hoja({ onCerrar }: { onCerrar: () => void }) {
   const guardados = useHorarios();
   const [horarios, setHorarios] = useState<HorarioCulto[]>(guardados);
 
+  // al menos un culto: sin dias no hay cronograma ni recordatorios
+  const [falta, setFalta] = useState(false);
   const guardar = () => {
+    if (!horarios.length) return setFalta(true);
     fijarHorarios(ordenarHorarios(horarios));
     onCerrar();
   };
@@ -96,7 +100,18 @@ function Hoja({ onCerrar }: { onCerrar: () => void }) {
                     El cronograma muestra estos días, y los turnos empiezan a
                     esta hora (si no les pones otra).
                   </Text>
-                  <EditorHorarios horarios={horarios} onCambiar={setHorarios} />
+                  <EditorHorarios
+                    horarios={horarios}
+                    onCambiar={(h) => {
+                      setHorarios(h);
+                      if (h.length) setFalta(false);
+                    }}
+                  />
+                  {falta && !horarios.length && (
+                    <Text style={styles.falta}>
+                      Agrega al menos un culto (día y hora) para guardar.
+                    </Text>
+                  )}
                   <Pressable
                     onPress={guardar}
                     style={({ pressed }) => [
@@ -117,6 +132,11 @@ function Hoja({ onCerrar }: { onCerrar: () => void }) {
 }
 
 const styles = StyleSheet.create({
+  falta: {
+    fontSize: 13,
+    color: PRIMARY,
+    textAlign: "center",
+  },
   flex: {
     flex: 1,
   },

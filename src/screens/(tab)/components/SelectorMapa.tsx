@@ -1,4 +1,8 @@
 import ConBordes from "@/components/ConBordes";
+import MapaNativo, {
+  HAY_MAPA_NATIVO,
+  MapaNativoRef,
+} from "@/components/MapaNativo";
 import {
   BORDER,
   DARK_BG,
@@ -53,10 +57,12 @@ const BORDE = 512; // teselas de mas alrededor: al arrastrar no se ve vacio
 // templo y se confirma. Debajo se ve la direccion de ese punto
 export default function SelectorMapa({
   inicial,
+  buscar,
   onElegir,
   onCerrar,
 }: {
   inicial?: { lat: number; lng: number };
+  buscar?: boolean; // abre con el teclado en el buscador
   onElegir: (l: Lugar) => void;
   onCerrar: () => void;
 }) {
@@ -72,6 +78,15 @@ export default function SelectorMapa({
   const [sinResultados, setSinResultados] = useState(false);
   const dx = useSharedValue(0);
   const dy = useSharedValue(0);
+  // telefono: el mapa de Google (se mueve solo con el dedo)
+  const nativo = useRef<MapaNativoRef>(null);
+
+  // lleva el mapa a un punto (buscador, mi ubicacion, + y -)
+  const llevarA = (lat: number, lng: number, z: number) => {
+    setCentro({ lat, lng });
+    setZoom(z);
+    nativo.current?.irA(lat, lng, z);
+  };
 
   // busca cuando deja de escribir, primero cerca de lo que se ve en el mapa
   useEffect(() => {
@@ -98,8 +113,7 @@ export default function SelectorMapa({
 
   const irA = (l: Lugar) => {
     Keyboard.dismiss();
-    setCentro({ lat: l.lat, lng: l.lng });
-    setZoom(17);
+    llevarA(l.lat, l.lng, 17);
     setLugar(l);
     setEncontrados([]);
     setTexto("");
@@ -178,8 +192,7 @@ export default function SelectorMapa({
     try {
       const l = await ubicacionActual();
       if (l) {
-        setCentro({ lat: l.lat, lng: l.lng });
-        setZoom(17);
+        llevarA(l.lat, l.lng, 17);
         setLugar(l);
       }
     } finally {
@@ -214,61 +227,79 @@ export default function SelectorMapa({
         <ConBordes>
           {(insets) => (
             <View style={styles.contenedor}>
-              {/* Mapa */}
-              <GestureDetector gesture={gestos}>
-                <View
-                  ref={mapaRef}
-                  style={[styles.mapa, Platform.OS === "web" && CURSOR_MANO]}
-                  onLayout={(e) =>
-                    setTam({
-                      ancho: e.nativeEvent.layout.width,
-                      alto: e.nativeEvent.layout.height,
-                    })
-                  }
-                >
-                  {tam.ancho > 0 && (
-                    // las teselas no reciben el mouse: asi el navegador no
-                    // intenta "arrastrar la imagen" en vez de mover el mapa
-                    <Animated.View
-                      pointerEvents="none"
-                      style={[
-                        styles.capa,
-                        {
-                          left: -BORDE,
-                          top: -BORDE,
-                          width: tam.ancho + BORDE * 2,
-                          height: tam.alto + BORDE * 2,
-                        },
-                        capa,
-                      ]}
-                    >
-                      {teselas.map((t) => (
-                        <Image
-                          key={`${zoom}-${t.x}-${t.y}`}
-                          source={mapaTeselaClara(zoom, t.x, t.y)}
-                          style={{
-                            position: "absolute",
-                            left: t.left,
-                            top: t.top,
-                            width: tamano,
-                            height: tamano,
-                          }}
-                          cachePolicy="disk"
-                        />
-                      ))}
-                    </Animated.View>
-                  )}
-
-                  {/* Pin fijo al centro: se mueve el mapa, no el pin */}
-                  <View pointerEvents="none" style={styles.pinZona}>
-                    <View style={styles.pin}>
-                      <Octicons name="home-fill" size={14} color="#FFFFFF" />
-                    </View>
-                    <View style={styles.pinPunta} />
-                    <View style={styles.pinSombra} />
-                  </View>
+              {/* Mapa: Google en el telefono (se mueve con el dedo) */}
+              {HAY_MAPA_NATIVO && (
+                <View style={styles.mapa}>
+                  <MapaNativo
+                    ref={nativo}
+                    lat={centro.lat}
+                    lng={centro.lng}
+                    zoom={zoom}
+                    onMovido={(lat, lng, z) => {
+                      // si se movio de verdad, la direccion de antes ya no sirve
+                      const lejos =
+                        Math.abs(lat - centro.lat) > 0.00005 ||
+                        Math.abs(lng - centro.lng) > 0.00005;
+                      if (!lejos) return;
+                      if (lugar) setLugar(null);
+                      setCentro({ lat, lng });
+                      setZoom(Math.round(z));
+                    }}
+                  />
+                  <PinCentro />
                 </View>
-              </GestureDetector>
+              )}
+              {/* Mapa de la web: teselas que se arrastran con el mouse */}
+              {!HAY_MAPA_NATIVO && (
+                <GestureDetector gesture={gestos}>
+                  <View
+                    ref={mapaRef}
+                    style={[styles.mapa, Platform.OS === "web" && CURSOR_MANO]}
+                    onLayout={(e) =>
+                      setTam({
+                        ancho: e.nativeEvent.layout.width,
+                        alto: e.nativeEvent.layout.height,
+                      })
+                    }
+                  >
+                    {tam.ancho > 0 && (
+                      // las teselas no reciben el mouse: asi el navegador no
+                      // intenta "arrastrar la imagen" en vez de mover el mapa
+                      <Animated.View
+                        pointerEvents="none"
+                        style={[
+                          styles.capa,
+                          {
+                            left: -BORDE,
+                            top: -BORDE,
+                            width: tam.ancho + BORDE * 2,
+                            height: tam.alto + BORDE * 2,
+                          },
+                          capa,
+                        ]}
+                      >
+                        {teselas.map((t) => (
+                          <Image
+                            key={`${zoom}-${t.x}-${t.y}`}
+                            source={mapaTeselaClara(zoom, t.x, t.y)}
+                            style={{
+                              position: "absolute",
+                              left: t.left,
+                              top: t.top,
+                              width: tamano,
+                              height: tamano,
+                            }}
+                            cachePolicy="disk"
+                          />
+                        ))}
+                      </Animated.View>
+                    )}
+
+                    {/* Pin fijo al centro: se mueve el mapa, no el pin */}
+                    <PinCentro />
+                  </View>
+                </GestureDetector>
+              )}
 
               {/* Arriba: volver y buscador (como Google Maps) */}
               <View
@@ -294,6 +325,7 @@ export default function SelectorMapa({
                     placeholderTextColor="#80868B"
                     autoCorrect={false}
                     returnKeyType="search"
+                    autoFocus={buscar}
                     style={styles.buscarInput}
                   />
                   {buscando ? (
@@ -356,14 +388,26 @@ export default function SelectorMapa({
               {/* Derecha: acercar, alejar, mi ubicacion */}
               <View style={[styles.controles, { top: insets.top + 84 }]}>
                 <Pressable
-                  onPress={() => setZoom((z) => Math.min(ZOOM_MAX, z + 1))}
+                  onPress={() =>
+                    llevarA(
+                      centro.lat,
+                      centro.lng,
+                      Math.min(ZOOM_MAX, zoom + 1),
+                    )
+                  }
                   style={styles.redondo}
                   accessibilityLabel="Acercar"
                 >
                   <Octicons name="plus" size={18} color={OSCURO} />
                 </Pressable>
                 <Pressable
-                  onPress={() => setZoom((z) => Math.max(ZOOM_MIN, z - 1))}
+                  onPress={() =>
+                    llevarA(
+                      centro.lat,
+                      centro.lng,
+                      Math.max(ZOOM_MIN, zoom - 1),
+                    )
+                  }
                   style={styles.redondo}
                   accessibilityLabel="Alejar"
                 >
@@ -409,9 +453,12 @@ export default function SelectorMapa({
                 >
                   <Text style={styles.botonTexto}>Usar esta ubicación</Text>
                 </Pressable>
-                <Text style={styles.atribucion}>
-                  Esri, HERE, Garmin, USGS · © OpenStreetMap
-                </Text>
+                {/* el mapa de Google pone su propio logo */}
+                {!HAY_MAPA_NATIVO && (
+                  <Text style={styles.atribucion}>
+                    Esri, HERE, Garmin, USGS · © OpenStreetMap
+                  </Text>
+                )}
               </View>
             </View>
           )}
@@ -432,6 +479,19 @@ const CURSOR_MANO = {
   cursor: "grab",
   userSelect: "none",
 } as unknown as ViewStyle;
+
+// Pin fijo al centro del mapa: se mueve el mapa, no el pin
+function PinCentro() {
+  return (
+    <View pointerEvents="none" style={styles.pinZona}>
+      <View style={styles.pin}>
+        <Octicons name="home-fill" size={14} color="#FFFFFF" />
+      </View>
+      <View style={styles.pinPunta} />
+      <View style={styles.pinSombra} />
+    </View>
+  );
+}
 
 const styles = StyleSheet.create({
   contenedor: {

@@ -120,6 +120,7 @@ export default function TarjetaIglesia() {
           alto={ALTO}
           etiqueta={iglesia.sede}
           focoY={0.56}
+          logo={iglesia.logo || undefined}
         />
 
         {/* Arriba: cambiar ubicacion (pastor) y botones */}

@@ -18,6 +18,7 @@ import {
 } from "@/constants/constans";
 import { useEspacioBarra } from "@/hooks/useEspacioBarra";
 import AvatarPersona from "@/components/AvatarPersona";
+import TarjetaGoogle from "@/components/TarjetaGoogle";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import PanelAdmin from "@/screens/perfil/PanelAdmin";
@@ -258,6 +259,9 @@ export default function PerfilScreen() {
             </View>
           )}
         </View>
+
+        {/* Sin cuenta ("Crear mi cuenta después"): guardarla con Google */}
+        {!cuenta && <TarjetaGoogle />}
 
         {/* Pastor / secretaria: panel de administracion arriba */}
         {administra && <PanelAdmin esPastor={esPastor} />}

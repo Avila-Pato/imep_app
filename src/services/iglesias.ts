@@ -1,6 +1,7 @@
 import { asegurarSesion, supabase } from "@/lib/supabase";
 import { HorarioCulto } from "@/types/typesAnuncios";
 import { Iglesia } from "@/types/typesHome";
+import { subirImagen } from "./perfil";
 
 // Iglesias, miembros e invitaciones en Supabase.
 // Todas devuelven null / no hacen nada si la app no esta conectada
@@ -13,6 +14,7 @@ type FilaIglesia = {
   lat: number;
   lng: number;
   horarios: HorarioCulto[] | null;
+  logo?: string | null;
 };
 
 const aIglesia = (f: FilaIglesia): Iglesia => ({
@@ -23,6 +25,7 @@ const aIglesia = (f: FilaIglesia): Iglesia => ({
   lat: f.lat,
   lng: f.lng,
   ...(Array.isArray(f.horarios) ? { horarios: f.horarios } : {}),
+  ...(f.logo ? { logo: f.logo } : {}),
 });
 
 // Solo las iglesias con id uuid estan (o pueden estar) en el servidor;
@@ -44,6 +47,14 @@ export const conectado = () => !!supabase;
 export async function subirIglesia(iglesia: Iglesia) {
   if (!supabase || !esUuid(iglesia.id)) return null;
   await asegurarSesion();
+  // logo nuevo (foto del telefono): primero se sube. undefined = no cambia,
+  // "" = lo quito
+  const logo =
+    iglesia.logo === undefined
+      ? null
+      : iglesia.logo === "" || iglesia.logo.startsWith("https://")
+        ? iglesia.logo
+        : await subirImagen(iglesia.logo);
   const { data, error } = await supabase.rpc("guardar_iglesia", {
     p_id: iglesia.id,
     p_nombre: iglesia.sede,
@@ -52,6 +63,7 @@ export async function subirIglesia(iglesia: Iglesia) {
     p_lat: iglesia.lat,
     p_lng: iglesia.lng,
     p_horarios: iglesia.horarios ?? null, // null: no los cambia
+    p_logo: logo,
   });
   if (error) throw error;
   return aIglesia(data as FilaIglesia);

@@ -65,7 +65,7 @@ export default function GuardadosScreen() {
             <Pressable
               onPress={() =>
                 router.push(
-                  `/versiculos?libro=${libro}&capitulo=${capitulo}` as Href,
+                  `/versiculos?libro=${libro}&capitulo=${capitulo}&modo=capitulo` as Href,
                 )
               }
               style={({ pressed }) => [

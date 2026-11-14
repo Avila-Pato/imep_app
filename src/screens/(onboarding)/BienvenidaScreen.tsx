@@ -7,8 +7,9 @@ import {
 } from "@/constants/constans";
 import { RolIglesia, useEstudios, verBienvenida } from "@/store/estudios";
 import Octicons from "@expo/vector-icons/Octicons";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
+  BackHandler,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -90,6 +91,18 @@ export default function BienvenidaScreen() {
     setAvanza(nuevo > paso);
     setPaso(nuevo);
   };
+
+  // Boton "atras" del celular (Android): vuelve al paso anterior en vez de
+  // cerrar la app. En el primer paso (las historias) si sale, como siempre
+  useEffect(() => {
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (paso === 0 || paso >= PASOS.length) return false;
+      setAvanza(false);
+      setPaso(paso - 1);
+      return true; // ya lo manejamos: no cierra la app
+    });
+    return () => sub.remove();
+  }, [paso, PASOS.length]);
 
   if (cargando) {
     return (

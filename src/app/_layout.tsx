@@ -7,6 +7,10 @@ import { Caveat_600SemiBold } from "@expo-google-fonts/caveat/600SemiBold";
 import { EBGaramond_400Regular } from "@expo-google-fonts/eb-garamond/400Regular";
 import { EBGaramond_400Regular_Italic } from "@expo-google-fonts/eb-garamond/400Regular_Italic";
 import { EBGaramond_600SemiBold } from "@expo-google-fonts/eb-garamond/600SemiBold";
+import { AtkinsonHyperlegible_400Regular } from "@expo-google-fonts/atkinson-hyperlegible/400Regular";
+import { AtkinsonHyperlegible_700Bold } from "@expo-google-fonts/atkinson-hyperlegible/700Bold";
+import { Merriweather_400Regular } from "@expo-google-fonts/merriweather/400Regular";
+import { Merriweather_700Bold } from "@expo-google-fonts/merriweather/700Bold";
 import {
   DARK_BG,
   MOSTRAR_BIENVENIDA,
@@ -71,6 +75,11 @@ export default function RootLayout() {
     EBGaramond_400Regular,
     EBGaramond_400Regular_Italic,
     EBGaramond_600SemiBold,
+    // otras letras para leer la Biblia (Aa junto al tamaño)
+    AtkinsonHyperlegible_400Regular,
+    AtkinsonHyperlegible_700Bold,
+    Merriweather_400Regular,
+    Merriweather_700Bold,
   });
 
   // Lo guardado en el telefono (para saber si ya vio el onboarding)

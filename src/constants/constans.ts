@@ -138,6 +138,10 @@ export const VERSIONES_BIBLIA = [
   { id: "RV1960", nombre: "Reina-Valera 1960" },
   { id: "NTV", nombre: "Nueva Traducción Viviente" },
   { id: "LBLA", nombre: "La Biblia de las Américas" },
+  { id: "PDT", nombre: "Palabra de Dios para Todos" },
+  { id: "RV2004", nombre: "Reina Valera Gómez 2004" },
+  { id: "BTX3", nombre: "La Biblia Textual" },
+  { id: "NTBT", nombre: "Nueva Traducción BibliaTodo" },
 ];
 // El indice + 1 es el id del libro en la API
 export const LIBROS_BIBLIA = [
@@ -258,7 +262,6 @@ export const MENU_PERFIL: { titulo: string; opciones: OpcionMenu[] }[] = [
       { id: "privacidad", label: "Privacidad", icon: "lock" },
       { id: "ayuda", label: "Ayuda", icon: "question" },
       { id: "reiniciar", label: "Reiniciar app", icon: "sync", peligro: true },
-      { id: "salir", label: "Cerrar sesión", icon: "sign-out", peligro: true },
     ],
   },
 ];

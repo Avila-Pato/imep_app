@@ -19,6 +19,9 @@ export type Iglesia = {
   // Ubicacion del templo para dibujar el mapa
   lat: number;
   lng: number;
+  // logo (opcional): se ve en el pin del mapa. URL https, o la foto del
+  // telefono mientras se sube. "" = el pastor lo quito
+  logo?: string;
 };
 
 export type RedSocial = {

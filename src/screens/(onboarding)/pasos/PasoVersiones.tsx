@@ -25,7 +25,7 @@ function Libro({
   activa: boolean;
   recomendada?: boolean;
 }) {
-  const p = PORTADAS[v.id];
+  const p = PORTADAS[v.id] ?? PORTADAS.RV1960;
   return (
     <Pressable
       onPress={() => elegirVersion(v.id)}
@@ -125,14 +125,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: SPACING * 3,
   },
+  // las otras versiones: 3 por fila
   estante: {
     flexDirection: "row",
+    flexWrap: "wrap",
     justifyContent: "center",
-    gap: SPACING * 2.4,
+    columnGap: SPACING * 1.6,
+    rowGap: SPACING * 2,
     marginTop: SPACING * 2.4,
   },
   libro: {
-    flex: 1,
+    width: "28%",
     maxWidth: 110,
     alignItems: "center",
     gap: SPACING,

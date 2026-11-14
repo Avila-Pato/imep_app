@@ -16,10 +16,13 @@ import { claveVerso } from "@/screens/(tab)/components/AccionesVersiculo";
 import ModalOracion from "@/screens/(tab)/components/ModalOracion";
 import TamanoLetra from "@/screens/(tab)/components/TamanoLetra";
 import { Verso } from "@/services/biblia";
+import { masVersiculos, VersoFeed } from "@/services/feedVersiculos";
 import {
   alternarMeGusta,
   darMeGusta,
   marcarAyuda,
+  marcarVersoVisto,
+  versosVistosAhora,
   useFuenteBiblia,
   guardarVersiculo,
   resaltar,
@@ -42,6 +45,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AyudaVersiculos from "./AyudaVersiculos";
+import BotonLetra from "./BotonLetra";
 import BotonLibro from "./BotonLibro";
 import BotonVersion from "./BotonVersion";
 import CorazonMeGusta, { DURACION_CORAZON } from "./CorazonMeGusta";
@@ -51,23 +55,97 @@ import { tamanoVerso } from "./tamanoVerso";
 // En el telefono se desliza con el dedo; en web hay flechas para el mouse
 const WEB = Platform.OS === "web";
 
+// Lo que muestra cada pantalla (de un capitulo o del feed "Para ti")
+type Item = {
+  clave: string;
+  libro: number;
+  capitulo: number;
+  cita: string;
+  verso: Verso;
+};
+type Modo = "paraTi" | "capitulo";
+
+const ERROR_FEED = "No se pudieron cargar versículos. Revisa tu conexión.";
+
+// Feed "Para ti": versiculos al azar que no se repiten. Carga de a pocos y
+// pide mas cuando faltan 3 por ver
+function useFeed(activo: boolean, version: string) {
+  const [items, setItems] = useState<VersoFeed[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const pidiendo = useRef(false);
+
+  // lo ya visto (leido en el momento, sin re-dibujar al marcar cada uno)
+  const vistosCon = (actuales: VersoFeed[]) =>
+    new Set([...(versosVistosAhora() ?? []), ...actuales.map((v) => v.clave)]);
+
+  const pedirMas = () => {
+    if (pidiendo.current) return;
+    pidiendo.current = true;
+    masVersiculos(5, vistosCon(items), version)
+      .then((nuevos) => {
+        setError(null);
+        setItems((a) => [...a, ...nuevos]);
+      })
+      .catch(() => setError(ERROR_FEED))
+      .finally(() => {
+        pidiendo.current = false;
+      });
+  };
+
+  // al abrir (o al cambiar de version) empieza un feed nuevo
+  useEffect(() => {
+    if (!activo) return;
+    let vivo = true;
+    pidiendo.current = true;
+    masVersiculos(5, new Set(versosVistosAhora() ?? []), version)
+      .then((nuevos) => {
+        if (!vivo) return;
+        setError(null);
+        setItems(nuevos);
+        // el primero ya se esta viendo
+        if (nuevos[0]) marcarVersoVisto(nuevos[0].clave);
+      })
+      .catch(() => {
+        if (vivo) setError(ERROR_FEED);
+      })
+      .finally(() => {
+        pidiendo.current = false;
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [activo, version]);
+
+  return { items, error, pedirMas };
+}
+
 // Un versiculo por pantalla, como deslizar videos.
-// Se abre desde la Biblia con ?libro=43&capitulo=3
+//  - "Para ti": versiculos al azar de toda la Biblia, sin repetir
+//  - "Capítulo": el capitulo de a un versiculo (?libro=43&capitulo=3)
 export default function VersiculosScreen() {
-  const params = useLocalSearchParams<{ libro: string; capitulo: string }>();
+  const params = useLocalSearchParams<{
+    libro: string;
+    capitulo: string;
+    modo?: string;
+  }>();
   const libro = Number(params.libro) || 1;
   const capitulo = Number(params.capitulo) || 1;
   const nombre = LIBROS_BIBLIA[libro - 1];
   const total = CAPITULOS_BIBLIA[libro - 1];
+  const [modo, setModo] = useState<Modo>(
+    params.modo === "capitulo" ? "capitulo" : "paraTi",
+  );
+  const paraTi = modo === "paraTi";
   const { versos, cargando, error } = usePasaje(`${nombre} ${capitulo}`);
   const version = useVersion();
+  const feed = useFeed(paraTi, version);
 
   const [alto, setAlto] = useState(0); // alto de cada pagina = alto de la lista
   const [actual, setActual] = useState(0);
   const [aviso, setAviso] = useState<string | null>(null);
-  const [orando, setOrando] = useState<Verso | null>(null);
+  const [orando, setOrando] = useState<Item | null>(null);
   const [paleta, setPaleta] = useState(false);
-  const listaRef = useRef<FlatList<Verso>>(null);
+  const listaRef = useRef<FlatList<Item>>(null);
 
   const irA = (i: number) =>
     listaRef.current?.scrollToIndex({ index: i, animated: true });
@@ -82,50 +160,108 @@ export default function VersiculosScreen() {
   // Cambia de capitulo (o de libro) sin salir de esta pantalla
   const irCapitulo = (l: number, c: number) => {
     setActual(0);
+    setModo("capitulo");
     router.setParams({ libro: String(l), capitulo: String(c) });
   };
   const siguienteCapitulo = () => irCapitulo(libro, capitulo + 1);
   const [eligiendo, setEligiendo] = useState(false);
+  const cambiarModo = (m: Modo) => {
+    if (m === modo) return;
+    setActual(0);
+    setPaleta(false);
+    setModo(m);
+  };
+
+  const lista: Item[] = paraTi
+    ? feed.items.map((v) => ({
+        clave: v.clave,
+        libro: v.libro,
+        capitulo: v.capitulo,
+        cita: v.cita,
+        verso: { numero: v.numero, texto: v.texto },
+      }))
+    : (versos ?? []).map((v) => ({
+        clave: claveVerso(libro, capitulo, v.numero),
+        libro,
+        capitulo,
+        cita: `${nombre} ${capitulo}:${v.numero}`,
+        verso: v,
+      }));
+  const visto = lista[actual];
 
   // Lectura normal del capitulo que se esta viendo (vuelve a la pestaña Biblia).
-  // La usan la flecha de volver y "Leer capítulo completo"
+  // En "Para ti": el capitulo del versiculo de ahora
   const leerCompleto = () =>
     router.navigate({
       pathname: "/oraciones",
-      params: { libro: String(libro), capitulo: String(capitulo) },
+      params: {
+        libro: String(visto?.libro ?? libro),
+        capitulo: String(visto?.capitulo ?? capitulo),
+      },
     } as Href);
 
-  const lista = versos ?? [];
   const progreso = lista.length ? (actual + 1) / lista.length : 0;
+  const cargandoLista = paraTi ? !feed.items.length && !feed.error : cargando;
+  const errorLista = paraTi ? (feed.items.length ? null : feed.error) : error;
 
   return (
     <SafeAreaView style={styles.safe}>
-      {/* Cabecera: cita y progreso (se vuelve con "Leer capítulo completo") */}
+      {/* Cabecera: Para ti / Capitulo, y el libro (en Capitulo) y la version */}
       <View style={styles.cabecera}>
-        {/* Tocar el titulo abre el selector de libro y capitulo */}
         <View style={styles.cabeceraCentro}>
-          <Text style={styles.eyebrow}>SAGRADA ESCRITURA</Text>
-          {/* libro y version, uno al lado del otro */}
+          <View style={styles.modos}>
+            {(
+              [
+                ["paraTi", "Para ti"],
+                ["capitulo", "Capítulo"],
+              ] as const
+            ).map(([id, label]) => (
+              <Pressable
+                key={id}
+                onPress={() => cambiarModo(id)}
+                hitSlop={6}
+                style={styles.modoBoton}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: modo === id }}
+              >
+                <Text style={[styles.modo, modo === id && styles.modoActivo]}>
+                  {label}
+                </Text>
+                <View
+                  style={[
+                    styles.modoLinea,
+                    modo === id && styles.modoLineaActiva,
+                  ]}
+                />
+              </Pressable>
+            ))}
+          </View>
           <View style={styles.titulos}>
-            <BotonLibro
-              titulo={`${nombre} ${capitulo}`}
-              onPress={() => setEligiendo(true)}
-            />
+            {!paraTi && (
+              <BotonLibro
+                titulo={`${nombre} ${capitulo}`}
+                onPress={() => setEligiendo(true)}
+              />
+            )}
             <BotonVersion />
           </View>
         </View>
       </View>
-      {/* Progreso: barra + "3/25" */}
-      <View style={styles.progreso}>
-        <View style={styles.barra}>
-          <View style={[styles.barraLlena, { width: `${progreso * 100}%` }]} />
+      {/* Progreso del capitulo: barra + "3/25" */}
+      {!paraTi && (
+        <View style={styles.progreso}>
+          <View style={styles.barra}>
+            <View
+              style={[styles.barraLlena, { width: `${progreso * 100}%` }]}
+            />
+          </View>
+          <Text style={styles.contador}>
+            {lista.length
+              ? `${Math.min(actual + 1, lista.length)}/${lista.length}`
+              : ""}
+          </Text>
         </View>
-        <Text style={styles.contador}>
-          {lista.length
-            ? `${Math.min(actual + 1, lista.length)}/${lista.length}`
-            : ""}
-        </Text>
-      </View>
+      )}
 
       {/* Leer el capitulo normal y tamaño de letra */}
       <View style={styles.herramientas}>
@@ -137,32 +273,35 @@ export default function VersiculosScreen() {
           <Octicons name="list-unordered" size={13} color={TEXT} />
           <Text style={styles.leerTexto}>Leer capítulo completo</Text>
         </Pressable>
-        <TamanoLetra />
+        <View style={styles.letra}>
+          <TamanoLetra />
+          <BotonLetra />
+        </View>
       </View>
 
       <View
         style={styles.flex}
         onLayout={(e) => setAlto(e.nativeEvent.layout.height)}
       >
-        {cargando && (
+        {cargandoLista && (
           <View style={styles.centro}>
             <ActivityIndicator color={MUTED} />
           </View>
         )}
-        {error && (
+        {errorLista && (
           <View style={styles.centro}>
-            <Text style={styles.ayuda}>{error}</Text>
+            <Text style={styles.ayuda}>{errorLista}</Text>
           </View>
         )}
 
         {alto > 0 && lista.length > 0 && (
           <FlatList
             ref={listaRef}
-            key={`${libro}-${capitulo}`}
+            key={paraTi ? `paraTi-${version}` : `${libro}-${capitulo}`}
             // alto fijo: en web la lista solo se desliza si tiene limite
             style={styles.lista}
             data={lista}
-            keyExtractor={(v) => String(v.numero)}
+            keyExtractor={(v) => v.clave}
             pagingEnabled
             snapToInterval={alto}
             snapToAlignment="start"
@@ -180,16 +319,22 @@ export default function VersiculosScreen() {
               if (i !== actual) {
                 setActual(i);
                 setPaleta(false);
+                if (paraTi) {
+                  if (lista[i]) marcarVersoVisto(lista[i].clave);
+                  // faltan pocos: trae mas (el feed no se acaba)
+                  if (i >= lista.length - 3) feed.pedirMas();
+                }
               }
             }}
             renderItem={({ item, index }) => (
               <Pagina
-                verso={item}
-                libro={libro}
-                capitulo={capitulo}
+                verso={item.verso}
+                libro={item.libro}
+                capitulo={item.capitulo}
+                cita={item.cita}
                 alto={alto}
                 primera={index === 0}
-                ultima={index === lista.length - 1}
+                ultima={!paraTi && index === lista.length - 1}
                 hayMas={capitulo < total}
                 paleta={paleta && index === actual}
                 onPaleta={() => setPaleta((p) => !p)}
@@ -249,15 +394,15 @@ export default function VersiculosScreen() {
 
       <ModalOracion
         visible={!!orando}
-        cita={orando ? `${nombre} ${capitulo}:${orando.numero}` : ""}
-        texto={orando?.texto ?? ""}
+        cita={orando?.cita ?? ""}
+        texto={orando?.verso.texto ?? ""}
         onCerrar={() => setOrando(null)}
         onGuardar={(oracion) => {
           if (!orando) return;
           guardarVersiculo({
-            id: `${claveVerso(libro, capitulo, orando.numero)}-oracion`,
-            cita: `${nombre} ${capitulo}:${orando.numero}`,
-            texto: orando.texto,
+            id: `${orando.clave}-oracion`,
+            cita: orando.cita,
+            texto: orando.verso.texto,
             oracion,
             fecha: new Date().toISOString(),
           });
@@ -267,7 +412,7 @@ export default function VersiculosScreen() {
         onCompartir={(oracion) => {
           if (!orando) return;
           Share.share({
-            message: `«${orando.texto}»\n— ${nombre} ${capitulo}:${orando.numero} (${version})\n\n🙏 ${oracion}`,
+            message: `«${orando.verso.texto}»\n— ${orando.cita} (${version})\n\n🙏 ${oracion}`,
           }).catch(() => {});
           setOrando(null);
         }}
@@ -280,6 +425,7 @@ type PaginaProps = {
   verso: Verso;
   libro: number;
   capitulo: number;
+  cita: string; // "Juan 3:16" (o "Proverbios 3:5-6" en Para ti)
   alto: number;
   primera: boolean;
   ultima: boolean;
@@ -296,6 +442,7 @@ function Pagina({
   verso,
   libro,
   capitulo,
+  cita,
   alto,
   primera,
   ultima,
@@ -317,7 +464,6 @@ function Pagina({
   const tamanoTexto = tamanoVerso(verso.texto, letra);
   const fuente = useFuenteBiblia(); // letra elegida en Editar perfil
   const clave = claveVerso(libro, capitulo, verso.numero);
-  const cita = `${LIBROS_BIBLIA[libro - 1]} ${capitulo}:${verso.numero}`;
   const color = resaltados[clave];
   const guardado = versiculos.some((v) => v.id === clave);
   const gusta = meGusta.includes(clave);
@@ -552,6 +698,32 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
   },
+  modos: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: SPACING * 2.4,
+  },
+  modoBoton: {
+    alignItems: "center",
+    gap: 5,
+  },
+  modo: {
+    fontFamily: FUENTE.semibold,
+    fontSize: 15,
+    color: MUTED,
+  },
+  modoActivo: {
+    color: TEXT,
+  },
+  modoLinea: {
+    width: 22,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: "transparent",
+  },
+  modoLineaActiva: {
+    backgroundColor: TEXT,
+  },
   eyebrow: {
     fontFamily: FUENTE.semibold,
     fontSize: 10,
@@ -680,6 +852,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: 8,
+  },
+  letra: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
   herramientas: {

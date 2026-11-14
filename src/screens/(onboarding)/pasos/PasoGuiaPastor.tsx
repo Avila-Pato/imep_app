@@ -188,41 +188,56 @@ export default function PasoGuiaPastor({ onSeguir }: { onSeguir: () => void }) {
 
         <View style={styles.cabecera}>
           <View style={[styles.icono, { backgroundColor: `${tema.tono}22` }]}>
-            <Octicons name={tema.icono} size={26} color={tema.tono} />
+            <Octicons name={tema.icono} size={24} color={tema.tono} />
           </View>
           <Text style={styles.titulo}>{tema.titulo}</Text>
         </View>
 
-        <Text style={styles.que}>{tema.que}</Text>
-
-        {/* donde esta */}
-        <View style={styles.donde}>
-          <Octicons name="location" size={12} color={MUTED} />
-          <Text style={styles.dondeEtiqueta}>DÓNDE</Text>
-          <Text style={styles.dondeTexto}>{tema.donde.join("  ›  ")}</Text>
+        {/* que es */}
+        <View style={styles.seccion}>
+          <Text style={styles.seccionTitulo}>QUÉ ES</Text>
+          <Text style={styles.que}>{tema.que}</Text>
         </View>
 
-        {/* como se usa */}
-        <View style={styles.pasos}>
-          {tema.pasos.map((p, k) => (
-            <Animated.View
-              key={p}
-              entering={FadeInDown.delay(80 + k * 70).duration(300)}
-              style={styles.pasoFila}
-            >
-              <View style={[styles.numero, { borderColor: tema.tono }]}>
-                <Text style={[styles.numeroTexto, { color: tema.tono }]}>
-                  {k + 1}
-                </Text>
+        {/* donde esta: el camino dentro de la app */}
+        <View style={styles.seccion}>
+          <Text style={styles.seccionTitulo}>DÓNDE ESTÁ</Text>
+          <View style={styles.camino}>
+            {tema.donde.map((d, k) => (
+              <View key={d} style={styles.caminoFila}>
+                {k > 0 && (
+                  <Octicons name="chevron-right" size={14} color={MUTED} />
+                )}
+                <View style={styles.caminoChip}>
+                  <Text style={styles.caminoTexto}>{d}</Text>
+                </View>
               </View>
-              <Text style={styles.pasoTexto}>{p}</Text>
-            </Animated.View>
-          ))}
+            ))}
+          </View>
+        </View>
+
+        {/* como se usa, paso a paso */}
+        <View style={styles.seccion}>
+          <Text style={styles.seccionTitulo}>CÓMO SE HACE</Text>
+          <View style={styles.pasos}>
+            {tema.pasos.map((p, k) => (
+              <Animated.View
+                key={p}
+                entering={FadeInDown.delay(80 + k * 70).duration(300)}
+                style={styles.pasoFila}
+              >
+                <View style={[styles.numero, { backgroundColor: tema.tono }]}>
+                  <Text style={styles.numeroTexto}>{k + 1}</Text>
+                </View>
+                <Text style={styles.pasoTexto}>{p}</Text>
+              </Animated.View>
+            ))}
+          </View>
         </View>
 
         {!!tema.nota && (
-          <View style={styles.nota}>
-            <Octicons name="info" size={13} color={MUTED} />
+          <View style={[styles.nota, { borderLeftColor: tema.tono }]}>
+            <Octicons name="light-bulb" size={14} color={tema.tono} />
             <Text style={styles.notaTexto}>{tema.nota}</Text>
           </View>
         )}
@@ -231,93 +246,116 @@ export default function PasoGuiaPastor({ onSeguir }: { onSeguir: () => void }) {
   );
 }
 
+// Todo con la letra Moderna (Inter): clara y facil de leer
 const styles = StyleSheet.create({
   tema: {
-    gap: SPACING * 1.4,
+    gap: SPACING * 1.8,
   },
   cabecera: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: SPACING * 1.2,
   },
   icono: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
+    width: 52,
+    height: 52,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
   },
   titulo: {
+    flex: 1,
     fontFamily: FUENTE.semibold,
-    fontSize: 26,
-    lineHeight: 32,
+    fontSize: 24,
+    lineHeight: 30,
     color: TEXT,
   },
-  que: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: TEXT,
-    opacity: 0.85,
+  seccion: {
+    gap: SPACING * 0.8,
   },
-  donde: {
-    flexDirection: "row",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: 8,
-    paddingHorizontal: SPACING * 1.2,
-    paddingVertical: SPACING,
-    borderRadius: 14,
-    backgroundColor: SURFACE,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: BORDER,
-  },
-  dondeEtiqueta: {
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 1.2,
+  seccionTitulo: {
+    fontFamily: FUENTE.semibold,
+    fontSize: 11,
+    letterSpacing: 1.4,
     color: MUTED,
   },
-  dondeTexto: {
+  que: {
+    fontFamily: FUENTE.medium,
+    fontSize: 16,
+    lineHeight: 24,
+    color: TEXT,
+  },
+  camino: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 6,
+  },
+  caminoFila: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  caminoChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+    backgroundColor: SURFACE,
+    borderWidth: 1,
+    borderColor: BORDER,
+  },
+  caminoTexto: {
     fontFamily: FUENTE.semibold,
     fontSize: 14,
     color: TEXT,
   },
   pasos: {
-    gap: SPACING * 1.1,
+    gap: SPACING * 0.8,
   },
+  // cada paso en su propia tarjeta
   pasoFila: {
     flexDirection: "row",
+    alignItems: "flex-start",
     gap: SPACING * 1.1,
+    padding: SPACING * 1.2,
+    borderRadius: 14,
+    backgroundColor: SURFACE,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: BORDER,
   },
   numero: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    borderWidth: 1.5,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 1,
   },
   numeroTexto: {
+    fontFamily: FUENTE.semibold,
     fontSize: 12,
-    fontWeight: "700",
+    color: "#FFFFFF",
   },
   pasoTexto: {
     flex: 1,
-    fontSize: 14,
-    lineHeight: 21,
+    fontFamily: FUENTE.medium,
+    fontSize: 15,
+    lineHeight: 22,
     color: TEXT,
   },
   nota: {
     flexDirection: "row",
-    gap: 8,
+    gap: 10,
     padding: SPACING * 1.2,
-    borderRadius: 14,
+    borderRadius: 12,
     backgroundColor: SURFACE,
+    borderLeftWidth: 3,
   },
   notaTexto: {
     flex: 1,
-    fontSize: 13,
-    lineHeight: 19,
-    color: MUTED,
+    fontFamily: FUENTE.medium,
+    fontSize: 14,
+    lineHeight: 20,
+    color: TEXT,
   },
   puntos: {
     flexDirection: "row",
@@ -339,6 +377,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   enlace: {
+    fontFamily: FUENTE.medium,
     fontSize: 14,
     color: MUTED,
   },

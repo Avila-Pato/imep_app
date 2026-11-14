@@ -1,4 +1,5 @@
 import * as Location from "expo-location";
+import { buscarEnGoogle, hayGoogle } from "./googlePlaces";
 // Busca direcciones con OpenStreetMap (Nominatim): gratis y sin clave.
 // Sus reglas piden pocas busquedas (se espera a que deje de escribir)
 // y no usarlo para autocompletar letra por letra.
@@ -87,6 +88,17 @@ export async function buscarDireccion(
   cerca?: Cerca,
 ): Promise<Lugar[]> {
   const limpio = normalizar(texto);
+  // Con Google (Android con clave): una sola busqueda, mucho mejor en
+  // Latinoamerica. Si falla (sin cupo, sin red), sigue con OpenStreetMap
+  if (hayGoogle()) {
+    try {
+      const r = await buscarEnGoogle(limpio, signal, cerca);
+      if (r.length) return r;
+    } catch (e) {
+      if (signal?.aborted) throw e;
+      console.warn("[google places]", (e as Error)?.message ?? e);
+    }
+  }
   // 1) tal cual y con las correcciones (b/v...), en su pais
   // 2) si no, tal cual en cualquier pais (la iglesia puede estar en otro)
   const intentos: [string, string][] = PAIS

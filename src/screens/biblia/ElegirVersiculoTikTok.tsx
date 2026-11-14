@@ -12,7 +12,7 @@ import {
 } from "@/constants/constans";
 import { usePasaje } from "@/hooks/usePasaje";
 import { Verso } from "@/services/biblia";
-import { useEstudios } from "@/store/estudios";
+import { useEstudios, useFuenteBiblia } from "@/store/estudios";
 import Octicons from "@expo/vector-icons/Octicons";
 import { useState } from "react";
 import {
@@ -38,6 +38,7 @@ export default function ElegirVersiculoTikTok({
   onCerrar: () => void;
 }) {
   const { letra = 1 } = useEstudios();
+  const fuente = useFuenteBiblia(); // la letra que eligio (Aa)
   const [pos, setPos] = useState({ libro: 43, capitulo: 3 }); // Juan 3
   const nombre = LIBROS_BIBLIA[pos.libro - 1];
   const { versos, cargando, error } = usePasaje(`${nombre} ${pos.capitulo}`);
@@ -134,6 +135,7 @@ export default function ElegirVersiculoTikTok({
                         <Text
                           style={[
                             styles.verso,
+                            { fontFamily: fuente.normal },
                             { fontSize: t, lineHeight: t * 1.3 },
                           ]}
                         >

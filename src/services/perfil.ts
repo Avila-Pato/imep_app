@@ -34,6 +34,13 @@ export async function subirPerfil(datos: {
   return avatar;
 }
 
+// Sube una imagen a la carpeta de esta persona (logo de la iglesia...)
+export async function subirImagen(uri: string) {
+  const yo = await asegurarSesion();
+  if (!yo) throw new Error("sin sesion");
+  return subirFoto(yo, uri);
+}
+
 // avatares/<usuario>/<archivo> (cada uno solo puede subir a su carpeta)
 async function subirFoto(yo: string, uri: string) {
   const datos =

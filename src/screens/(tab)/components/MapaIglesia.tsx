@@ -7,7 +7,8 @@ import {
   TEXT,
   ELEVADO,
 } from "@/constants/constans";
-import { teselasVisibles } from "@/utils/mapa";
+import MapaNativo, { HAY_MAPA_NATIVO } from "@/components/MapaNativo";
+import { aLatLng, aPixel, teselasVisibles } from "@/utils/mapa";
 import Octicons from "@expo/vector-icons/Octicons";
 import { Image } from "expo-image";
 import { useState } from "react";
@@ -26,6 +27,7 @@ type Props = {
   onComoLlegar?: () => void; // sin esto no se muestra el boton (vista previa)
   etiqueta?: string; // nombre en un globo sobre el pin
   focoY?: number; // altura del pin (0 arriba, 1 abajo)
+  logo?: string; // logo de la iglesia: va en el pin en vez de la casita
 };
 
 // El pin queda un poco arriba del centro para que no lo tape el panel inferior
@@ -39,6 +41,7 @@ export default function MapaIglesia({
   onComoLlegar,
   etiqueta,
   focoY = 0.38,
+  logo,
 }: Props) {
   const FOCO = { x: 0.5, y: focoY };
   const { teselas, tamano } = teselasVisibles(
@@ -60,32 +63,43 @@ export default function MapaIglesia({
     opacity: withTiming(cargado ? 0 : 1, { duration: 350 }),
   }));
 
+  // telefono: el mapa de Google (imagen fija, liviana). El pin va un poco
+  // arriba del centro: se corre el centro del mapa para que caiga en la iglesia
+  const p = aPixel(lat, lng, MAPA_ZOOM);
+  const centro = aLatLng(p.x, p.y + (0.5 - FOCO.y) * alto, MAPA_ZOOM);
+
   return (
     <View style={StyleSheet.absoluteFill}>
-      {teselas.map((t) => (
-        <Image
-          key={`${t.x}-${t.y}`}
-          source={mapaTesela(MAPA_ZOOM, t.x, t.y)}
-          style={{
-            position: "absolute",
-            left: t.left,
-            top: t.top,
-            width: tamano,
-            height: tamano,
-          }}
-          cachePolicy="disk"
-          onLoad={() => marcar(`${t.x}-${t.y}`)}
-          onError={() => marcar(`${t.x}-${t.y}`)}
-        />
-      ))}
+      {HAY_MAPA_NATIVO && (
+        <MapaNativo lat={centro.lat} lng={centro.lng} zoom={MAPA_ZOOM} lite />
+      )}
+      {!HAY_MAPA_NATIVO &&
+        teselas.map((t) => (
+          <Image
+            key={`${t.x}-${t.y}`}
+            source={mapaTesela(MAPA_ZOOM, t.x, t.y)}
+            style={{
+              position: "absolute",
+              left: t.left,
+              top: t.top,
+              width: tamano,
+              height: tamano,
+            }}
+            cachePolicy="disk"
+            onLoad={() => marcar(`${t.x}-${t.y}`)}
+            onError={() => marcar(`${t.x}-${t.y}`)}
+          />
+        ))}
 
       {/* Mientras carga: esqueleto que late (sin pedazos apareciendo) */}
-      <Animated.View
-        pointerEvents="none"
-        style={[StyleSheet.absoluteFill, styles.esqueleto, esqueletoStyle]}
-      >
-        <Esqueleto alto="100%" radio={0} />
-      </Animated.View>
+      {!HAY_MAPA_NATIVO && (
+        <Animated.View
+          pointerEvents="none"
+          style={[StyleSheet.absoluteFill, styles.esqueleto, esqueletoStyle]}
+        >
+          <Esqueleto alto="100%" radio={0} />
+        </Animated.View>
+      )}
 
       {/* Pin de la iglesia */}
       <View
@@ -96,9 +110,18 @@ export default function MapaIglesia({
         ]}
       >
         <View style={styles.pinHalo} />
-        <View style={styles.pinPunto}>
-          <Octicons name="home-fill" size={12} color="#FFFFFF" />
-        </View>
+        {logo ? (
+          <Image
+            source={{ uri: logo }}
+            style={styles.pinLogo}
+            contentFit="cover"
+            cachePolicy="disk"
+          />
+        ) : (
+          <View style={styles.pinPunto}>
+            <Octicons name="home-fill" size={12} color="#FFFFFF" />
+          </View>
+        )}
       </View>
 
       {/* Globo con el nombre de la iglesia sobre el pin */}
@@ -128,7 +151,10 @@ export default function MapaIglesia({
         </Pressable>
       )}
 
-      <Text style={styles.atribucion}>{MAPA_ATRIBUCION}</Text>
+      {/* Google pone su propio logo */}
+      {!HAY_MAPA_NATIVO && (
+        <Text style={styles.atribucion}>{MAPA_ATRIBUCION}</Text>
+      )}
     </View>
   );
 }
@@ -149,6 +175,15 @@ const styles = StyleSheet.create({
     borderRadius: PIN / 2,
     backgroundColor: PRIMARY,
     opacity: 0.25,
+  },
+  // el logo en un circulo blanco (se lee sobre cualquier mapa)
+  pinLogo: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+    backgroundColor: "#FFFFFF",
   },
   pinPunto: {
     width: 26,

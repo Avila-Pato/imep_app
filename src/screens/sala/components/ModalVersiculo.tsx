@@ -11,7 +11,7 @@ import {
 } from "@/constants/constans";
 import { usePasaje } from "@/hooks/usePasaje";
 import { tamanoVerso } from "@/screens/biblia/tamanoVerso";
-import { useEstudios } from "@/store/estudios";
+import { useEstudios, useFuenteBiblia } from "@/store/estudios";
 import { Mensaje } from "@/types/typesComunidad";
 import { iniciales } from "@/utils/texto";
 import Octicons from "@expo/vector-icons/Octicons";
@@ -34,6 +34,7 @@ type Props = {
 // pantalla completa (como TikTok), con lo que escribio abajo
 export default function ModalVersiculo({ mensaje, onCerrar }: Props) {
   const { letra = 1 } = useEstudios();
+  const fuente = useFuenteBiblia(); // la letra que eligio (Aa)
   const cita = mensaje?.cita ?? "";
   const pasaje = usePasaje(cita);
   // sin internet: el texto que se guardo al enviar
@@ -87,7 +88,11 @@ export default function ModalVersiculo({ mensaje, onCerrar }: Props) {
               ) : (
                 <>
                   <Text
-                    style={[styles.verso, { fontSize: t, lineHeight: t * 1.3 }]}
+                    style={[
+                      styles.verso,
+                      { fontFamily: fuente.normal },
+                      { fontSize: t, lineHeight: t * 1.3 },
+                    ]}
                   >
                     “{texto || "No se pudo cargar el versículo"}”
                   </Text>

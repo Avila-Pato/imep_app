@@ -22,10 +22,18 @@ const PUNTOS: {
   texto: string;
 }[] = [
   {
-    icono: "arrow-up",
+    icono: "sparkle-fill",
+    tono: "#A78BFA",
+    titulo: "Para ti",
+    texto:
+      "Desliza hacia arriba y descubre versículos de toda la Biblia, siempre distintos: no se repiten los que ya viste.",
+  },
+  {
+    icono: "book",
     tono: TEXT,
-    titulo: "Desliza hacia arriba",
-    texto: "Un versículo por pantalla. Desliza para ver el siguiente.",
+    titulo: "Capítulo",
+    texto:
+      "Lee un capítulo de a un versículo, en orden. Toca el nombre del libro para elegir otro.",
   },
   {
     icono: "heart-fill",
@@ -56,13 +64,16 @@ const PUNTOS: {
   },
 ];
 
-// Explicacion de como funciona "versiculo por versiculo".
-// Sale solo la primera vez que se entra
+// Explicacion de como funciona "versiculo por versiculo" (Para ti y Capitulo).
+// Sale solo la primera vez que se entra. Al cambiar lo que explica se cambia
+// el id, para que quien vio la anterior vea la nueva una vez
+const AYUDA = "versiculos-para-ti";
+
 export default function AyudaVersiculos() {
   const cargado = useCargado();
   const { ayudasVistas = [] } = useEstudios();
   // hasta saber lo guardado no se muestra (asi no aparece de mas)
-  if (!cargado || ayudasVistas.includes("versiculos")) return null;
+  if (!cargado || ayudasVistas.includes(AYUDA)) return null;
 
   return (
     <Animated.View entering={FadeIn.duration(250)} style={styles.fondo}>
@@ -94,7 +105,7 @@ export default function AyudaVersiculos() {
         </ScrollView>
 
         <Pressable
-          onPress={() => marcarAyuda("versiculos")}
+          onPress={() => marcarAyuda(AYUDA)}
           style={({ pressed }) => [styles.boton, pressed && styles.presionado]}
         >
           <Text style={styles.botonTexto}>¡Entendido!</Text>

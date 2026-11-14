@@ -3,6 +3,7 @@ import {
   CAPITULOS_BIBLIA,
   DARK_BG,
   FUENTE,
+  GENEROS_BIBLIA,
   LIBROS_BIBLIA,
   MUTED,
   SPACING,
@@ -13,7 +14,6 @@ import {
 import Octicons from "@expo/vector-icons/Octicons";
 import { useState } from "react";
 import {
-  FlatList,
   Modal,
   Pressable,
   ScrollView,
@@ -47,18 +47,51 @@ export default function SelectorLibro({
   const [busqueda, setBusqueda] = useState("");
   // libro elegido en la hoja (null = mostrando la lista de libros)
   const [elegido, setElegido] = useState<number | null>(null);
+  // Antiguo o Nuevo Testamento (abre en el del libro que se esta leyendo)
+  const [nuevo, setNuevo] = useState(libro > FIN_AT);
 
   const cerrar = () => {
     setBusqueda("");
     setElegido(null);
+    setNuevo(libro > FIN_AT);
     onCerrar();
   };
 
   const filtro = normalizar(busqueda.trim());
-  const libros = LIBROS_BIBLIA.map((nombre, i) => ({
+  // buscando: en toda la Biblia. Si no: los grupos del testamento elegido
+  const encontrados = LIBROS_BIBLIA.map((nombre, i) => ({
     nombre,
     id: i + 1,
-  })).filter((l) => !filtro || normalizar(l.nombre).includes(filtro));
+  })).filter((l) => filtro && normalizar(l.nombre).includes(filtro));
+  const grupos = GENEROS_BIBLIA.filter((g) =>
+    nuevo ? g.desde > FIN_AT : g.hasta <= FIN_AT,
+  );
+
+  // una ficha de libro (3 por fila)
+  const ficha = (id: number) => {
+    const actual = id === libro;
+    return (
+      <Pressable
+        key={id}
+        onPress={() => setElegido(id)}
+        style={({ pressed }) => [
+          styles.ficha,
+          actual && styles.fichaActual,
+          pressed && styles.presionado,
+        ]}
+        accessibilityLabel={`${LIBROS_BIBLIA[id - 1]}, ${CAPITULOS_BIBLIA[id - 1]} capítulos`}
+      >
+        <Text
+          style={[styles.fichaTexto, actual && styles.fichaTextoActual]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.75}
+        >
+          {LIBROS_BIBLIA[id - 1]}
+        </Text>
+      </Pressable>
+    );
+  };
 
   return (
     <Modal
@@ -152,49 +185,67 @@ export default function SelectorLibro({
                       style={styles.input}
                     />
                   </View>
-                  <FlatList
-                    data={libros}
-                    keyExtractor={(l) => String(l.id)}
-                    keyboardShouldPersistTaps="handled"
-                    // abre con el libro actual a la vista
-                    initialScrollIndex={
-                      filtro ? undefined : Math.max(0, libro - 3)
-                    }
-                    getItemLayout={(_, i) => ({
-                      length: FILA_ALTO,
-                      offset: FILA_ALTO * i,
-                      index: i,
-                    })}
-                    renderItem={({ item }) => {
-                      const actual = item.id === libro;
-                      return (
+                  {/* Antiguo / Nuevo Testamento */}
+                  {!filtro && (
+                    <View style={styles.testamentos}>
+                      {(
+                        [
+                          [false, "Antiguo Testamento"],
+                          [true, "Nuevo Testamento"],
+                        ] as const
+                      ).map(([n, label]) => (
                         <Pressable
-                          onPress={() => setElegido(item.id)}
-                          style={({ pressed }) => [
-                            styles.fila,
-                            pressed && styles.presionado,
+                          key={label}
+                          onPress={() => setNuevo(n)}
+                          style={[
+                            styles.testamento,
+                            nuevo === n && styles.testamentoActivo,
                           ]}
+                          accessibilityRole="tab"
+                          accessibilityState={{ selected: nuevo === n }}
                         >
                           <Text
-                            style={[styles.libro, actual && styles.libroActual]}
+                            style={[
+                              styles.testamentoTexto,
+                              nuevo === n && styles.testamentoTextoActivo,
+                            ]}
                           >
-                            {item.nombre}
+                            {label}
                           </Text>
-                          {actual && (
-                            <Text style={styles.leyendo}>Leyendo</Text>
-                          )}
-                          <Text style={styles.caps}>
-                            {CAPITULOS_BIBLIA[item.id - 1]}
-                          </Text>
-                          <Octicons
-                            name="chevron-right"
-                            size={14}
-                            color={MUTED}
-                          />
                         </Pressable>
-                      );
-                    }}
-                  />
+                      ))}
+                    </View>
+                  )}
+                  <ScrollView
+                    keyboardShouldPersistTaps="handled"
+                    contentContainerStyle={styles.libros}
+                  >
+                    {filtro ? (
+                      encontrados.length ? (
+                        <View style={styles.fichas}>
+                          {encontrados.map((l) => ficha(l.id))}
+                        </View>
+                      ) : (
+                        <Text style={styles.vacio}>
+                          No hay ningún libro con ese nombre.
+                        </Text>
+                      )
+                    ) : (
+                      grupos.map((g) => (
+                        <View key={g.nombre} style={styles.grupo}>
+                          <Text style={styles.grupoTitulo}>
+                            {g.nombre.toUpperCase()}
+                          </Text>
+                          <View style={styles.fichas}>
+                            {Array.from(
+                              { length: g.hasta - g.desde + 1 },
+                              (_, k) => g.desde + k,
+                            ).map(ficha)}
+                          </View>
+                        </View>
+                      ))
+                    )}
+                  </ScrollView>
                 </>
               )}
             </View>
@@ -205,7 +256,8 @@ export default function SelectorLibro({
   );
 }
 
-const FILA_ALTO = 48;
+// los primeros 39 libros son del Antiguo Testamento
+const FIN_AT = 39;
 
 const styles = StyleSheet.create({
   presionado: {
@@ -264,38 +316,79 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: TEXT,
   },
-  fila: {
-    height: FILA_ALTO,
+  testamentos: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: SPACING,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: BORDER,
+    padding: 4,
+    borderRadius: 999,
+    backgroundColor: DARK_BG,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: BORDER,
   },
-  libro: {
+  testamento: {
     flex: 1,
-    fontFamily: FUENTE.biblia,
-    fontSize: 18,
-    color: TEXT,
+    alignItems: "center",
+    paddingVertical: 8,
+    borderRadius: 999,
   },
-  libroActual: {
-    fontFamily: FUENTE.bibliaFuerte,
+  testamentoActivo: {
+    backgroundColor: TEXT,
   },
-  leyendo: {
+  testamentoTexto: {
+    fontFamily: FUENTE.semibold,
+    fontSize: 13,
+    color: MUTED,
+  },
+  testamentoTextoActivo: {
+    color: DARK_BG,
+  },
+  libros: {
+    gap: SPACING * 1.4,
+    paddingBottom: SPACING * 2,
+  },
+  grupo: {
+    gap: SPACING * 0.7,
+  },
+  grupoTitulo: {
     fontFamily: FUENTE.semibold,
     fontSize: 10,
-    letterSpacing: 0.8,
-    color: DARK_BG,
-    backgroundColor: TEXT,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 999,
-    overflow: "hidden",
+    letterSpacing: 1.6,
+    color: MUTED,
   },
-  caps: {
-    fontFamily: FUENTE.bibliaCursiva,
+  fichas: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  // 3 por fila (con 2 espacios de 8 entre ellas)
+  ficha: {
+    width: "31.6%",
+    height: 42,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: DARK_BG,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: BORDER,
+  },
+  fichaActual: {
+    backgroundColor: TEXT,
+    borderColor: TEXT,
+  },
+  fichaTexto: {
+    fontFamily: FUENTE.biblia,
+    fontSize: 15,
+    color: TEXT,
+  },
+  fichaTextoActual: {
+    fontFamily: FUENTE.bibliaFuerte,
+    color: DARK_BG,
+  },
+  vacio: {
     fontSize: 14,
     color: MUTED,
+    textAlign: "center",
+    paddingTop: SPACING * 2,
   },
   grilla: {
     flexDirection: "row",

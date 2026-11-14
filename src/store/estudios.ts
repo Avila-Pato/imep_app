@@ -91,6 +91,8 @@ type Estado = {
   meGusta: string[]; // versiculos con "me gusta" ("libro-capitulo-verso")
   meGustaTextos: Record<string, MeGustaInfo>; // cita y texto de cada uno (para el perfil)
   ayudasVistas: string[]; // explicaciones que ya vio (salen solo una vez)
+  // versiculos que ya salieron en "Para ti" (para no repetirlos)
+  versosVistos?: string[];
   turnosAvisados?: string[]; // turnos suyos ya avisados (sin dato = primera vez)
   anunciosAvisados?: string[]; // anuncios ya avisados (sin dato = primera vez)
   subidas?: Record<string, Subida>; // lo que se esta subiendo (o fallo): anuncios y dias del cronograma
@@ -179,6 +181,10 @@ const unir = <T extends { id: string }>(a: T[], b: T[]) => [
 ];
 
 // Estado de una app recien instalada
+// "Para ti": cuantos versiculos vistos se recuerdan; con mas se olvidan los
+// mas viejos (la Biblia tiene ~31.000). Arriba: se usa al cargar lo guardado
+const MAX_VERSOS_VISTOS = 5000;
+
 const inicial = (): Estado => ({
   guardados: [],
   publicaciones: [],
@@ -240,6 +246,12 @@ const useStore = create<Estado>()(
         ayudasVistas: [
           ...new Set([...estado.ayudasVistas, ...(previo.ayudasVistas ?? [])]),
         ],
+        versosVistos: [
+          ...new Set([
+            ...(previo.versosVistos ?? []),
+            ...(estado.versosVistos ?? []),
+          ]),
+        ].slice(-MAX_VERSOS_VISTOS),
         salasEditadas: {
           ...(previo.salasEditadas ?? {}),
           ...estado.salasEditadas,
@@ -416,7 +428,7 @@ export type AvatarElegido =
   | { tipo: "foto"; uri: string };
 
 // Letra para leer la Biblia (Editar perfil)
-export type FuenteBiblia = "clasica" | "moderna";
+export type FuenteBiblia = "clasica" | "moderna" | "legible" | "libro";
 export const FUENTES_BIBLIA: Record<
   FuenteBiblia,
   { label: string; sub: string; normal: string; fuerte: string }
@@ -433,7 +445,28 @@ export const FUENTES_BIBLIA: Record<
     normal: "Inter_500Medium",
     fuerte: "Inter_600SemiBold",
   },
+  // hecha para personas con baja vision: letras que no se confunden
+  legible: {
+    label: "Muy legible",
+    sub: "Clara y grande, para ver mejor",
+    normal: "AtkinsonHyperlegible_400Regular",
+    fuerte: "AtkinsonHyperlegible_700Bold",
+  },
+  libro: {
+    label: "De libro",
+    sub: "Firme y cómoda para leer mucho",
+    normal: "Merriweather_400Regular",
+    fuerte: "Merriweather_700Bold",
+  },
 };
+// Cambia la letra de la Biblia (desde el boton Aa de la lectura)
+export function elegirFuenteBiblia(fuente: FuenteBiblia) {
+  cambiar({ fuenteBiblia: fuente });
+}
+export function useFuenteBibliaId(): FuenteBiblia {
+  return useStore((s) => s.fuenteBiblia) ?? "clasica";
+}
+
 export function useFuenteBiblia() {
   return FUENTES_BIBLIA[useStore((s) => s.fuenteBiblia) ?? "clasica"];
 }
@@ -630,7 +663,8 @@ const idIglesia = (i: Iglesia) => i.id ?? `${i.sede}|${i.lat}|${i.lng}`;
 const subiendo = new Map<string, Promise<unknown>>();
 function subir(iglesia: Iglesia) {
   const p = subirIglesia(iglesia).then((r) => {
-    if (r) marcarSubida(iglesia.id);
+    // el logo ya subido queda con su URL (la foto local era temporal)
+    if (r) marcarSubida(iglesia.id, r.logo);
     return r;
   });
   if (iglesia.id)
@@ -642,13 +676,14 @@ function subir(iglesia: Iglesia) {
   return p;
 }
 // la iglesia ya esta en el servidor
-function marcarSubida(id?: string) {
+function marcarSubida(id?: string, logo?: string) {
   if (!id) return;
+  const cambios = { subida: true, ...(logo ? { logo } : {}) };
   cambiar((s) => ({
     iglesias: listaIglesias(s).map((x) =>
-      x.id === id ? { ...x, subida: true } : x,
+      x.id === id ? { ...x, ...cambios } : x,
     ),
-    iglesia: s.iglesia?.id === id ? { ...s.iglesia, subida: true } : s.iglesia,
+    iglesia: s.iglesia?.id === id ? { ...s.iglesia, ...cambios } : s.iglesia,
   }));
 }
 
@@ -1936,6 +1971,18 @@ export function marcarTurnosAvisados(claves: string[]) {
 }
 
 // Una explicacion ya vista (no vuelve a salir)
+// lo visto en "Para ti", leido en el momento (sin re-dibujar la pantalla)
+export const versosVistosAhora = () => useStore.getState().versosVistos;
+
+// "Para ti": recuerda los ultimos versiculos vistos para no repetirlos
+export function marcarVersoVisto(clave: string) {
+  cambiar((s) => {
+    const vistos = s.versosVistos ?? [];
+    if (vistos.includes(clave)) return s;
+    return { versosVistos: [...vistos, clave].slice(-MAX_VERSOS_VISTOS) };
+  });
+}
+
 export function marcarAyuda(id: string) {
   cambiar((s) =>
     s.ayudasVistas.includes(id) ? s : { ayudasVistas: [...s.ayudasVistas, id] },

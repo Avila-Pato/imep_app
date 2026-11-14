@@ -9,6 +9,11 @@ import {
   TEXT,
   PLACEHOLDER,
 } from "@/constants/constans";
+import {
+  useEstudios,
+  useFuenteBiblia,
+  useFuenteBibliaId,
+} from "@/store/estudios";
 import Octicons from "@expo/vector-icons/Octicons";
 import { useState } from "react";
 import {
@@ -44,6 +49,11 @@ export default function ModalOracion({
 }: Props) {
   const [oracion, setOracion] = useState("");
   const lista = !!oracion.trim();
+  // el versiculo con la letra y el tamaño que eligio la persona (Aa / A─●─A).
+  // Con la clasica va en cursiva, como antes
+  const fuente = useFuenteBiblia();
+  const clasica = useFuenteBibliaId() === "clasica";
+  const { letra = 1 } = useEstudios();
 
   return (
     <Modal
@@ -91,7 +101,15 @@ export default function ModalOracion({
 
                   {/* el versiculo */}
                   <View style={styles.verso}>
-                    <Text style={styles.versoTexto}>«{texto}»</Text>
+                    <Text
+                      style={[
+                        styles.versoTexto,
+                        !clasica && { fontFamily: fuente.normal },
+                        { fontSize: 17 * letra, lineHeight: 25 * letra },
+                      ]}
+                    >
+                      «{texto}»
+                    </Text>
                     <Text style={styles.versoCita}>{cita.toUpperCase()}</Text>
                   </View>
 
