@@ -252,52 +252,54 @@ export default function FormIglesia({
         )}
       </View>
 
-      {/* Logo (opcional): va en el pin del mapa */}
-      <View style={styles.campo}>
-        <Text style={styles.etiqueta}>LOGO DE LA IGLESIA (OPCIONAL)</Text>
-        <View style={styles.logoFila}>
-          <Pressable
-            onPress={elegirLogo}
-            style={({ pressed }) => [
-              styles.logoCaja,
-              pressed && styles.presionado,
-            ]}
-            accessibilityLabel={logo ? "Cambiar el logo" : "Elegir un logo"}
-          >
-            {logo ? (
-              <Image
-                source={{ uri: logo }}
-                style={styles.logoImagen}
-                contentFit="cover"
-              />
-            ) : (
-              <Octicons name="image" size={20} color={MUTED} />
-            )}
-          </Pressable>
-          <View style={styles.flex}>
-            <Text style={styles.miUbicacionTitulo}>
-              {logo ? "Logo listo" : "Agrega el logo de tu iglesia"}
-            </Text>
-            <Text style={styles.miUbicacionTexto}>
-              Se verá en el mapa, en lugar de la casita.
-            </Text>
-            <View style={styles.logoAcciones}>
-              <Pressable onPress={elegirLogo} hitSlop={6}>
-                <Text style={styles.logoAccion}>
-                  {logo ? "Cambiar" : "Elegir imagen"}
-                </Text>
-              </Pressable>
-              {!!logo && (
-                <Pressable onPress={() => setLogo("")} hitSlop={6}>
-                  <Text style={[styles.logoAccion, styles.logoQuitar]}>
-                    Quitar
+      {/* Logo (opcional): aparece cuando ya puso el nombre y la ubicacion */}
+      {!sinNombre && elegido && (
+        <View style={styles.campo}>
+          <Text style={styles.etiqueta}>LOGO DE LA IGLESIA (OPCIONAL)</Text>
+          <View style={styles.logoFila}>
+            <Pressable
+              onPress={elegirLogo}
+              style={({ pressed }) => [
+                styles.logoCaja,
+                pressed && styles.presionado,
+              ]}
+              accessibilityLabel={logo ? "Cambiar el logo" : "Elegir un logo"}
+            >
+              {logo ? (
+                <Image
+                  source={{ uri: logo }}
+                  style={styles.logoImagen}
+                  contentFit="cover"
+                />
+              ) : (
+                <Octicons name="image" size={20} color={MUTED} />
+              )}
+            </Pressable>
+            <View style={styles.flex}>
+              <Text style={styles.miUbicacionTitulo}>
+                {logo ? "Logo listo" : "Agrega el logo de tu iglesia"}
+              </Text>
+              <Text style={styles.miUbicacionTexto}>
+                Se verá en el mapa, en lugar de la casita.
+              </Text>
+              <View style={styles.logoAcciones}>
+                <Pressable onPress={elegirLogo} hitSlop={6}>
+                  <Text style={styles.logoAccion}>
+                    {logo ? "Cambiar" : "Elegir imagen"}
                   </Text>
                 </Pressable>
-              )}
+                {!!logo && (
+                  <Pressable onPress={() => setLogo("")} hitSlop={6}>
+                    <Text style={[styles.logoAccion, styles.logoQuitar]}>
+                      Quitar
+                    </Text>
+                  </Pressable>
+                )}
+              </View>
             </View>
           </View>
         </View>
-      </View>
+      )}
 
       {falta && !listo && (
         <View style={styles.falta}>
