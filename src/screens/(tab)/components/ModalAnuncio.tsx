@@ -178,9 +178,15 @@ export default function ModalAnuncio({
                         </Text>
                       )}
 
-                      {anuncio.autor && (
+                      {/* de que iglesia y quien lo publico */}
+                      {(anuncio.autor || nombreIglesia) && (
                         <Text style={styles.autor}>
-                          Publicado por {anuncio.autor}
+                          {[
+                            nombreIglesia && `Iglesia ${nombreIglesia}`,
+                            anuncio.autor && `Publicado por ${anuncio.autor}`,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
                         </Text>
                       )}
 

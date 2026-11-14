@@ -715,6 +715,23 @@ export function useIglesias() {
   return iglesias ?? (activa ? [activa] : []);
 }
 
+// Todas las iglesias de esta persona con su cronograma guardado en el
+// telefono (la activa usa lo de ahora; las demas, lo que se guardo de ellas).
+// Para el resumen "Todas" del cronograma del pastor
+export function useCronogramasDeTodas() {
+  const s = useStore();
+  return listaIglesias(s).map((iglesia) => {
+    const activa = misma(iglesia, s.iglesia);
+    const datos = activa ? s : s.porIglesia?.[idIglesia(iglesia)];
+    return {
+      iglesia,
+      activa,
+      turnos: datos?.turnosEditados ?? {},
+      rolesExtra: datos?.rolesExtra ?? {},
+    };
+  });
+}
+
 // Nombre de la iglesia activa, solo si tiene varias: en anuncios y
 // cronograma se muestra de que iglesia es (con una sola no hace falta)
 export function useNombreIglesiaSiVarias() {
@@ -1050,6 +1067,21 @@ export function useGrupos(): Grupo[] {
   const creadas = useStore((s) => s.salas);
   const editadas = useStore((s) => s.salasEditadas);
   return [...GRUPOS.map((g) => ({ ...g, ...editadas[g.id] })), ...creadas];
+}
+
+// Cuantas salas hay en TODAS las iglesias de esta persona (las de base +
+// las creadas de cada una). Para el panel del pastor con varias iglesias
+export function useTotalSalas(): number {
+  return useStore((s) => {
+    const lista = listaIglesias(s);
+    if (!lista.length) return GRUPOS.length + s.salas.length;
+    return lista.reduce((total, i) => {
+      const salas = misma(i, s.iglesia)
+        ? s.salas
+        : (s.porIglesia?.[idIglesia(i)]?.salas ?? []);
+      return total + GRUPOS.length + salas.length;
+    }, 0);
+  });
 }
 
 // El pastor cambia una sala ya creada (nombre, lider, que tiene...)

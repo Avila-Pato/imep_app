@@ -103,6 +103,15 @@ function Fila({
             <Text style={styles.descripcion}>{a.descripcion}</Text>
           )}
           {!!meta && <Text style={styles.meta}>{meta}</Text>}
+          {/* de quien es: el pastor o el admin que lo publico */}
+          {!!a.autor && (
+            <View style={styles.autor}>
+              <Octicons name="person" size={11} color={MUTED} />
+              <Text style={styles.autorTexto} numberOfLines={1}>
+                Publicado por {a.autor}
+              </Text>
+            </View>
+          )}
         </View>
         <Octicons
           name="chevron-right"
@@ -319,6 +328,16 @@ export default function AnunciosView({
 }
 
 const styles = StyleSheet.create({
+  autor: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 6,
+  },
+  autorTexto: {
+    fontSize: 11,
+    color: MUTED,
+  },
   content: {
     paddingHorizontal: PADDING,
     paddingTop: SPACING,

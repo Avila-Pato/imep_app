@@ -177,24 +177,6 @@ export default function FormIglesia({
           </View>
         ) : (
           <>
-            {/* Buscar: abre el mapa con el buscador ARRIBA (el teclado no lo tapa) */}
-            <Pressable
-              onPress={() => setEnMapa("buscar")}
-              style={({ pressed }) => [
-                styles.buscador,
-                falta && styles.buscadorFalta,
-                pressed && styles.presionado,
-              ]}
-              accessibilityRole="search"
-            >
-              <Octicons name="search" size={15} color={MUTED} />
-              <Text style={[styles.buscadorTexto, styles.buscadorVacio]}>
-                Busca la calle o un lugar cercano
-              </Text>
-            </Pressable>
-
-            {/* o de otra forma */}
-            <Text style={styles.o}>o ubícala de otra forma</Text>
             <Pressable
               onPress={usarMiUbicacion}
               disabled={ubicando === "buscando"}
@@ -222,7 +204,7 @@ export default function FormIglesia({
             {ubicando === "sin-permiso" && (
               <Text style={styles.error}>
                 Sin permiso de ubicación. Actívalo en los ajustes del teléfono o
-                busca la dirección.
+                elige en el mapa.
               </Text>
             )}
             {error && (
@@ -230,11 +212,12 @@ export default function FormIglesia({
                 No se pudo obtener la ubicación. Revisa tu conexión.
               </Text>
             )}
-            {/* si la direccion no aparece: mover el mapa hasta el templo */}
+            {/* el mapa: arriba trae el buscador, o se mueve hasta el templo */}
             <Pressable
               onPress={() => setEnMapa("mover")}
               style={({ pressed }) => [
                 styles.miUbicacion,
+                falta && styles.buscadorFalta,
                 pressed && styles.presionado,
               ]}
             >
@@ -242,8 +225,7 @@ export default function FormIglesia({
               <View style={styles.flex}>
                 <Text style={styles.miUbicacionTitulo}>Elegir en el mapa</Text>
                 <Text style={styles.miUbicacionTexto}>
-                  ¿No aparece la dirección? Mueve el mapa y deja el pin en tu
-                  iglesia
+                  Busca la dirección o mueve el mapa hasta tu iglesia
                 </Text>
               </View>
               <Octicons name="chevron-right" size={14} color={MUTED} />
@@ -373,26 +355,6 @@ const styles = StyleSheet.create({
     color: MUTED,
     marginTop: 2,
   },
-  buscador: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SPACING,
-    minHeight: 50,
-    paddingHorizontal: SPACING * 1.4,
-    paddingVertical: SPACING,
-    borderRadius: 14,
-    backgroundColor: SURFACE,
-    borderWidth: 1,
-    borderColor: BORDER,
-  },
-  buscadorTexto: {
-    flex: 1,
-    fontSize: 15,
-    color: TEXT,
-  },
-  buscadorVacio: {
-    color: PLACEHOLDER,
-  },
   inputFalta: {
     borderBottomColor: PRIMARY,
   },
@@ -408,12 +370,6 @@ const styles = StyleSheet.create({
   },
   buscadorFalta: {
     borderColor: PRIMARY,
-  },
-  o: {
-    fontSize: 12,
-    color: MUTED,
-    textAlign: "center",
-    marginTop: 4,
   },
   // la direccion encontrada: tarjeta aparte, con borde del color de la app
   encontrada: {

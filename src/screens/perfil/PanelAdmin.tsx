@@ -23,6 +23,7 @@ import {
   useMiembros,
   usePuede,
   useRoles,
+  useTotalSalas,
 } from "@/store/estudios";
 import { IconName } from "@/types/typesCronogramas";
 import { GrupoId } from "@/types/typesComunidad";
@@ -34,8 +35,9 @@ import Octicons from "@expo/vector-icons/Octicons";
 import * as Clipboard from "expo-clipboard";
 import { Href, router } from "expo-router";
 import { useEffect, useState } from "react";
-import { Pressable, Share, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import QRCode from "react-native-qrcode-svg";
+import HojaCompartir from "./HojaCompartir";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const aKey = (f: Date) =>
@@ -63,6 +65,7 @@ export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
   const puedeAnuncios = usePuede("anuncios");
   const puedeRoles = usePuede("roles"); // pastor o secretaria
   const roles = useRoles();
+  const totalSalas = useTotalSalas();
   const [creandoSala, setCreandoSala] = useState(false);
   const [ubicando, setUbicando] = useState(false);
   const [copiado, setCopiado] = useState(false);
@@ -83,10 +86,18 @@ export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
   // Resumen
   const culto = proximoCulto();
   const diaCulto = culto ? aKey(culto.fecha) : "";
-  const asignados = unirTurnos(turnosEditados).filter(
-    (t) => t.fecha === diaCulto,
-  ).length;
-  const sinAsignar = Math.max(0, roles.lista.length - asignados);
+  // roles del cronograma que ya tienen a alguien en el PROXIMO culto
+  // (cada rol cuenta una vez, y solo si tiene una persona escrita)
+  const conPersona = new Set(
+    unirTurnos(turnosEditados)
+      .filter((t) => t.fecha === diaCulto && t.persona.trim())
+      .map((t) => t.rol),
+  );
+  // los roles son una referencia (no todos se llenan): se muestra cuantos
+  // turnos YA tienen a alguien en el proximo culto
+  const asignados = culto
+    ? roles.lista.filter((r) => conPersona.has(r)).length
+    : 0;
   const porAprobar = [...publicaciones].filter(
     (p) => estadoPeticion(p, revisiones) === "pendiente",
   ).length;
@@ -108,7 +119,7 @@ export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
             icono: "people" as IconName,
           },
           {
-            valor: grupos.length,
+            valor: totalSalas, // de todas sus iglesias
             label: "Salas",
             icono: "comment-discussion" as IconName,
             onPress: () => router.push("/gestion/salas" as Href),
@@ -125,10 +136,10 @@ export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
     ...(puedeCronograma
       ? [
           {
-            valor: sinAsignar,
-            label: "Turnos sin asignar",
+            valor: asignados,
+            // de que culto: "Turnos · Domingo"
+            label: culto ? `Turnos · ${culto.cuando}` : "Turnos",
             icono: "calendar" as IconName,
-            alerta: sinAsignar > 0,
             onPress: () => router.push("/gestion/cronograma" as Href),
           },
         ]
@@ -200,16 +211,28 @@ export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
   ];
 
   const general = codigos.general;
+  // al tocar Compartir: elegir entre el codigo (mensaje) o la imagen del QR
+  const [compartiendo, setCompartiendo] = useState<{
+    codigo: string;
+    sala?: string;
+  } | null>(null);
   const compartir = (codigo: string, sala?: string) =>
-    Share.share({
-      message:
-        `Únete a ${iglesia?.sede ?? "nuestra iglesia"}${sala ? ` (sala ${sala})` : ""} en la app:\n` +
-        `${enlaceDeCodigo(codigo)}\n\n` +
-        `Tu código de invitación es: ${codigoVisible(codigo)}`,
-    }).catch(() => {});
+    setCompartiendo({ codigo, sala });
+  const mensajeDe = (codigo: string, sala?: string) =>
+    `Únete a ${iglesia?.sede ?? "nuestra iglesia"}${sala ? ` (sala ${sala})` : ""} en la app:\n` +
+    `${enlaceDeCodigo(codigo)}\n\n` +
+    `Tu código de invitación es: ${codigoVisible(codigo)}`;
 
   return (
     <View style={styles.panel}>
+      {compartiendo && (
+        <HojaCompartir
+          codigo={compartiendo.codigo}
+          mensaje={mensajeDe(compartiendo.codigo, compartiendo.sala)}
+          titulo={`${iglesia?.sede ?? "Tu iglesia"}${compartiendo.sala ? ` · sala ${compartiendo.sala}` : ""}`}
+          onCerrar={() => setCompartiendo(null)}
+        />
+      )}
       <View style={styles.cabecera}>
         <Text style={styles.eyebrow}>PANEL DE ADMINISTRACIÓN</Text>
         <Text style={styles.titulo}>
@@ -221,32 +244,27 @@ export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
       </View>
 
       {/* Resumen */}
-      <View style={styles.resumen}>
-        {resumen.map((r) => (
-          <Pressable
-            key={r.label}
-            onPress={r.onPress}
-            disabled={!r.onPress}
-            style={({ pressed }) => [
-              styles.dato,
-              resumen.length <= 2 && styles.datoAncho,
-              pressed && styles.presionado,
-            ]}
-          >
-            <View style={styles.datoFila}>
-              <Octicons
-                name={r.icono}
-                size={14}
-                color={r.alerta ? PRIMARY : MUTED}
-              />
-              {r.alerta && <View style={styles.punto} />}
+      {/* Resumen: solo para mirar (lo que se edita esta en ADMINISTRAR) */}
+      <View style={styles.resumenCaja}>
+        <Text style={styles.seccion}>RESUMEN</Text>
+        <View style={styles.resumen}>
+          {resumen.map((r, k) => (
+            <View
+              key={r.label}
+              style={[styles.dato, k % 3 !== 0 && styles.datoLinea]}
+            >
+              <View style={styles.datoFila}>
+                <Text style={[styles.datoValor, r.alerta && styles.datoAlerta]}>
+                  {r.valor}
+                </Text>
+                {r.alerta && <View style={styles.punto} />}
+              </View>
+              <Text style={styles.datoLabel} numberOfLines={1}>
+                {r.label}
+              </Text>
             </View>
-            <Text style={[styles.datoValor, r.alerta && styles.datoAlerta]}>
-              {r.valor}
-            </Text>
-            <Text style={styles.datoLabel}>{r.label}</Text>
-          </Pressable>
-        ))}
+          ))}
+        </View>
       </View>
 
       {/* Invitar (solo pastor) */}
@@ -337,7 +355,8 @@ export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
         </View>
       )}
 
-      {/* Accesos rapidos */}
+      {/* Accesos rapidos: aqui se edita */}
+      <Text style={styles.seccion}>ADMINISTRAR</Text>
       <View style={styles.acciones}>
         {acciones.map((a) => (
           <Pressable
@@ -465,26 +484,39 @@ const styles = StyleSheet.create({
   },
 
   // Resumen
+  seccion: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1.4,
+    color: MUTED,
+    marginBottom: -SPACING / 2,
+  },
+  // resumen: una sola franja plana (no parecen botones)
+  resumenCaja: {
+    gap: SPACING,
+  },
   resumen: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: SPACING,
+    rowGap: SPACING * 1.2,
+    paddingVertical: SPACING * 1.2,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: BORDER,
   },
   dato: {
-    flexGrow: 1,
-    flexBasis: "30%",
-    gap: 4,
-    padding: SPACING * 1.2,
-    borderRadius: 16,
-    backgroundColor: SURFACE,
+    width: "33.33%",
+    paddingHorizontal: SPACING,
+    gap: 2,
   },
-  datoAncho: {
-    flexBasis: "45%",
+  datoLinea: {
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderLeftColor: BORDER,
   },
   datoFila: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 6,
   },
   punto: {
     width: 7,
@@ -494,7 +526,7 @@ const styles = StyleSheet.create({
   },
   datoValor: {
     fontFamily: SERIF,
-    fontSize: 28,
+    fontSize: 24,
     color: TEXT,
   },
   datoAlerta: {
