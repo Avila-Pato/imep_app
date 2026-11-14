@@ -134,7 +134,11 @@ export default function PasoHistorias({ onSeguir }: { onSeguir: () => void }) {
         <View style={styles.marcaFila} pointerEvents="box-none">
           <View style={styles.marca} pointerEvents="none">
             <View style={styles.marcaIcono}>
-              <Octicons name="home" size={12} color="#FFFFFF" />
+              <Image
+                source={require("@/assets/images/logo.png")}
+                style={styles.marcaLogo}
+                contentFit="contain"
+              />
             </View>
             <Text style={styles.marcaTexto}>CONGREGA</Text>
           </View>
@@ -266,13 +270,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
+  // el logo sobre un circulo blanco (se lee sobre cualquier foto)
   marcaIcono: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: PRIMARY,
+    backgroundColor: "#FFFFFF",
+  },
+  marcaLogo: {
+    width: 26,
+    height: 26,
   },
   marcaTexto: {
     fontFamily: FUENTE.semibold,
