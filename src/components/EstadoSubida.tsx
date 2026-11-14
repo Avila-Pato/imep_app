@@ -1,4 +1,4 @@
-import { MUTED, PRIMARY, SPACING, TEXT } from "@/constants/constans";
+import { BORDER, MUTED, PRIMARY, SPACING, TEXT } from "@/constants/constans";
 import { reintentarSubida, Subida, useSubida } from "@/store/estudios";
 import Octicons from "@expo/vector-icons/Octicons";
 import { useEffect, useState } from "react";
@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
     height: 3,
     borderRadius: 2,
     overflow: "hidden",
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: BORDER,
   },
   tramo: {
     height: 3,

@@ -14,7 +14,13 @@ import {
   RADIO_BORDE,
 } from "@/constants/constans";
 import { sugerirCitas } from "@/services/biblia";
-import { publicar, useEstudios, useIglesias, usePuede } from "@/store/estudios";
+import {
+  publicar,
+  useEstudios,
+  useIglesias,
+  useMisRestricciones,
+  usePuede,
+} from "@/store/estudios";
 import { GrupoId } from "@/types/typesComunidad";
 import Octicons from "@expo/vector-icons/Octicons";
 import { useState } from "react";
@@ -50,6 +56,8 @@ export default function ModalPedirOracion({
   const [enviada, setEnviada] = useState(false);
   // si quien pide es quien aprueba (pastor o lider), se publica directo
   const esLider = usePuede("salas");
+  // el pastor no lo deja pedir oracion (el servidor tambien lo impide)
+  const bloqueado = useMisRestricciones().sinOracion && !esLider;
 
   const sugerencias = sugerir ? sugerirCitas(cita) : [];
   const listo = texto.trim().length >= 5;
@@ -101,7 +109,9 @@ export default function ModalPedirOracion({
               >
                 <View style={styles.asa} />
                 <View style={styles.cabecera}>
-                  <Text style={styles.titulo}>Pedir oración</Text>
+                  <Text style={styles.titulo}>
+                    {esLider ? "Hacer oración" : "Pedir oración"}
+                  </Text>
                   <Pressable
                     onPress={onCerrar}
                     hitSlop={10}
@@ -111,7 +121,15 @@ export default function ModalPedirOracion({
                   </Pressable>
                 </View>
 
-                {enviada ? (
+                {bloqueado ? (
+                  <View style={styles.listo}>
+                    <Octicons name="lock" size={22} color={MUTED} />
+                    <Text style={styles.ayuda}>
+                      Tu pastor desactivó tus peticiones de oración. Si crees
+                      que es un error, conversa con él.
+                    </Text>
+                  </View>
+                ) : enviada ? (
                   // Confirmacion
                   <View style={styles.listo}>
                     <View style={styles.listoIcono}>
@@ -119,12 +137,12 @@ export default function ModalPedirOracion({
                     </View>
                     <Text style={styles.listoTitulo}>
                       {esLider
-                        ? "Tu petición ya está en el muro"
+                        ? "Tu oración ya está en el muro"
                         : "Tu petición fue enviada"}
                     </Text>
                     <Text style={styles.ayuda}>
                       {esLider
-                        ? "Los hermanos ya pueden orar por ti durante 24 horas."
+                        ? "Los hermanos ya pueden orar contigo durante 24 horas."
                         : "Tu pastor la revisará. Cuando la apruebe, estará 24 horas en el muro de la iglesia."}
                     </Text>
                     <Pressable
@@ -146,14 +164,19 @@ export default function ModalPedirOracion({
                       showsVerticalScrollIndicator={false}
                     >
                       <Text style={styles.ayuda}>
-                        Comparte por qué quieres que oren. Tu pastor la revisa
-                        antes de publicarse y queda 24 horas en el muro.
+                        {esLider
+                          ? "Escribe la oración o el motivo por el que la iglesia orará. Se publica directo y queda 24 horas en el muro."
+                          : "Comparte por qué quieres que oren. Tu pastor la revisa antes de publicarse y queda 24 horas en el muro."}
                       </Text>
 
                       <TextInput
                         value={texto}
                         onChangeText={setTexto}
-                        placeholder="Ej: Pido oración por la salud de mi mamá…"
+                        placeholder={
+                          esLider
+                            ? "Ej: Oremos por las familias de nuestra iglesia…"
+                            : "Ej: Pido oración por la salud de mi mamá…"
+                        }
                         placeholderTextColor={PLACEHOLDER}
                         autoCapitalize="sentences"
                         multiline

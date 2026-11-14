@@ -153,6 +153,18 @@ export async function avisarPeticion(id: string) {
   await llamarFuncion("avisar-peticion", { peticion_id: id });
 }
 
+// El pastor la aprobo: avisa a quien la pidio
+export async function avisarPeticionAprobada(id: string) {
+  if (!supabase) return;
+  await llamarFuncion("avisar-peticion", { peticion_id: id, aprobada: true });
+}
+
+// Aviso o devocional del lider: notifica a la sala (o a los elegidos)
+export async function avisarMensaje(id: string) {
+  if (!supabase) return;
+  await llamarFuncion("avisar-mensaje", { mensaje_id: id });
+}
+
 // ───────────── Turnos ─────────────
 
 // Reemplaza los turnos de un dia (asi tambien se borran los que se quitaron)
@@ -213,11 +225,15 @@ export type MiembroIglesia = {
   sala?: string; // sala a la que entro con su invitacion
   avatar?: AvatarElegido; // su foto o chibi
   unido?: string; // ISO: desde cuando esta en la iglesia
+  sinChat?: boolean; // el pastor no lo deja escribir en el chat
+  sinOracion?: boolean; // ni pedir oracion
+  esYo?: boolean; // esta persona (por su usuario, no por el nombre)
 };
 
 // Los hermanos reales de la iglesia (los que se unieron con la invitacion)
 export async function bajarMiembros(iglesiaId: string) {
   if (!(await listo(iglesiaId))) return null;
+  const yo = await asegurarSesion();
   const { data, error } = await supabase!.rpc("miembros_de_iglesia", {
     p_iglesia: iglesiaId,
   });
@@ -230,6 +246,8 @@ export async function bajarMiembros(iglesiaId: string) {
       sala: string | null;
       avatar: AvatarElegido | null;
       unido: string | null;
+      sin_chat?: boolean;
+      sin_oracion?: boolean;
     }[]
   ).map((m): MiembroIglesia => ({
     id: m.usuario_id,
@@ -238,7 +256,27 @@ export async function bajarMiembros(iglesiaId: string) {
     ...(m.sala ? { sala: m.sala } : {}),
     ...(m.avatar ? { avatar: m.avatar } : {}),
     ...(m.unido ? { unido: m.unido } : {}),
+    ...(m.sin_chat ? { sinChat: true } : {}),
+    ...(m.sin_oracion ? { sinOracion: true } : {}),
+    ...(m.usuario_id === yo ? { esYo: true } : {}),
   }));
+}
+
+// El pastor (o quien tiene el permiso "roles") restringe a un hermano
+export async function restringirMiembro(
+  iglesiaId: string,
+  usuarioId: string,
+  sinChat: boolean,
+  sinOracion: boolean,
+) {
+  if (!(await listo(iglesiaId))) return;
+  const { error } = await supabase!.rpc("restringir_miembro", {
+    p_iglesia: iglesiaId,
+    p_usuario: usuarioId,
+    p_sin_chat: sinChat,
+    p_sin_oracion: sinOracion,
+  });
+  if (error) throw error;
 }
 
 // Push a la persona que asignaron en el cronograma (la Edge Function revisa

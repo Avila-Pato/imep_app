@@ -20,6 +20,11 @@ export type FuncionSala = "chat" | "oracion" | "palabra";
 export type Miembro = {
   nombre: string;
   rol?: string; // ej: "Líder", "Pastor"
+  id?: string; // usuario (los que vienen del servidor)
+  esYo?: boolean;
+  esPastor?: boolean;
+  sinChat?: boolean; // el pastor no lo deja escribir en el chat
+  sinOracion?: boolean; // el pastor no lo deja pedir oracion
 };
 
 // Mensaje del chat de una sala
@@ -36,8 +41,12 @@ export type Mensaje = {
   desafio?: string; // id de la "Palabra de la semana" que responde
   tipo?: "aviso" | "devocional"; // publicado por el lider para todo el grupo
   titulo?: string; // titulo del devocional
+  notificar?: boolean; // aviso/devocional del lider: llega como notificacion
+  para?: string[]; // nombres: solo a ellos (sin dato = a toda la sala)
   mio?: boolean; // lo escribio esta persona
   pendiente?: boolean; // aun no llega al servidor
+  reacciones?: Record<string, number>; // emoji -> cuantos (como WhatsApp)
+  miReaccion?: string; // la que puso esta persona
 };
 
 // "Palabra de la semana": el lider elige hermanos de su sala para que cada
@@ -80,6 +89,7 @@ export type Publicacion = {
   orando: number; // cuantos hermanos estan orando
   estado?: EstadoPeticion; // sin estado = aprobada
   mia?: boolean; // la pidio esta persona
+  fijada?: boolean; // el pastor la mantiene en el muro (no vence a las 24 h)
   porSubir?: boolean; // aun no llega al servidor
 };
 

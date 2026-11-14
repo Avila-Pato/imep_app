@@ -59,41 +59,9 @@ export default function DesafioSala({
   const hoy = aKey(new Date());
   const activo = desafios.find((d) => d.grupo === sala.id && d.hasta >= hoy);
 
-  // Sin palabra activa: solo el lider ve el boton para darla
-  if (!activo) {
-    if (!lider) return null;
-    return (
-      <>
-        {!oculto && (
-          <Pressable
-            onPress={() => setCreando(true)}
-            style={({ pressed }) => [
-              styles.nueva,
-              pressed && styles.presionado,
-            ]}
-          >
-            <View style={styles.icono}>
-              <Octicons name="book" size={14} color={DARK_BG} />
-            </View>
-            <View style={styles.flex}>
-              <Text style={styles.nuevaTitulo}>
-                Dar una palabra de la semana
-              </Text>
-              <Text style={styles.meta}>
-                Elige hermanos para que compartan un versículo
-              </Text>
-            </View>
-            <Octicons name="plus" size={16} color={MUTED} />
-          </Pressable>
-        )}
-        <ModalNuevoDesafio
-          sala={sala}
-          visible={creando}
-          onCerrar={() => setCreando(false)}
-        />
-      </>
-    );
-  }
+  // Sin palabra activa no se muestra nada (el pastor ya tiene abajo, en el
+  // chat, el boton para publicar avisos y devocionales)
+  if (!activo) return null;
 
   const respondieron = new Set(
     mensajes.filter((m) => m.desafio === activo.id).map((m) => m.autor),

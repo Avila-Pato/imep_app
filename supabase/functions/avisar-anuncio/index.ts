@@ -3,9 +3,11 @@
 // Comprueba que quien llama puede publicar anuncios en esa iglesia y avisa a
 // todos los miembros (menos a quien lo publico)
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { admin, enviar, json } from "../_shared/push.ts";
+import { admin, enviar, json, preflight } from "../_shared/push.ts";
 
 Deno.serve(async (req) => {
+  const previa = preflight(req); // navegador (web)
+  if (previa) return previa;
   if (req.method !== "POST") return json({ error: "solo POST" }, 405);
   const { anuncio_id } = await req.json().catch(() => ({}));
   if (typeof anuncio_id !== "string") {
@@ -16,7 +18,9 @@ Deno.serve(async (req) => {
   const usuario = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_ANON_KEY")!,
-    { global: { headers: { Authorization: req.headers.get("Authorization")! } } },
+    {
+      global: { headers: { Authorization: req.headers.get("Authorization")! } },
+    },
   );
   const { data: yo } = await usuario.auth.getUser();
   if (!yo.user) return json({ error: "sin sesion" }, 401);

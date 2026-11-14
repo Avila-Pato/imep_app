@@ -5,9 +5,11 @@ import {
   DARK_BG,
   DIAS_SEMANA,
   ELEVADO,
+  ES_CLARO,
   LINEA,
   MUTED,
   HOME_PADDING as PADDING,
+  PLACEHOLDER,
   PRIMARY,
   RADIO_BORDE,
   SPACING,
@@ -796,7 +798,8 @@ export default function CronogramaView() {
 }
 
 const HORA_LABEL_W = 44;
-const VERDE_OK = "#34D59A";
+// verde de "guardado" (mas oscuro en fondo claro para que se lea)
+const VERDE_OK = ES_CLARO ? "#1F8A5B" : "#34D59A";
 
 const styles = StyleSheet.create({
   safe: {
@@ -931,7 +934,7 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: StyleSheet.hairlineWidth,
-    backgroundColor: "#3D3D3D",
+    backgroundColor: LINEA,
   },
   fondoLinea: {
     position: "absolute",
@@ -942,7 +945,7 @@ const styles = StyleSheet.create({
   },
   lineaSolida: {
     height: 1,
-    backgroundColor: "#383838",
+    backgroundColor: LINEA,
   },
   // truco: borde punteado completo recortado a 1px (iOS no dibuja un solo lado)
   lineaPunteada: {
@@ -1118,7 +1121,7 @@ const styles = StyleSheet.create({
     color: MUTED,
   },
   tabPasado: {
-    color: "#5A5A5A",
+    color: PLACEHOLDER,
   },
   tabRelativo: {
     fontSize: 11,

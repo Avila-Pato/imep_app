@@ -149,7 +149,9 @@ export default function MuroOracion({ grupo }: Props) {
           {p.texto}
         </Text>
         <Text style={styles.restante}>
-          {tiempoRestante(inicioPeticion(p, revisiones))}
+          {p.fijada
+            ? "📌 Fijada por el pastor"
+            : tiempoRestante(inicioPeticion(p, revisiones))}
         </Text>
 
         <View style={styles.pie}>
@@ -252,7 +254,9 @@ export default function MuroOracion({ grupo }: Props) {
                 <Text style={styles.textoGrande}>{abierta.texto}</Text>
               </ScrollView>
               <Text style={styles.restante}>
-                {tiempoRestante(inicioPeticion(abierta, revisiones))}
+                {abierta.fijada
+                  ? "📌 Fijada por el pastor"
+                  : tiempoRestante(inicioPeticion(abierta, revisiones))}
               </Text>
               <View style={styles.pie}>
                 <Text style={styles.autorGrande} numberOfLines={1}>

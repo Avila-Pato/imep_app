@@ -29,13 +29,16 @@ import { registrarDispositivo } from "@/services/push";
 import { horaTurno, usarHorarios } from "@/utils/cultos";
 import {
   avisarAnuncio,
+  avisarMensaje,
   avisarPeticion,
+  avisarPeticionAprobada,
   avisarTurno,
   bajarAnuncios,
   bajarMiembros,
   type MiembroIglesia,
   bajarTurnos,
   borrarAnuncioRemoto,
+  restringirMiembro,
   subirAnuncio,
   subirTurnosDelDia,
 } from "@/services/contenido";
@@ -51,12 +54,16 @@ import {
 import {
   bajarMensajes,
   bajarPrivados,
+  bajarReacciones,
+  reaccionarRemoto,
   subirMensaje,
   subirPrivado,
 } from "@/services/chat";
 import { bajarSalas, borrarSalaRemota, subirSala } from "@/services/salas";
 import {
   bajarPeticiones,
+  borrarPeticionRemota,
+  fijarPeticionRemota,
   orarPor,
   revisarPeticionRemota,
   subirPeticion,
@@ -477,14 +484,15 @@ export function useMiembros(): MiembroIglesia[] {
 export type MiTurno = Turno & { iglesia?: string; horaFinal?: string };
 export function useMisTurnos(): MiTurno[] {
   const s = useStore();
-  const yo = (s.nombre ?? USUARIO.nombre).trim().toLowerCase();
+  // nombre exacto: "pato" y "Pato" pueden ser dos hermanos distintos
+  const yo = (s.nombre ?? USUARIO.nombre).trim();
   const hoy = aKeyHoy();
   const deIglesia = (
     iglesia: Iglesia | undefined,
     editados?: Record<string, Turno[]>,
   ) =>
     unirTurnos(editados ?? {})
-      .filter((t) => t.persona.trim().toLowerCase() === yo && t.fecha >= hoy)
+      .filter((t) => t.persona.trim() === yo && t.fecha >= hoy)
       .map((t) => {
         const [y, m, d] = t.fecha.split("-").map(Number);
         const dia = new Date(y, m - 1, d).getDay();
@@ -514,12 +522,51 @@ export function useAvatarDe() {
   const miembros = useStore((s) => s.miembros);
   const yo = useStore((s) => s.nombre) ?? USUARIO.nombre;
   const miAvatar = useStore((s) => s.avatar);
+  // Primero el nombre exacto: "Pato" y "pato" pueden ser dos personas
+  // distintas (antes los dos mostraban la misma foto). Si no hay uno exacto,
+  // se acepta sin mayusculas (ej: lo escribieron distinto en el cronograma)
   return (nombre?: string): AvatarElegido | undefined => {
     if (!nombre) return undefined;
-    const n = nombre.trim().toLowerCase();
+    const exacto = nombre.trim();
+    if (exacto === yo.trim()) return miAvatar;
+    const mismo = miembros.find((m) => m.nombre.trim() === exacto);
+    if (mismo) return mismo.avatar;
+    const n = exacto.toLowerCase();
     if (n === yo.trim().toLowerCase()) return miAvatar;
     return miembros.find((m) => m.nombre.trim().toLowerCase() === n)?.avatar;
   };
+}
+
+// Restricciones que el pastor le puso a esta persona (en la iglesia activa)
+export function useMisRestricciones() {
+  const yo = useStore((s) => s.miembros.find((m) => m.esYo));
+  return { sinChat: !!yo?.sinChat, sinOracion: !!yo?.sinOracion };
+}
+
+// El pastor restringe (o libera) a un hermano: se ve al instante y se guarda
+// en el servidor, que es quien lo hace cumplir
+export function restringir(
+  usuarioId: string,
+  cambios: { sinChat: boolean; sinOracion: boolean },
+) {
+  const iglesiaId = useStore.getState().iglesia?.id;
+  if (!esUuid(iglesiaId) || !esUuid(usuarioId)) return;
+  cambiar((s) => ({
+    miembros: s.miembros.map((m) =>
+      m.id === usuarioId ? { ...m, ...cambios } : m,
+    ),
+  }));
+  enFondo(
+    restringirMiembro(
+      iglesiaId,
+      usuarioId,
+      cambios.sinChat,
+      cambios.sinOracion,
+    ).catch((e) => {
+      sincronizarContenido(); // no se pudo: vuelve a lo del servidor
+      throw e;
+    }),
+  );
 }
 
 // lo mismo, fuera de un componente (lee el estado de ahora)
@@ -876,6 +923,24 @@ export async function sincronizarContenido() {
       : {}),
     ...(miembros ? { miembros } : {}),
   }));
+  // Primera descarga (app nueva o reiniciada): lo que ya habia se anota como
+  // visto, asi no avisa lo viejo pero si TODO lo que llegue despues (antes,
+  // si no habia nada, el primer anuncio o turno nuevo se anotaba sin avisar)
+  cambiar((s) => {
+    const yo = s.nombre ?? USUARIO.nombre;
+    return {
+      ...(anuncios && s.anunciosAvisados === undefined
+        ? { anunciosAvisados: s.anuncios.map((a) => a.id) }
+        : {}),
+      ...(turnos && s.turnosAvisados === undefined
+        ? {
+            turnosAvisados: unirTurnos(s.turnosEditados)
+              .filter((t) => t.persona === yo)
+              .map((t) => `${t.fecha}|${t.rol}|${horaTurno(t) ?? ""}`),
+          }
+        : {}),
+    };
+  });
 }
 
 // Un hermano se une con la invitacion del pastor: llega la iglesia (con la
@@ -1179,6 +1244,33 @@ export async function sincronizarPeticiones() {
   for (const p of locales) if (p.porSubir) subirPeticionPendiente(id, p);
 }
 
+// El pastor la mantiene en el muro (no vence) o la suelta: desde que la
+// suelta corren 24 h
+export function fijarPeticion(id: string, fijada: boolean) {
+  cambiar((s) => ({
+    publicaciones: s.publicaciones.map((p) =>
+      p.id === id ? { ...p, fijada } : p,
+    ),
+    revisiones:
+      !fijada && s.revisiones[id]
+        ? {
+            ...s.revisiones,
+            [id]: { ...s.revisiones[id], fecha: new Date().toISOString() },
+          }
+        : s.revisiones,
+  }));
+  enFondo(fijarPeticionRemota(id, fijada));
+}
+
+// Quitar una peticion del muro (el pastor, por si acaso): se borra aqui y
+// en el servidor, asi desaparece para todos
+export function borrarPeticion(id: string) {
+  cambiar((s) => ({
+    publicaciones: s.publicaciones.filter((p) => p.id !== id),
+  }));
+  enFondo(borrarPeticionRemota(id));
+}
+
 // "Estoy orando": se marca al instante y el servidor devuelve cuantos son
 export function alternarOrando(id: string) {
   const ahora = !useStore.getState().orando.includes(id);
@@ -1225,6 +1317,10 @@ function subirMensajePendiente(iglesiaId: string, m: Mensaje) {
           ? { mensajes: s.mensajes.map((x) => (x.id === m.id ? listo : x)) }
           : {},
       );
+      // aviso o devocional del lider: la notificacion a la sala
+      if (m.tipo && m.notificar && !esPrivado(m.grupo)) {
+        enFondo(avisarMensaje(m.id));
+      }
     }),
   );
 }
@@ -1236,11 +1332,43 @@ function subirUnMensaje(iglesiaId: string, m: Mensaje) {
   const s = useStore.getState();
   const yo = s.nombre?.trim() || USUARIO.nombre;
   const nombre = otroDe(m.grupo, yo);
-  const otro = s.miembros.find(
-    (x) => x.nombre.trim().toLowerCase() === nombre.trim().toLowerCase(),
-  );
+  // el nombre exacto primero ("pato" y "Pato" pueden ser dos personas)
+  const otro =
+    s.miembros.find((x) => x.nombre.trim() === nombre.trim()) ??
+    s.miembros.find(
+      (x) => x.nombre.trim().toLowerCase() === nombre.trim().toLowerCase(),
+    );
   if (!otro) return Promise.resolve(null);
   return subirPrivado(iglesiaId, m, { id: otro.id, nombre: otro.nombre });
+}
+
+// Reaccionar a un mensaje (como WhatsApp): una por persona; tocar la misma
+// la quita. Se ve al instante y se guarda en el servidor
+export function reaccionar(mensajeId: string, emoji: string) {
+  const s = useStore.getState();
+  const iglesiaId = s.iglesia?.id;
+  const m = s.mensajes.find((x) => x.id === mensajeId);
+  if (!m || !esUuid(iglesiaId)) return;
+  const nueva = m.miReaccion === emoji ? null : emoji;
+  const cuantas = { ...(m.reacciones ?? {}) };
+  if (m.miReaccion) {
+    cuantas[m.miReaccion] = (cuantas[m.miReaccion] ?? 1) - 1;
+    if (cuantas[m.miReaccion] <= 0) delete cuantas[m.miReaccion];
+  }
+  if (nueva) cuantas[nueva] = (cuantas[nueva] ?? 0) + 1;
+  cambiar((x) => ({
+    mensajes: x.mensajes.map((y) =>
+      y.id === mensajeId
+        ? { ...y, reacciones: cuantas, miReaccion: nueva ?? undefined }
+        : y,
+    ),
+  }));
+  enFondo(
+    reaccionarRemoto(iglesiaId, mensajeId, nueva).catch((e) => {
+      sincronizarMensajes(); // no se pudo: vuelve a lo del servidor
+      throw e;
+    }),
+  );
 }
 
 // Trae el chat de la iglesia activa: lo del servidor + lo que solo esta en
@@ -1252,12 +1380,23 @@ export async function sincronizarMensajes() {
     console.warn("[supabase]", e?.message ?? e);
     return null;
   };
-  const [salas, privados] = await Promise.all([
+  const [salas, privados, reacciones] = await Promise.all([
     bajarMensajes(id).catch(falla),
     bajarPrivados(id, idPrivado).catch(falla),
+    bajarReacciones(id).catch(falla),
   ]);
   if (!salas || useStore.getState().iglesia?.id !== id) return;
-  const remotos = [...salas, ...(privados ?? [])];
+  // cada mensaje con sus reacciones (cuantas de cada emoji y la mia)
+  const conReacciones = salas.map((m) => {
+    const cuantas = reacciones?.cuantas[m.id];
+    const mia = reacciones?.mias[m.id];
+    return {
+      ...m,
+      ...(cuantas ? { reacciones: cuantas } : {}),
+      ...(mia ? { miReaccion: mia } : {}),
+    };
+  });
+  const remotos = [...conReacciones, ...(privados ?? [])];
   const ids = new Set(remotos.map((m) => m.id));
   const locales = useStore.getState().mensajes.filter(
     (m) =>
@@ -1332,7 +1471,12 @@ export function revisarPeticion(id: string, decision: Revision["estado"]) {
       [id]: { estado: decision, fecha: new Date().toISOString() },
     },
   }));
-  enFondo(revisarPeticionRemota(id, decision));
+  enFondo(
+    revisarPeticionRemota(id, decision).then(
+      // aprobada: le llega un aviso a quien la pidio
+      () => (decision === "aprobada" ? avisarPeticionAprobada(id) : undefined),
+    ),
+  );
 }
 
 // Resalta versiculos con un color (null = quitar el resaltado)

@@ -14,6 +14,16 @@ export function aPixel(lat: number, lng: number, zoom: number) {
   };
 }
 
+// Al reves: posicion en pixeles -> lat/lng (para mover el mapa con el dedo)
+export function aLatLng(x: number, y: number, zoom: number) {
+  const escala = TESELA * 2 ** zoom;
+  const n = Math.PI - (2 * Math.PI * y) / escala;
+  return {
+    lat: (180 / Math.PI) * Math.atan(Math.sinh(n)),
+    lng: (x / escala) * 360 - 180,
+  };
+}
+
 // Teselas necesarias para cubrir un recuadro, con su posicion dentro de el
 export function teselasVisibles(
   lat: number,

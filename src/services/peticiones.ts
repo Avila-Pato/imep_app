@@ -16,6 +16,7 @@ type FilaPeticion = {
   estado: "pendiente" | "aprobada" | "rechazada";
   revisado: string | null;
   orando: number;
+  fijada: boolean;
   creado: string;
 };
 
@@ -46,10 +47,11 @@ export async function bajarPeticiones(iglesiaId: string) {
   const { data, error } = await supabase
     .from("peticiones")
     .select(
-      "id, sala, autor_id, autor, cita, mostrar_cita, texto, estado, revisado, orando, creado",
+      "id, sala, autor_id, autor, cita, mostrar_cita, texto, estado, revisado, orando, fijada, creado",
     )
     .eq("iglesia_id", iglesiaId)
-    .gte("creado", desde)
+    // las de la semana y las que el pastor mantiene en el muro
+    .or(`creado.gte.${desde},fijada.eq.true`)
     .order("creado", { ascending: false });
   if (error) throw error;
   const filas = data as FilaPeticion[];
@@ -70,6 +72,7 @@ export async function bajarPeticiones(iglesiaId: string) {
     orando: f.orando,
     estado: f.estado,
     mia: f.autor_id === yo,
+    ...(f.fijada ? { fijada: true } : {}),
   }));
   return { peticiones, revisiones };
 }
@@ -97,4 +100,23 @@ export async function orarPor(id: string, orando: boolean) {
   });
   if (error) throw error;
   return data as number;
+}
+
+// Quitarla del muro (pastor o lider, o quien la pidio): se borra del servidor
+export async function borrarPeticionRemota(id: string) {
+  if (!supabase || !esUuid(id)) return;
+  await asegurarSesion();
+  const { error } = await supabase.from("peticiones").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// Mantener en el muro (o soltarla: desde ahi corren 24 h)
+export async function fijarPeticionRemota(id: string, fijada: boolean) {
+  if (!supabase || !esUuid(id)) return;
+  await asegurarSesion();
+  const { error } = await supabase.rpc("fijar_peticion", {
+    p_id: id,
+    p_fijada: fijada,
+  });
+  if (error) throw error;
 }

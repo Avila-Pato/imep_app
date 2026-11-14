@@ -8,7 +8,6 @@ import {
   TEXT,
   primarioAlfa,
 } from "@/constants/constans";
-import { verBienvenida } from "@/store/estudios";
 import { IconName } from "@/types/typesCronogramas";
 import Octicons from "@expo/vector-icons/Octicons";
 import { Href, router } from "expo-router";
@@ -39,10 +38,6 @@ const TEMAS: Tema[] = [
       {
         p: "Me uní, pero no veo «Mi iglesia» en Comunidad",
         r: "Revisa que el código sea el correcto y que siga vigente: si el pastor genera uno nuevo, el anterior deja de funcionar.",
-      },
-      {
-        p: "¿Puedo volver a ver la bienvenida?",
-        r: "Sí, en Perfil › Ver bienvenida.",
       },
     ],
   },
@@ -185,11 +180,6 @@ export default function AyudaScreen() {
 
       {/* Accesos utiles */}
       <View style={styles.accesos}>
-        <Acceso
-          icono="rocket"
-          texto="Ver la bienvenida otra vez"
-          onPress={() => verBienvenida(false)}
-        />
         <Acceso
           icono="lock"
           texto="Política de privacidad"

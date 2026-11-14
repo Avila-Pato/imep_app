@@ -45,6 +45,7 @@ Deno.serve(async (req) => {
       .from("peticiones")
       .delete()
       .eq("estado", "aprobada")
+      .eq("fijada", false)
       .lt("revisado", hace(24))
       .select("id"),
     db

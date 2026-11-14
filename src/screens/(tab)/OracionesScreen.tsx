@@ -17,6 +17,7 @@ import {
   publicar,
   useEstudios,
   useIglesias,
+  useMisRestricciones,
   usePuede,
 } from "@/store/estudios";
 import { partirTitulo } from "@/utils/texto";
@@ -162,6 +163,7 @@ export default function OracionesScreen() {
       ? "tus iglesias"
       : (iglesias.find((i) => i.id === elegido)?.sede ?? "tu iglesia");
   const revisa = usePuede("salas"); // el pastor: va directo al muro
+  const sinOracion = useMisRestricciones().sinOracion && !revisa;
 
   // Texto del pasaje: desde la API de la Biblia (o el de ejemplo si falla)
   const pasaje = PASAJES.find(
@@ -324,71 +326,87 @@ export default function OracionesScreen() {
             </View>
           )}
 
-          {vista === "estudio" && modo === "oracion" && !enviada && (
-            <>
-              <Encabezado
-                meta="MURO DE ORACIÓN"
-                titulo="¿Por qué quieres que oremos?"
-              />
-              <View style={styles.card}>
-                <TextInput
-                  value={peticion}
-                  onChangeText={setPeticion}
-                  placeholder="Escribe tu petición…"
-                  placeholderTextColor={PLACEHOLDER}
-                  multiline
-                  style={[styles.inputRespuesta, styles.inputPeticion]}
-                />
-              </View>
-
-              {/* A que iglesia (o a todas) */}
-              {opcionesDestino.length > 1 && (
-                <View>
-                  <Seccion texto="ENVIAR A" />
-                  <View style={[styles.card, styles.cardLista]}>
-                    {opcionesDestino.map((o, i) => {
-                      const activo = o.id === elegido;
-                      return (
-                        <Pressable
-                          key={o.id}
-                          onPress={() => setDestino(o.id)}
-                          style={[styles.destino, i > 0 && styles.conLinea]}
-                          accessibilityRole="radio"
-                          accessibilityState={{ selected: activo }}
-                        >
-                          <View style={styles.destinoIcono}>
-                            <Octicons name={o.icono} size={16} color={TEXT} />
-                          </View>
-                          <View style={styles.flex}>
-                            <Text style={styles.destinoTitulo}>{o.titulo}</Text>
-                            <Text style={styles.destinoSub}>{o.sub}</Text>
-                          </View>
-                          <View
-                            style={[styles.radio, activo && styles.radioActivo]}
-                          >
-                            {activo && <View style={styles.radioPunto} />}
-                          </View>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </View>
-              )}
-
-              <Boton
-                principal
-                texto="Enviar petición"
-                flecha={false}
-                onPress={pedirOracion}
-                deshabilitado={!peticion.trim()}
-              />
-              <Text style={styles.aviso}>
-                {revisa
-                  ? "Como pastor, tu petición se publica directo en el muro."
-                  : "Tu pastor la revisará antes de publicarla en el muro."}
-              </Text>
-            </>
+          {/* el pastor le desactivo las peticiones de oracion */}
+          {vista === "estudio" && modo === "oracion" && sinOracion && (
+            <Text style={styles.aviso}>
+              Tu pastor desactivó tus peticiones de oración. Si crees que es un
+              error, conversa con él.
+            </Text>
           )}
+
+          {vista === "estudio" &&
+            modo === "oracion" &&
+            !enviada &&
+            !sinOracion && (
+              <>
+                <Encabezado
+                  meta="MURO DE ORACIÓN"
+                  titulo="¿Por qué quieres que oremos?"
+                />
+                <View style={styles.card}>
+                  <TextInput
+                    value={peticion}
+                    onChangeText={setPeticion}
+                    placeholder="Escribe tu petición…"
+                    placeholderTextColor={PLACEHOLDER}
+                    multiline
+                    style={[styles.inputRespuesta, styles.inputPeticion]}
+                  />
+                </View>
+
+                {/* A que iglesia (o a todas) */}
+                {opcionesDestino.length > 1 && (
+                  <View>
+                    <Seccion texto="ENVIAR A" />
+                    <View style={[styles.card, styles.cardLista]}>
+                      {opcionesDestino.map((o, i) => {
+                        const activo = o.id === elegido;
+                        return (
+                          <Pressable
+                            key={o.id}
+                            onPress={() => setDestino(o.id)}
+                            style={[styles.destino, i > 0 && styles.conLinea]}
+                            accessibilityRole="radio"
+                            accessibilityState={{ selected: activo }}
+                          >
+                            <View style={styles.destinoIcono}>
+                              <Octicons name={o.icono} size={16} color={TEXT} />
+                            </View>
+                            <View style={styles.flex}>
+                              <Text style={styles.destinoTitulo}>
+                                {o.titulo}
+                              </Text>
+                              <Text style={styles.destinoSub}>{o.sub}</Text>
+                            </View>
+                            <View
+                              style={[
+                                styles.radio,
+                                activo && styles.radioActivo,
+                              ]}
+                            >
+                              {activo && <View style={styles.radioPunto} />}
+                            </View>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </View>
+                )}
+
+                <Boton
+                  principal
+                  texto="Enviar petición"
+                  flecha={false}
+                  onPress={pedirOracion}
+                  deshabilitado={!peticion.trim()}
+                />
+                <Text style={styles.aviso}>
+                  {revisa
+                    ? "Como pastor, tu petición se publica directo en el muro."
+                    : "Tu pastor la revisará antes de publicarla en el muro."}
+                </Text>
+              </>
+            )}
 
           {vista === "estudio" && modo === "estudio" && (
             <>

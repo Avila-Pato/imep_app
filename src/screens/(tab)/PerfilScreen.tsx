@@ -31,7 +31,6 @@ import {
   useMisTurnos,
   usePuede,
   useRoles,
-  verBienvenida,
   guardarPerfil,
 } from "@/store/estudios";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
@@ -421,16 +420,14 @@ export default function PerfilScreen() {
                             : () => setConCodigo(true)
                           : op.id === "editar"
                             ? () => router.push("/editar-perfil" as Href)
-                            : op.id === "bienvenida"
-                              ? () => verBienvenida(false)
-                              : op.id === "codigo"
-                                ? () => setConCodigo(true)
-                                : op.id === "notificaciones"
-                                  ? () => router.push("/notificaciones" as Href)
-                                  : op.id === "reiniciar"
-                                    ? () =>
-                                        confirmarReinicio(esPastor, misIglesias)
-                                    : undefined
+                            : op.id === "codigo"
+                              ? () => setConCodigo(true)
+                              : op.id === "notificaciones"
+                                ? () => router.push("/notificaciones" as Href)
+                                : op.id === "reiniciar"
+                                  ? () =>
+                                      confirmarReinicio(esPastor, misIglesias)
+                                  : undefined
                   }
                   style={({ pressed }) => [
                     styles.opcion,

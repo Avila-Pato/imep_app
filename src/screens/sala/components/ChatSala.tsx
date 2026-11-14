@@ -10,21 +10,29 @@ import {
   SURFACE,
   TEXT,
   ELEVADO,
+  ES_CLARO,
   LINEA,
+  PLACEHOLDER,
+  primarioAlfa,
 } from "@/constants/constans";
 import AvatarPersona from "@/components/AvatarPersona";
 import {
   enviarMensaje,
+  reaccionar,
   useAvatarDe,
   useEsLider,
   useEstudios,
+  useMisRestricciones,
 } from "@/store/estudios";
+import { EMOJIS_REACCION } from "@/services/chat";
+import { esUuid } from "@/services/iglesias";
 import { Grupo, Mensaje } from "@/types/typesComunidad";
 import { horaMensaje } from "@/utils/tiempo";
 import Octicons from "@expo/vector-icons/Octicons";
 import { useState } from "react";
 import {
   FlatList,
+  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -38,23 +46,36 @@ import NotaVoz from "./NotaVoz";
 
 const nuevoId = () => `m${Date.now()}`;
 
-// Como WhatsApp: cada persona con su color de nombre (siempre el mismo)
-const COLORES_NOMBRE = [
-  "#53BDEB",
-  "#F15C6D",
-  "#FFB86C",
-  "#A5D86E",
-  "#C792EA",
-  "#4FD1C5",
-  "#F78FB3",
-  "#FFD166",
-];
+// Como WhatsApp: cada persona con su color de nombre (siempre el mismo).
+// En fondo claro, tonos mas oscuros para que se lean
+const COLORES_NOMBRE = ES_CLARO
+  ? [
+      "#1A73B8",
+      "#C2364A",
+      "#B5560F",
+      "#3F7D20",
+      "#7B3FB0",
+      "#0F7F73",
+      "#B0306F",
+      "#8A6A00",
+    ]
+  : [
+      "#53BDEB",
+      "#F15C6D",
+      "#FFB86C",
+      "#A5D86E",
+      "#C792EA",
+      "#4FD1C5",
+      "#F78FB3",
+      "#FFD166",
+    ];
 const colorDe = (nombre: string) => {
   let h = 0;
   for (const c of nombre) h = (h * 31 + c.charCodeAt(0)) >>> 0;
   return COLORES_NOMBRE[h % COLORES_NOMBRE.length];
 };
-const MIO = "#005C4B"; // verde de "mis mensajes"
+// mis mensajes: el color del tema que eligio (rojo, azul, verde...)
+const MIO = primarioAlfa(ES_CLARO ? 0.16 : 0.3);
 const AVATAR = 28;
 
 export default function ChatSala({
@@ -76,9 +97,14 @@ export default function ChatSala({
   const [compartir, setCompartir] = useState(false);
   // mensaje cuyo versiculo se esta leyendo
   const [leyendo, setLeyendo] = useState<Mensaje | null>(null);
+  // mensaje al que se le esta eligiendo una reaccion (mantener presionado)
+  const [reaccionando, setReaccionando] = useState<Mensaje | null>(null);
   // lider del grupo (o pastor/administrador): avisos y devocionales
   const lider = useEsLider(grupo) && !privado;
   const avatarDe = useAvatarDe();
+  // el pastor no lo deja escribir en las salas (el servidor tambien lo impide)
+  const { sinChat } = useMisRestricciones();
+  const silenciado = !privado && !lider && sinChat;
   const [publicando, setPublicando] = useState(false);
 
   // Mas nuevo primero: la lista va invertida (el ultimo queda abajo)
@@ -125,6 +151,11 @@ export default function ChatSala({
                     {devocional ? "DEVOCIONAL" : "AVISO"} · {item.autor}
                   </Text>
                 </View>
+                {!!item.para?.length && (
+                  <Text style={styles.liderPara}>
+                    Para: {item.para.join(", ")}
+                  </Text>
+                )}
                 {!!item.titulo && (
                   <Text style={styles.liderTitulo}>{item.titulo}</Text>
                 )}
@@ -155,13 +186,25 @@ export default function ChatSala({
           const anterior = lista[index + 1];
           const primero = anterior?.autor !== item.autor || !!anterior?.tipo;
           const mostrarNombre = !mio && !privado && primero;
+          // reacciones: solo en las salas y en mensajes que ya llegaron
+          const reaccionable = !privado && !item.pendiente && esUuid(item.id);
+          const reacciones = Object.entries(item.reacciones ?? {}).filter(
+            ([, n]) => n > 0,
+          );
           const burbuja = (
-            <View
+            <Pressable
+              onLongPress={
+                reaccionable ? () => setReaccionando(item) : undefined
+              }
+              delayLongPress={300}
               style={[
                 styles.burbuja,
                 mio ? styles.burbujaMia : styles.burbujaOtra,
                 !primero && (mio ? styles.seguidoMio : styles.seguido),
               ]}
+              accessibilityHint={
+                reaccionable ? "Mantén presionado para reaccionar" : undefined
+              }
             >
               {mostrarNombre && (
                 <Text style={[styles.autor, { color: colorDe(item.autor) }]}>
@@ -202,7 +245,29 @@ export default function ChatSala({
                 {/* reloj: aun no llega a los demas (se reintenta solo) */}
                 {mio ? (item.pendiente ? "  🕓" : "  ✓") : ""}
               </Text>
-            </View>
+              {/* reacciones (tocar una pone o quita la mia) */}
+              {reacciones.length > 0 && (
+                <View style={[styles.reacciones, mio && styles.reaccionesMias]}>
+                  {reacciones.map(([emoji, n]) => (
+                    <Pressable
+                      key={emoji}
+                      onPress={() => reaccionar(item.id, emoji)}
+                      hitSlop={4}
+                      style={[
+                        styles.reaccion,
+                        item.miReaccion === emoji && styles.reaccionMia,
+                      ]}
+                      accessibilityLabel={`${emoji} ${n}`}
+                    >
+                      <Text style={styles.reaccionTexto}>
+                        {emoji}
+                        {n > 1 ? ` ${n}` : ""}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+            </Pressable>
           );
           if (mio || privado) return burbuja;
           // de otro: su foto a la izquierda (solo en el primero de la tanda)
@@ -248,8 +313,19 @@ export default function ChatSala({
         </View>
       )}
 
+      {/* Silenciado por el pastor: puede leer, no escribir */}
+      {silenciado && !cerrado && (
+        <View style={styles.cerrado}>
+          <Octicons name="mute" size={14} color={MUTED} />
+          <Text style={styles.cerradoTexto}>
+            Tu pastor desactivó tus mensajes en el chat. Puedes seguir leyendo
+            la conversación.
+          </Text>
+        </View>
+      )}
+
       {/* Escribir */}
-      {!cerrado && (
+      {!cerrado && !silenciado && (
         <View style={styles.barra}>
           {lider && (
             <Pressable
@@ -278,7 +354,7 @@ export default function ChatSala({
             value={texto}
             onChangeText={setTexto}
             placeholder="Mensaje"
-            placeholderTextColor="#666666"
+            placeholderTextColor={PLACEHOLDER}
             multiline
             numberOfLines={1} // empieza en una sola linea (en web era de 2)
             style={styles.input}
@@ -304,6 +380,45 @@ export default function ChatSala({
         onCerrar={() => setCompartir(false)}
       />
       <ModalVersiculo mensaje={leyendo} onCerrar={() => setLeyendo(null)} />
+      {/* Elegir reaccion (como WhatsApp) */}
+      <Modal
+        visible={!!reaccionando}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setReaccionando(null)}
+        statusBarTranslucent
+        navigationBarTranslucent
+      >
+        <Pressable
+          style={styles.reaccionFondo}
+          onPress={() => setReaccionando(null)}
+        >
+          <View style={styles.reaccionBarra}>
+            {EMOJIS_REACCION.map((emoji) => (
+              <Pressable
+                key={emoji}
+                onPress={() => {
+                  if (reaccionando) reaccionar(reaccionando.id, emoji);
+                  setReaccionando(null);
+                }}
+                style={({ pressed }) => [
+                  styles.reaccionOpcion,
+                  reaccionando?.miReaccion === emoji && styles.reaccionMia,
+                  pressed && styles.presionado,
+                ]}
+                accessibilityLabel={`Reaccionar con ${emoji}`}
+              >
+                <Text style={styles.reaccionGrande}>{emoji}</Text>
+              </Pressable>
+            ))}
+          </View>
+          {!!reaccionando?.texto && (
+            <Text style={styles.reaccionCita} numberOfLines={2}>
+              «{reaccionando.texto}»
+            </Text>
+          )}
+        </Pressable>
+      </Modal>
       {publicando && (
         <ModalPublicarLider sala={sala} onCerrar={() => setPublicando(false)} />
       )}
@@ -400,6 +515,11 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     color: PRIMARY,
   },
+  liderPara: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: MUTED,
+  },
   liderTitulo: {
     fontFamily: SERIF,
     fontSize: 20,
@@ -429,6 +549,66 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     letterSpacing: 0.8,
     color: MUTED,
+  },
+  reacciones: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 4,
+    marginTop: 4,
+  },
+  reaccionesMias: {
+    justifyContent: "flex-end",
+  },
+  reaccion: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 999,
+    backgroundColor: DARK_BG,
+    borderWidth: 1,
+    borderColor: BORDER,
+  },
+  reaccionMia: {
+    borderColor: PRIMARY,
+    backgroundColor: primarioAlfa(0.15),
+  },
+  reaccionTexto: {
+    fontSize: 12,
+    color: TEXT,
+  },
+  reaccionFondo: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: SPACING * 1.4,
+    padding: SPACING * 2,
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  reaccionBarra: {
+    flexDirection: "row",
+    gap: 6,
+    padding: 8,
+    borderRadius: 999,
+    backgroundColor: SURFACE,
+    borderWidth: 1,
+    borderColor: BORDER,
+  },
+  reaccionOpcion: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  reaccionGrande: {
+    fontSize: 26,
+  },
+  reaccionCita: {
+    maxWidth: 300,
+    fontSize: 13,
+    color: "#E0E0E0",
+    textAlign: "center",
   },
   vencido: {
     fontSize: 13,

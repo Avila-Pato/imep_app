@@ -67,6 +67,28 @@ export function useEnVivo() {
             esperaChat = setTimeout(() => sincronizarMensajes(), 300);
           },
         );
+        // reacciones a los mensajes (alguien puso o quito un emoji)
+        canal.on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "reacciones",
+            filter: `iglesia_id=eq.${id}`,
+          },
+          () => {
+            clearTimeout(esperaChat);
+            esperaChat = setTimeout(() => sincronizarMensajes(), 400);
+          },
+        );
+        canal.on(
+          "postgres_changes",
+          { event: "DELETE", schema: "public", table: "reacciones" },
+          () => {
+            clearTimeout(esperaChat);
+            esperaChat = setTimeout(() => sincronizarMensajes(), 400);
+          },
+        );
         // privados: solo llegan los mios (RLS), no se filtran por iglesia
         canal.on(
           "postgres_changes",
@@ -105,6 +127,14 @@ export function useEnVivo() {
             table: "peticiones",
             filter: `iglesia_id=eq.${id}`,
           },
+          () => {
+            sincronizarPeticiones();
+          },
+        );
+        // el pastor quito una del muro (los borrados no se filtran por iglesia)
+        canal.on(
+          "postgres_changes",
+          { event: "DELETE", schema: "public", table: "peticiones" },
           () => {
             sincronizarPeticiones();
           },

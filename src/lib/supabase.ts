@@ -1,4 +1,4 @@
-import "expo-sqlite/localStorage/install";
+import "./instalarAlmacen"; // localStorage (telefono: expo-sqlite)
 import { createClient } from "@supabase/supabase-js";
 import { AppState, Platform } from "react-native";
 
@@ -35,19 +35,21 @@ if (supabase) {
 }
 
 // Mientras no haya cuentas (PasoCuenta), cada telefono entra como usuario
-// anonimo: asi las reglas RLS saben quien es. Luego se vincula a su email
+// anonimo: asi las reglas RLS saben quien es. Luego se vincula a su email.
+// Se revisa la sesion cada vez (es local, no va a internet): si se cerro
+// (Reiniciar app) o vencio, entra de nuevo. "entrando" solo evita que dos
+// llamadas al mismo tiempo creen dos usuarios
 let entrando: Promise<string | null> | null = null;
-export function asegurarSesion(): Promise<string | null> {
-  if (!supabase) return Promise.resolve(null);
+export async function asegurarSesion(): Promise<string | null> {
+  if (!supabase) return null;
+  const { data } = await supabase.auth.getSession();
+  if (data.session) return data.session.user.id;
   entrando ??= (async () => {
-    const { data } = await supabase.auth.getSession();
-    if (data.session) return data.session.user.id;
     const { data: nueva, error } = await supabase.auth.signInAnonymously();
     if (error) throw error;
     return nueva.user?.id ?? null;
-  })().catch((e) => {
-    entrando = null; // reintenta la proxima vez
-    throw e;
+  })().finally(() => {
+    entrando = null;
   });
   return entrando;
 }

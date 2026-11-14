@@ -9,17 +9,30 @@ import {
   TEXT,
   primarioAlfa,
 } from "@/constants/constans";
-import { revisarPeticion, useEstudios } from "@/store/estudios";
-import { enMuro, estadoPeticion } from "@/utils/peticiones";
-import { haceCuanto } from "@/utils/tiempo";
+import {
+  borrarPeticion,
+  fijarPeticion,
+  revisarPeticion,
+  useEstudios,
+} from "@/store/estudios";
+import { Publicacion } from "@/types/typesComunidad";
+import { enMuro, estadoPeticion, inicioPeticion } from "@/utils/peticiones";
+import { haceCuanto, tiempoRestante } from "@/utils/tiempo";
 import Octicons from "@expo/vector-icons/Octicons";
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Alert,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import ModalPedirOracion from "./ModalPedirOracion";
 
-// Oracion, vista del pastor: no ve el muro como los hermanos; ve las
-// peticiones que esperan su aprobacion (las aprueba o rechaza aqui mismo) y
-// puede pedir oracion el tambien (la suya se publica directo)
+// Oracion, vista del pastor: las peticiones que esperan su aprobacion (las
+// aprueba o rechaza aqui mismo), las que estan en el muro (y puede quitarlas
+// por si acaso) y pedir oracion el tambien (la suya se publica directo)
 export default function OracionPastor() {
   const { publicaciones, revisiones } = useEstudios();
   const [pidiendo, setPidiendo] = useState(false);
@@ -29,7 +42,35 @@ export default function OracionPastor() {
       (p) => p.mia === false && estadoPeticion(p, revisiones) === "pendiente",
     )
     .sort((a, b) => a.fecha.localeCompare(b.fecha)); // la mas antigua primero
-  const enElMuro = publicaciones.filter((p) => enMuro(p, revisiones)).length;
+  const enElMuro = publicaciones
+    .filter((p) => enMuro(p, revisiones))
+    .sort((a, b) =>
+      inicioPeticion(b, revisiones).localeCompare(
+        inicioPeticion(a, revisiones),
+      ),
+    );
+
+  // quitar del muro: se borra para todos (pide confirmacion)
+  const quitar = (p: Publicacion) => {
+    const texto = `La petición de ${p.autor} se borrará del muro para todos.`;
+    if (Platform.OS === "web") {
+      if (
+        window.confirm(`¿Quitar del muro?
+
+${texto}`)
+      )
+        borrarPeticion(p.id);
+      return;
+    }
+    Alert.alert("¿Quitar del muro?", texto, [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Quitar",
+        style: "destructive",
+        onPress: () => borrarPeticion(p.id),
+      },
+    ]);
+  };
 
   return (
     <View style={styles.contenedor}>
@@ -41,70 +82,130 @@ export default function OracionPastor() {
           <Octicons name="heart" size={16} color={PRIMARY} />
         </View>
         <View style={styles.flex}>
-          <Text style={styles.pedirTitulo}>Pedir oración</Text>
+          <Text style={styles.pedirTitulo}>Hacer oración</Text>
           <Text style={styles.meta}>
-            La tuya se publica directo en el muro de la iglesia.
+            Publica una oración en el muro para que la iglesia ore contigo.
           </Text>
         </View>
         <Octicons name="chevron-right" size={16} color={MUTED} />
       </Pressable>
 
-      <View style={styles.cabecera}>
-        <Text style={styles.seccion}>
-          POR APROBAR{pendientes.length ? ` · ${pendientes.length}` : ""}
-        </Text>
-        <Text style={styles.meta}>
-          {enElMuro === 1
-            ? "1 petición en el muro"
-            : `${enElMuro} peticiones en el muro`}
-        </Text>
-      </View>
-
-      {pendientes.length === 0 ? (
+      {/* Por aprobar (solo si hay) */}
+      {pendientes.length > 0 ? (
+        <>
+          <Text style={[styles.seccion, styles.cabecera]}>
+            POR APROBAR · {pendientes.length}
+          </Text>
+          {pendientes.map((p) => (
+            <View key={p.id} style={styles.tarjeta}>
+              <Text style={styles.autor}>
+                {p.autor} · {haceCuanto(p.fecha)}
+              </Text>
+              {!!p.cita && <Text style={styles.cita}>{p.cita}</Text>}
+              <Text style={styles.texto}>{p.texto}</Text>
+              <View style={styles.acciones}>
+                <Pressable
+                  onPress={() => revisarPeticion(p.id, "rechazada")}
+                  style={({ pressed }) => [
+                    styles.accion,
+                    pressed && styles.presionado,
+                  ]}
+                >
+                  <Text style={styles.accionTexto}>Rechazar</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => revisarPeticion(p.id, "aprobada")}
+                  style={({ pressed }) => [
+                    styles.accion,
+                    styles.aprobar,
+                    pressed && styles.presionado,
+                  ]}
+                >
+                  <Text style={[styles.accionTexto, styles.aprobarTexto]}>
+                    Aprobar
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          ))}
+          <Text style={styles.nota}>
+            Al aprobarla se publica en el muro de la iglesia por 24 horas.
+          </Text>
+        </>
+      ) : (
         <View style={styles.vacio}>
           <Octicons name="check-circle" size={22} color={MUTED} />
           <Text style={styles.vacioTexto}>
-            No hay peticiones esperando. Cuando un hermano pida oración te
-            llegará un aviso.
+            No hay peticiones esperando tu aprobación. Cuando un hermano pida
+            oración te llegará un aviso.
           </Text>
         </View>
-      ) : (
-        pendientes.map((p) => (
-          <View key={p.id} style={styles.tarjeta}>
-            <Text style={styles.autor}>
-              {p.autor} · {haceCuanto(p.fecha)}
-            </Text>
-            {!!p.cita && <Text style={styles.cita}>{p.cita}</Text>}
-            <Text style={styles.texto}>{p.texto}</Text>
-            <View style={styles.acciones}>
-              <Pressable
-                onPress={() => revisarPeticion(p.id, "rechazada")}
-                style={({ pressed }) => [
-                  styles.accion,
-                  pressed && styles.presionado,
-                ]}
-              >
-                <Text style={styles.accionTexto}>Rechazar</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => revisarPeticion(p.id, "aprobada")}
-                style={({ pressed }) => [
-                  styles.accion,
-                  styles.aprobar,
-                  pressed && styles.presionado,
-                ]}
-              >
-                <Text style={[styles.accionTexto, styles.aprobarTexto]}>
-                  Aprobar
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        ))
       )}
-      <Text style={styles.nota}>
-        Al aprobarla se publica en el muro de la iglesia por 24 horas.
-      </Text>
+
+      {/* En el muro ahora: las ve y puede quitarlas */}
+      {enElMuro.length > 0 && (
+        <>
+          <Text style={[styles.seccion, styles.cabecera]}>
+            EN EL MURO · {enElMuro.length}
+          </Text>
+          {enElMuro.map((p) => (
+            <View key={p.id} style={styles.tarjeta}>
+              <View style={styles.filaMuro}>
+                <Text style={[styles.autor, styles.flex]}>
+                  {p.autor} ·{" "}
+                  {p.fijada
+                    ? "📌 Fijada"
+                    : tiempoRestante(inicioPeticion(p, revisiones))}
+                </Text>
+                <Text style={styles.orando}>🙏 {p.orando}</Text>
+              </View>
+              {!!p.cita && p.mostrarCita && (
+                <Text style={styles.cita}>{p.cita}</Text>
+              )}
+              <Text style={styles.texto}>{p.texto}</Text>
+              <View style={styles.accionesMuro}>
+                {/* mantenerla mas de 24 h (hasta soltarla) */}
+                <Pressable
+                  onPress={() => fijarPeticion(p.id, !p.fijada)}
+                  hitSlop={6}
+                  style={({ pressed }) => [
+                    styles.quitar,
+                    pressed && styles.presionado,
+                  ]}
+                  accessibilityLabel={
+                    p.fijada
+                      ? `Dejar que la petición de ${p.autor} venza`
+                      : `Mantener en el muro la petición de ${p.autor}`
+                  }
+                >
+                  <Octicons
+                    name={p.fijada ? "pin-slash" : "pin"}
+                    size={13}
+                    color={TEXT}
+                  />
+                  <Text style={[styles.quitarTexto, styles.fijarTexto]}>
+                    {p.fijada
+                      ? "Soltar (vence en 24 h)"
+                      : "Mantener en el muro"}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => quitar(p)}
+                  hitSlop={6}
+                  style={({ pressed }) => [
+                    styles.quitar,
+                    pressed && styles.presionado,
+                  ]}
+                  accessibilityLabel={`Quitar del muro la petición de ${p.autor}`}
+                >
+                  <Octicons name="trash" size={13} color={PRIMARY} />
+                  <Text style={styles.quitarTexto}>Quitar del muro</Text>
+                </Pressable>
+              </View>
+            </View>
+          ))}
+        </>
+      )}
 
       {pidiendo && <ModalPedirOracion onCerrar={() => setPidiendo(false)} />}
     </View>
@@ -150,10 +251,37 @@ const styles = StyleSheet.create({
     color: MUTED,
   },
   cabecera: {
+    marginTop: SPACING,
+  },
+  filaMuro: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: SPACING,
+    gap: SPACING,
+  },
+  orando: {
+    fontSize: 12,
+    color: MUTED,
+  },
+  accionesMuro: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: SPACING * 2,
+  },
+  fijarTexto: {
+    color: TEXT,
+  },
+  quitar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    alignSelf: "flex-start",
+    marginTop: 4,
+  },
+  quitarTexto: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: PRIMARY,
   },
   seccion: {
     fontSize: 11,

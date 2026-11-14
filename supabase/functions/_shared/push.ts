@@ -55,8 +55,21 @@ export async function enviar(mensajes: Mensaje[]) {
   return { enviados, borrados: muertos.length };
 }
 
+// CORS: la app en el navegador (web) pregunta antes con OPTIONS si puede
+// llamar a la funcion. Sin esto el navegador bloquea la llamada (405)
+export const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+// Responde la pregunta previa del navegador (null si no era eso)
+export const preflight = (req: Request) =>
+  req.method === "OPTIONS" ? new Response("ok", { headers: CORS }) : null;
+
 export const json = (cuerpo: unknown, status = 200) =>
   new Response(JSON.stringify(cuerpo), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { ...CORS, "Content-Type": "application/json" },
   });

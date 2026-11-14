@@ -27,6 +27,7 @@ import {
   View,
 } from "react-native";
 import MapaIglesia from "./MapaIglesia";
+import SelectorMapa from "./SelectorMapa";
 
 // Nombre y ubicacion de la iglesia (lo llena el pastor).
 // Busca la direccion, muestra opciones y una vista previa del mapa
@@ -48,11 +49,14 @@ export default function FormIglesia({
   );
   const [resultados, setResultados] = useState<Lugar[]>([]);
   const [buscando, setBuscando] = useState(false);
+  // la ultima busqueda que no encontro nada (para decirlo)
+  const [sinResultados, setSinResultados] = useState("");
   // "Usar mi ubicacion actual": null = no esta buscando
   const [ubicando, setUbicando] = useState<"buscando" | "sin-permiso" | null>(
     null,
   );
   const [error, setError] = useState(false);
+  const [enMapa, setEnMapa] = useState(false); // elegir en el mapa
   const [ancho, setAncho] = useState(0); // para dibujar la vista previa
 
   // busca cuando deja de escribir (y no si ya eligio esa direccion)
@@ -64,7 +68,10 @@ export default function FormIglesia({
       setBuscando(true);
       setError(false);
       buscarDireccion(texto, ctrl.signal)
-        .then(setResultados)
+        .then((r) => {
+          setResultados(r);
+          setSinResultados(r.length ? "" : texto);
+        })
         .catch(() => !ctrl.signal.aborted && setError(true))
         .finally(() => !ctrl.signal.aborted && setBuscando(false));
     }, 700);
@@ -99,6 +106,17 @@ export default function FormIglesia({
 
   return (
     <View style={styles.contenedor}>
+      {enMapa && (
+        <SelectorMapa
+          // parte en lo elegido, o en lo primero que encontro la busqueda
+          inicial={elegido ?? resultados[0]}
+          onCerrar={() => setEnMapa(false)}
+          onElegir={(l) => {
+            elegir(l);
+            setEnMapa(false);
+          }}
+        />
+      )}
       <View style={styles.campo}>
         <Text style={styles.etiqueta}>NOMBRE DE LA IGLESIA</Text>
         <TextInput
@@ -144,6 +162,23 @@ export default function FormIglesia({
             escribe la dirección.
           </Text>
         )}
+        {/* o moviendo el mapa hasta el templo */}
+        <Pressable
+          onPress={() => setEnMapa(true)}
+          style={({ pressed }) => [
+            styles.miUbicacion,
+            pressed && styles.presionado,
+          ]}
+        >
+          <Octicons name="globe" size={15} color={TEXT} />
+          <View style={styles.flex}>
+            <Text style={styles.miUbicacionTitulo}>Elegir en el mapa</Text>
+            <Text style={styles.miUbicacionTexto}>
+              Mueve el mapa y deja el pin en tu iglesia
+            </Text>
+          </View>
+          <Octicons name="chevron-right" size={14} color={MUTED} />
+        </Pressable>
         <Text style={styles.o}>o busca la dirección</Text>
         <View style={styles.buscador}>
           <Octicons name="location" size={14} color={MUTED} />
@@ -165,6 +200,16 @@ export default function FormIglesia({
             No se pudo buscar. Revisa tu conexión.
           </Text>
         )}
+        {!error &&
+          !buscando &&
+          !elegido &&
+          !!sinResultados &&
+          sinResultados === busqueda.trim() && (
+            <Text style={styles.ayudaBusqueda}>
+              No encontramos esa dirección. Revisa cómo se escribe o agrega la
+              comuna.
+            </Text>
+          )}
 
         {/* Opciones encontradas */}
         {resultados.length > 0 && (
@@ -307,6 +352,11 @@ const styles = StyleSheet.create({
   error: {
     fontSize: 12,
     color: PRIMARY,
+  },
+  ayudaBusqueda: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: MUTED,
   },
   resultados: {
     borderRadius: 14,

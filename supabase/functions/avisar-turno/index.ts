@@ -5,9 +5,11 @@
 // avisa a esa persona: "Te asignaron un turno · Palabra · dom 23 nov · 19:30"
 // o, si la sacaron (tipo "quitado"): "Te quitaron de un turno · Palabra · ..."
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { admin, enviar, json } from "../_shared/push.ts";
+import { admin, enviar, json, preflight } from "../_shared/push.ts";
 
 Deno.serve(async (req) => {
+  const previa = preflight(req); // navegador (web)
+  if (previa) return previa;
   if (req.method !== "POST") return json({ error: "solo POST" }, 405);
   const b = await req.json().catch(() => ({}));
   const { tipo, iglesia_id, fecha, rol, hora, persona } = b as Record<
@@ -22,7 +24,9 @@ Deno.serve(async (req) => {
   const usuario = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_ANON_KEY")!,
-    { global: { headers: { Authorization: req.headers.get("Authorization")! } } },
+    {
+      global: { headers: { Authorization: req.headers.get("Authorization")! } },
+    },
   );
   const { data: yo } = await usuario.auth.getUser();
   if (!yo.user) return json({ error: "sin sesion" }, 401);

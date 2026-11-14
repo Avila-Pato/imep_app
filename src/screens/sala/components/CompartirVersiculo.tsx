@@ -38,6 +38,7 @@ import {
 } from "react-native";
 import Animated, { Easing, SlideInDown } from "react-native-reanimated";
 import ConBordes from "@/components/ConBordes";
+import { useTecladoAbierto } from "@/hooks/useEspacioBarra";
 import ElegirVersiculoTikTok from "@/screens/biblia/ElegirVersiculoTikTok";
 import PasajeTexto from "../../(tab)/components/PasajeTexto";
 import NotaVoz, { minutos } from "./NotaVoz";
@@ -74,6 +75,7 @@ export default function CompartirVersiculo({
   const [texto, setTexto] = useState("");
   const [audio, setAudio] = useState<NotaDeVoz | null>(null);
   const [sinPermiso, setSinPermiso] = useState(false);
+  const teclado = useTecladoAbierto();
   const pasaje = usePasaje(cita);
   // Autocompletado: solo mientras escribe (al elegir una cita se oculta)
   const [sugerir, setSugerir] = useState(false);
@@ -169,8 +171,10 @@ export default function CompartirVersiculo({
           <>
             <KeyboardAvoidingView
               style={styles.fondo}
-              // en Android la hoja (pantalla completa) no se achica sola: se sube aqui
-              behavior="padding"
+              // en Android la hoja (pantalla completa) no se achica sola: se
+              // sube aqui. Solo con el teclado abierto: cerrado, Android
+              // sumaba la barra de navegacion y la hoja quedaba separada abajo
+              behavior={teclado ? "padding" : undefined}
             >
               <Pressable style={styles.cerrarFondo} onPress={cerrar} />
               <Animated.View

@@ -241,6 +241,87 @@ export function useRecordatorios() {
     marcarAnunciosAvisados(lista.map((p) => p.id));
   }, [firmaPeticiones, primeraVezAnuncios, avisarSalas]);
 
+  // Mi peticion fue aprobada (la de quien no aprueba): "Tu peticion fue
+  // aprobada". Solo las aprobadas hace poco (no las viejas al reinstalar)
+  const aprobadas = revisa
+    ? []
+    : publicaciones
+        .filter(
+          (p) =>
+            p.mia === true &&
+            revisiones[p.id]?.estado === "aprobada" &&
+            !(anunciosAvisados ?? []).includes(`ap:${p.id}`),
+        )
+        .map((p) => ({ id: p.id, fecha: revisiones[p.id].fecha }));
+  const firmaAprobadas = JSON.stringify(aprobadas);
+  useEffect(() => {
+    const lista: { id: string; fecha: string }[] = JSON.parse(firmaAprobadas);
+    if (!lista.length) return;
+    const recientes = lista.filter(
+      (p) => Date.now() - Date.parse(p.fecha) < 30 * 60e3,
+    );
+    if (recientes.length && avisarSalas && !PUSH_ACTIVO) {
+      avisarAhora(
+        "🙏 Tu petición fue aprobada",
+        ["Los hermanos pueden orar por ti durante 24 horas", nombreIglesia]
+          .filter(Boolean)
+          .join(" · "),
+        "/sala/general?vista=oracion",
+      ).catch(() => {});
+    }
+    marcarAnunciosAvisados(lista.map((p) => `ap:${p.id}`));
+  }, [firmaAprobadas, avisarSalas, nombreIglesia]);
+
+  // Aviso o devocional del lider en una sala (no los mios): si va dirigido a
+  // otras personas, no me llega. Solo los recientes (no los viejos al abrir)
+  const avisosLider = mensajes
+    .filter(
+      (m) =>
+        !!m.tipo &&
+        m.notificar &&
+        !m.mio &&
+        m.autor !== yo &&
+        (!m.para?.length || m.para.includes(yo)) &&
+        !(anunciosAvisados ?? []).includes(`msg:${m.id}`),
+    )
+    .map((m) => ({
+      id: m.id,
+      fecha: m.fecha,
+      grupo: m.grupo,
+      autor: m.autor,
+      texto: m.texto,
+      titulo: m.titulo,
+      devocional: m.tipo === "devocional",
+    }));
+  const firmaAvisosLider = JSON.stringify(avisosLider);
+  useEffect(() => {
+    const lista: {
+      id: string;
+      fecha: string;
+      grupo: string;
+      autor: string;
+      texto: string;
+      titulo?: string;
+      devocional: boolean;
+    }[] = JSON.parse(firmaAvisosLider);
+    if (!lista.length) return;
+    if (avisarSalas && !PUSH_ACTIVO) {
+      for (const m of lista) {
+        if (Date.now() - Date.parse(m.fecha) > 30 * 60e3) continue;
+        avisarAhora(
+          m.devocional
+            ? `📖 ${m.titulo ?? "Devocional"}`
+            : m.grupo === "general"
+              ? "📣 Aviso de la iglesia"
+              : "📣 Aviso de tu sala",
+          m.texto.slice(0, 150),
+          `/sala/${m.grupo}`,
+        ).catch(() => {});
+      }
+    }
+    marcarAnunciosAvisados(lista.map((m) => `msg:${m.id}`));
+  }, [firmaAvisosLider, avisarSalas]);
+
   // Turnos que tenia y ya no (el admin lo saco o puso a otro): "te quitaron".
   // Se compara por dia y rol (un cambio de hora no cuenta como quitado)
   const misDiaRol = new Set(misTurnos.map((t) => `${t.fecha}|${t.rol}`));

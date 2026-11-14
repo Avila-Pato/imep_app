@@ -28,9 +28,10 @@ export const inicioPeticion = (p: Publicacion, rev: Revisiones) =>
   rev[p.id]?.fecha ?? p.fecha;
 
 // ¿Se ve en el muro? Aprobada y dentro de las 24 h
+// (la fijada por el pastor se queda hasta que la suelte)
 export const enMuro = (p: Publicacion, rev: Revisiones) =>
   estadoPeticion(p, rev) === "aprobada" &&
-  oracionVigente(inicioPeticion(p, rev));
+  (!!p.fijada || oracionVigente(inicioPeticion(p, rev)));
 
 // ¿Se guarda en el telefono? Las pendientes esperan; el resto hasta vencer
 export const sigueGuardada = (p: Publicacion, rev: Revisiones) =>

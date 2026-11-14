@@ -257,7 +257,6 @@ export const MENU_PERFIL: { titulo: string; opciones: OpcionMenu[] }[] = [
     opciones: [
       { id: "privacidad", label: "Privacidad", icon: "lock" },
       { id: "ayuda", label: "Ayuda", icon: "question" },
-      { id: "bienvenida", label: "Ver bienvenida", icon: "rocket" },
       { id: "reiniciar", label: "Reiniciar app", icon: "sync", peligro: true },
       { id: "salir", label: "Cerrar sesión", icon: "sign-out", peligro: true },
     ],
@@ -269,6 +268,10 @@ export const mapaTesela = (z: number, x: number, y: number) =>
   `https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/${z}/${y}/${x}`;
 export const MAPA_ZOOM = 16; // maximo de este mapa
 export const MAPA_ATRIBUCION = "Esri, HERE, Garmin · © OpenStreetMap";
+// Mapa claro con nombres de calles (para elegir la ubicacion: se lee mejor)
+export const mapaTeselaClara = (z: number, x: number, y: number) =>
+  `https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/${z}/${y}/${x}`;
+export const MAPA_CLARO_ZOOM = 19;
 
 // Fuentes (Inter, cargada en src/app/_layout.tsx)
 export const FUENTE = {

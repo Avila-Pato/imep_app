@@ -1,4 +1,3 @@
-import { USUARIO } from "@/assets/data/perfilMocks";
 import {
   BORDER,
   DARK_BG,
@@ -13,8 +12,8 @@ import {
   RADIO_BORDE,
 } from "@/constants/constans";
 import { sugerirCitas } from "@/services/biblia";
-import { avisarAhora } from "@/services/notificaciones";
-import { enviarMensaje } from "@/store/estudios";
+import { enviarMensaje, useEstudios, useMiembros } from "@/store/estudios";
+import { miembrosDe } from "./MiembrosSala";
 import { Grupo } from "@/types/typesComunidad";
 import Octicons from "@expo/vector-icons/Octicons";
 import { useState } from "react";
@@ -53,6 +52,16 @@ export default function ModalPublicarLider({
   const [sugerir, setSugerir] = useState(false);
   const [texto, setTexto] = useState("");
   const [notificar, setNotificar] = useState(true);
+  // a quien le llega la notificacion: vacio = a toda la sala
+  const [para, setPara] = useState<string[]>([]);
+  const { nombre } = useEstudios();
+  useMiembros(); // se actualiza cuando llegan del servidor
+  const yo = nombre?.trim() ?? "";
+  const personas = miembrosDe(sala.id)
+    .map((m) => m.nombre)
+    .filter((n) => n.trim() !== yo);
+  const alternar = (n: string) =>
+    setPara((p) => (p.includes(n) ? p.filter((x) => x !== n) : [...p, n]));
 
   const sugerencias = sugerir ? sugerirCitas(cita) : [];
   const listo =
@@ -64,22 +73,16 @@ export default function ModalPublicarLider({
     enviarMensaje({
       id: `m${Date.now()}`,
       grupo: sala.id,
-      autor: USUARIO.nombre,
+      autor: yo || "Líder",
       tipo,
       titulo: esDevocional ? titulo.trim() : undefined,
       cita: esDevocional ? cita.trim() || undefined : undefined,
       texto: texto.trim(),
       fecha: new Date().toISOString(),
+      // el servidor avisa a la sala (o solo a los elegidos)
+      notificar,
+      ...(notificar && para.length ? { para } : {}),
     });
-    if (notificar) {
-      avisarAhora(
-        esDevocional
-          ? `Devocional en ${sala.label}: ${titulo.trim()} 📖`
-          : `Aviso de ${sala.label} 📣`,
-        esDevocional ? cita.trim() || texto.trim() : texto.trim(),
-        `/sala/${sala.id}`, // al tocarla se abre la sala
-      ).catch(() => {});
-    }
     onCerrar();
   };
 
@@ -228,10 +231,10 @@ export default function ModalPublicarLider({
                     <Octicons name="bell" size={16} color={TEXT} />
                     <View style={styles.flex}>
                       <Text style={styles.notificarTitulo}>
-                        Notificar a todos
+                        Enviar notificación
                       </Text>
                       <Text style={styles.ayuda}>
-                        Les llega un aviso al teléfono, además del chat.
+                        Les llega al teléfono, además de verse en el chat.
                       </Text>
                     </View>
                     <Switch
@@ -239,9 +242,65 @@ export default function ModalPublicarLider({
                       onValueChange={setNotificar}
                       trackColor={{ false: BORDER, true: PRIMARY }}
                       thumbColor="#FFFFFF"
-                      accessibilityLabel="Notificar a todos"
+                      accessibilityLabel="Enviar notificación"
                     />
                   </View>
+
+                  {/* A quien: toda la sala o personas elegidas */}
+                  {notificar && personas.length > 0 && (
+                    <>
+                      <Text style={styles.etiqueta}>¿A QUIÉN?</Text>
+                      <View style={styles.chips}>
+                        <Pressable
+                          onPress={() => setPara([])}
+                          style={[
+                            styles.chip,
+                            para.length === 0 && styles.chipActivo,
+                          ]}
+                          accessibilityState={{ selected: para.length === 0 }}
+                        >
+                          <Octicons
+                            name="people"
+                            size={12}
+                            color={para.length === 0 ? DARK_BG : MUTED}
+                          />
+                          <Text
+                            style={[
+                              styles.chipTexto,
+                              para.length === 0 && styles.chipTextoActivo,
+                            ]}
+                          >
+                            Toda la sala
+                          </Text>
+                        </Pressable>
+                        {personas.map((n) => {
+                          const activo = para.includes(n);
+                          return (
+                            <Pressable
+                              key={n}
+                              onPress={() => alternar(n)}
+                              style={[styles.chip, activo && styles.chipActivo]}
+                              accessibilityState={{ selected: activo }}
+                            >
+                              <Text
+                                style={[
+                                  styles.chipTexto,
+                                  activo && styles.chipTextoActivo,
+                                ]}
+                              >
+                                {n}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                      <Text style={styles.ayuda}>
+                        {para.length
+                          ? `Solo le llega a ${para.join(", ")}. En el chat lo ven todos.`
+                          : "Les llega a todos los de la sala."}
+                      </Text>
+                    </>
+                  )}
                 </ScrollView>
 
                 <Pressable
@@ -402,6 +461,33 @@ const styles = StyleSheet.create({
     padding: SPACING * 1.2,
     borderRadius: 14,
     backgroundColor: DARK_BG,
+  },
+  chips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: BORDER,
+  },
+  chipActivo: {
+    backgroundColor: TEXT,
+    borderColor: TEXT,
+  },
+  chipTexto: {
+    fontFamily: FUENTE.medium,
+    fontSize: 13,
+    color: MUTED,
+  },
+  chipTextoActivo: {
+    color: DARK_BG,
   },
   notificarTitulo: {
     fontFamily: FUENTE.semibold,

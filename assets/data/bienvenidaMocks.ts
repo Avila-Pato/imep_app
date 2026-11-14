@@ -3,8 +3,8 @@ import { IconName } from "@/types/typesCronogramas";
 import { ImageSource } from "expo-image";
 
 // Historias de presentacion: que es la app (para cualquier iglesia) y sus
-// funciones. Se pasan deslizando o tocando. Las imagenes son de relleno
-// (picsum): cambia "imagen" por tus fotos, ej: require("@/assets/images/inicio-1.jpg")
+// funciones. Se pasan deslizando o tocando. Las fotos van dentro de la app
+// (siempre cargan, sin internet). Son de Unsplash (licencia libre)
 export const HISTORIAS: {
   etiqueta: string;
   titulo: string; // la ultima palabra va en cursiva
@@ -16,49 +16,49 @@ export const HISTORIAS: {
     titulo: "Te damos la bienvenida",
     texto:
       "Una app hecha para ayudar a las iglesias a organizarse, mantener a todos informados y acompañarse durante la semana.",
-    imagen: "https://picsum.photos/seed/imep-iglesia/900/1400",
+    imagen: require("@/assets/images/bienvenida/bienvenida.jpg"),
   },
   {
     etiqueta: "QUÉ ES",
     titulo: "Tu iglesia, organizada",
     texto:
       "Cultos, turnos, anuncios y grupos en un solo lugar. Menos mensajes perdidos en el chat y más tiempo para lo importante.",
-    imagen: "https://picsum.photos/seed/imep-orden/900/1400",
+    imagen: require("@/assets/images/bienvenida/orden.jpg"),
   },
   {
     etiqueta: "ANUNCIOS",
     titulo: "Que nadie se lo pierda",
     texto:
       "El próximo culto, los eventos y las actividades de cada grupo, con fecha, hora y lugar. Todos se enteran a tiempo.",
-    imagen: "https://picsum.photos/seed/imep-anuncios/900/1400",
+    imagen: require("@/assets/images/bienvenida/anuncios.jpg"),
   },
   {
     etiqueta: "SERVICIO",
     titulo: "Cada uno sabe su turno",
     texto:
       "El cronograma muestra quién predica, quién está en el pasillo, en la puerta o en la ofrenda. Cada hermano ve sus próximos turnos.",
-    imagen: "https://picsum.photos/seed/imep-servicio/900/1400",
+    imagen: require("@/assets/images/bienvenida/servicio.jpg"),
   },
   {
     etiqueta: "COMUNIDAD",
     titulo: "Grupos que se acompañan",
     texto:
       "Una sala para cada grupo (jóvenes, varones, damas, niños o los que tu iglesia cree) con chat y muro de oración.",
-    imagen: "https://picsum.photos/seed/imep-comunidad/900/1400",
+    imagen: require("@/assets/images/bienvenida/comunidad.jpg"),
   },
   {
     etiqueta: "BIBLIA",
     titulo: "La Palabra, a tu ritmo",
     texto:
       "Versículo por versículo o el capítulo completo, en varias versiones y con la letra del tamaño que necesites.",
-    imagen: "https://picsum.photos/seed/imep-biblia/900/1400",
+    imagen: require("@/assets/images/bienvenida/biblia.jpg"),
   },
   {
     etiqueta: "PARA EL PASTOR",
     titulo: "Todo bajo tu cuidado",
     texto:
       "El pastor crea las salas, asigna los roles y da permisos a los hermanos que ayudan a organizar la iglesia.",
-    imagen: "https://picsum.photos/seed/imep-pastor/900/1400",
+    imagen: require("@/assets/images/bienvenida/pastor.jpg"),
   },
 ];
 

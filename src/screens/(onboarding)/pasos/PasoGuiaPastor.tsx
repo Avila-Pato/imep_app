@@ -132,7 +132,6 @@ const TEMAS: Tema[] = [
       "Cámbiala cuando quieras desde el panel.",
       "Los hermanos la verán al unirse con su código.",
     ],
-    nota: "¿Quieres repasar esta guía? Perfil › Ver bienvenida.",
   },
 ];
 

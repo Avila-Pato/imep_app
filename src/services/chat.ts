@@ -26,6 +26,8 @@ const datosDe = (m: Mensaje) => ({
   ...(m.desafio ? { desafio: m.desafio } : {}),
   ...(m.tipo ? { tipo: m.tipo } : {}),
   ...(m.titulo ? { titulo: m.titulo } : {}),
+  ...(m.notificar ? { notificar: true } : {}),
+  ...(m.para?.length ? { para: m.para } : {}),
 });
 
 const esLocal = (uri?: string) => !!uri && !uri.startsWith("https://");
@@ -156,4 +158,59 @@ export async function bajarPrivados(
     fecha: f.creado,
     mio: f.de === yo,
   }));
+}
+
+// ───────────── Reacciones ─────────────
+export const EMOJIS_REACCION = ["👍", "❤️", "🙏", "😂", "😮", "🙌"] as const;
+
+// Las reacciones de la iglesia: cuantas de cada emoji por mensaje y la mia
+export async function bajarReacciones(iglesiaId: string) {
+  if (!supabase || !esUuid(iglesiaId)) return null;
+  const yo = await asegurarSesion();
+  const { data, error } = await supabase
+    .from("reacciones")
+    .select("mensaje_id, usuario_id, emoji")
+    .eq("iglesia_id", iglesiaId);
+  if (error) throw error;
+  const cuantas: Record<string, Record<string, number>> = {};
+  const mias: Record<string, string> = {};
+  for (const r of (data ?? []) as {
+    mensaje_id: string;
+    usuario_id: string;
+    emoji: string;
+  }[]) {
+    const m = (cuantas[r.mensaje_id] ??= {});
+    m[r.emoji] = (m[r.emoji] ?? 0) + 1;
+    if (r.usuario_id === yo) mias[r.mensaje_id] = r.emoji;
+  }
+  return { cuantas, mias };
+}
+
+// Poner (o cambiar) mi reaccion; null = quitarla
+export async function reaccionarRemoto(
+  iglesiaId: string,
+  mensajeId: string,
+  emoji: string | null,
+) {
+  if (!supabase || !esUuid(iglesiaId) || !esUuid(mensajeId)) return;
+  const yo = await asegurarSesion();
+  if (!yo) return;
+  const { error } = emoji
+    ? await supabase
+        .from("reacciones")
+        .upsert(
+          {
+            mensaje_id: mensajeId,
+            usuario_id: yo,
+            iglesia_id: iglesiaId,
+            emoji,
+          },
+          { onConflict: "mensaje_id,usuario_id" },
+        )
+    : await supabase
+        .from("reacciones")
+        .delete()
+        .eq("mensaje_id", mensajeId)
+        .eq("usuario_id", yo);
+  if (error) throw error;
 }
