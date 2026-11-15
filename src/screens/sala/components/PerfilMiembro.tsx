@@ -13,7 +13,9 @@ import {
   TEXT,
 } from "@/constants/constans";
 import {
+  quitarMiembro,
   restringir,
+  useEsPastor,
   useAvatarDe,
   useEstudios,
   useGrupos,
@@ -22,7 +24,9 @@ import {
   useRoles,
 } from "@/store/estudios";
 import { Miembro } from "@/types/typesComunidad";
+import { confirmar } from "@/utils/confirmar";
 import { horaTurno } from "@/utils/cultos";
+import { useState } from "react";
 import { unirTurnos } from "@/utils/turnos";
 import Octicons from "@expo/vector-icons/Octicons";
 import { Href, router } from "expo-router";
@@ -59,6 +63,10 @@ export default function PerfilMiembro({
   const roles = useRoles();
   const { turnosEditados } = useEstudios();
   const admin = usePuede("roles");
+  // sacar de la iglesia: SOLO el pastor (ni la secretaria ni otros roles)
+  const esPastor = useEsPastor();
+  const [quitando, setQuitando] = useState(false);
+  const [fallo, setFallo] = useState(false);
 
   // los datos completos (los que vienen del servidor)
   const datos =
@@ -90,6 +98,23 @@ export default function PerfilMiembro({
   const sinOracion = !!datos?.sinOracion;
   const cambiar = (c: Partial<{ sinChat: boolean; sinOracion: boolean }>) =>
     datos?.id && restringir(datos.id, { sinChat, sinOracion, ...c });
+  const quitable =
+    esPastor && !miembro.esYo && !miembro.esPastor && !!datos?.id;
+  const quitar = () =>
+    confirmar(
+      `¿Quitar a ${miembro.nombre} de la iglesia?`,
+      "Dejará de ver los anuncios, el cronograma y las salas. Si quiere volver, tendrá que unirse otra vez con un código.",
+      "Quitar",
+      async () => {
+        if (!datos?.id) return;
+        setQuitando(true);
+        setFallo(false);
+        const ok = await quitarMiembro(datos.id);
+        setQuitando(false);
+        if (ok) onCerrar();
+        else setFallo(true);
+      },
+    );
 
   return (
     <Modal
@@ -202,6 +227,32 @@ export default function PerfilMiembro({
                     />
                   </View>
                 )}
+                {/* Solo el pastor: sacarlo de la iglesia */}
+                {quitable && (
+                  <>
+                    <Pressable
+                      onPress={quitar}
+                      disabled={quitando}
+                      style={({ pressed }) => [
+                        styles.quitar,
+                        (pressed || quitando) && styles.presionadoQuitar,
+                      ]}
+                      accessibilityLabel={`Quitar a ${miembro.nombre} de la iglesia`}
+                    >
+                      <Octicons name="person" size={14} color={ROJO} />
+                      <Text style={styles.quitarTexto}>
+                        {quitando ? "Quitando…" : "Quitar de la iglesia"}
+                      </Text>
+                    </Pressable>
+                    {fallo && (
+                      <Text style={styles.quitarError}>
+                        No se pudo quitar. Revisa tu conexión e inténtalo de
+                        nuevo.
+                      </Text>
+                    )}
+                  </>
+                )}
+
                 {/* el hermano restringido lo ve en su propio perfil */}
                 {miembro.esYo && (sinChat || sinOracion) && (
                   <Text style={styles.aviso}>
@@ -273,7 +324,33 @@ function Interruptor({
   );
 }
 
+const ROJO = "#E5484D";
+
 const styles = StyleSheet.create({
+  quitar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    height: 48,
+    marginTop: 4,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: ROJO,
+  },
+  presionadoQuitar: {
+    opacity: 0.6,
+  },
+  quitarTexto: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: ROJO,
+  },
+  quitarError: {
+    fontSize: 12,
+    color: ROJO,
+    textAlign: "center",
+  },
   flex: {
     flex: 1,
   },

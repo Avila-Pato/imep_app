@@ -37,6 +37,7 @@ import {
   avisarCargo,
   bajarCargos,
   cambiarCargoRemoto,
+  quitarMiembroRemoto,
   avisarTurno,
   bajarAnuncios,
   bajarMiembros,
@@ -124,6 +125,7 @@ type Estado = {
   invitacion?: string; // codigo del enlace que abrio antes del onboarding
   portada?: string; // imagen de fondo arriba del perfil (galeria)
   fuenteBiblia?: FuenteBiblia; // letra para leer la Biblia
+  codigoVisto?: boolean; // pastor: ya le mostramos donde esta su codigo
   motivos?: string[]; // que la trae a la app (onboarding)
   rol?: RolIglesia; // quien es en la iglesia (el pastor administra)
   cargos: Record<string, CargoId[]>; // nombre -> roles que le dio el pastor
@@ -281,6 +283,7 @@ const useStore = create<Estado>()(
         invitacion: estado.invitacion ?? previo.invitacion,
         portada: estado.portada ?? previo.portada,
         fuenteBiblia: estado.fuenteBiblia ?? previo.fuenteBiblia,
+        codigoVisto: estado.codigoVisto ?? previo.codigoVisto,
         motivos: estado.motivos ?? previo.motivos,
         rol: estado.rol ?? previo.rol,
         cargos: { ...(previo.cargos ?? {}), ...estado.cargos },
@@ -471,6 +474,14 @@ export const FUENTES_BIBLIA: Record<
     fuerte: "Merriweather_700Bold",
   },
 };
+// El pastor ya vio donde esta su codigo de invitacion (se muestra una vez)
+export function marcarCodigoVisto() {
+  cambiar({ codigoVisto: true });
+}
+export function useCodigoVisto() {
+  return !!useStore((s) => s.codigoVisto);
+}
+
 // Cambia la letra de la Biblia (desde el boton Aa de la lectura)
 export function elegirFuenteBiblia(fuente: FuenteBiblia) {
   cambiar({ fuenteBiblia: fuente });
@@ -1358,6 +1369,33 @@ export async function alternarCargo(
   }
   enFondo(avisarCargo(iglesiaId, hermano.id, cargo, tenia));
   return "listo";
+}
+
+// El pastor saca a un hermano de la iglesia: se quita al instante de la
+// lista y se borra en el servidor (si falla, vuelve lo del servidor)
+export async function quitarMiembro(usuarioId: string): Promise<boolean> {
+  const s = useStore.getState();
+  const iglesiaId = s.iglesia?.id;
+  if (!esUuid(iglesiaId) || s.rol !== "pastor") return false;
+  const nombre = s.miembros.find((m) => m.id === usuarioId)?.nombre;
+  cambiar((x) => ({
+    miembros: x.miembros.filter((m) => m.id !== usuarioId),
+    ...(nombre && x.cargos[nombre]
+      ? {
+          cargos: Object.fromEntries(
+            Object.entries(x.cargos).filter(([n]) => n !== nombre),
+          ),
+        }
+      : {}),
+  }));
+  try {
+    await quitarMiembroRemoto(iglesiaId, usuarioId);
+    return true;
+  } catch (e) {
+    console.warn("[supabase]", (e as Error)?.message ?? e);
+    sincronizarContenido();
+    return false;
+  }
 }
 
 // Filas del servidor -> { nombre: [roles] } (con el nombre de su perfil)

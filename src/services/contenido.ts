@@ -334,6 +334,23 @@ export async function bajarMiembros(iglesiaId: string) {
   }));
 }
 
+// Solo el pastor saca a un hermano de la iglesia (el servidor lo revisa).
+// Si no se borro nada (sin permiso), es un error
+export async function quitarMiembroRemoto(
+  iglesiaId: string,
+  usuarioId: string,
+) {
+  if (!(await listo(iglesiaId))) return;
+  const { data, error } = await supabase!
+    .from("miembros")
+    .delete()
+    .eq("iglesia_id", iglesiaId)
+    .eq("usuario_id", usuarioId)
+    .select("usuario_id");
+  if (error) throw error;
+  if (!data?.length) throw new Error("Solo el pastor puede quitar miembros");
+}
+
 // El pastor (o quien tiene el permiso "roles") restringe a un hermano
 export async function restringirMiembro(
   iglesiaId: string,
