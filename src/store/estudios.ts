@@ -898,6 +898,31 @@ export function useIglesias() {
   return iglesias ?? (activa ? [activa] : []);
 }
 
+// Las salas de cada iglesia de esta persona (para "Mis ministerios" del
+// pastor). La activa usa las de ahora; las demas, las guardadas de ellas
+export function useSalasDeTodas() {
+  const iglesias = useStore((s) => s.iglesias);
+  const activa = useStore((s) => s.iglesia);
+  const salas = useStore((s) => s.salas);
+  const salasEditadas = useStore((s) => s.salasEditadas);
+  const porIglesia = useStore((s) => s.porIglesia);
+  const lista = iglesias ?? (activa ? [activa] : []);
+  return lista.map((iglesia) => {
+    const esActiva = misma(iglesia, activa);
+    const datos = esActiva
+      ? { salas, salasEditadas }
+      : (porIglesia?.[idIglesia(iglesia)] ?? {});
+    return {
+      iglesia,
+      activa: esActiva,
+      salas: [
+        ...GRUPOS.map((g) => ({ ...g, ...datos.salasEditadas?.[g.id] })),
+        ...(datos.salas ?? []),
+      ],
+    };
+  });
+}
+
 // Todas las iglesias de esta persona con su cronograma guardado en el
 // telefono (la activa usa lo de ahora; las demas, lo que se guardo de ellas).
 // Para el resumen "Todas" del cronograma del pastor

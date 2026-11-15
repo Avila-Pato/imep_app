@@ -50,6 +50,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import ModalCodigo from "./components/ModalCodigo";
+import HojaMinisterios from "@/screens/perfil/HojaMinisterios";
 import { TEXTO_VERSION } from "@/utils/version";
 import ModalEstudio from "./components/ModalEstudio";
 
@@ -213,6 +214,8 @@ export default function PerfilScreen() {
   const [abiertoId, setAbiertoId] = useState<string | null>(null);
   // "Tengo un código": unirse a la iglesia con el codigo del pastor
   const [conCodigo, setConCodigo] = useState(false);
+  // el pastor: sus iglesias con todas sus salas
+  const [viendoMinisterios, setViendoMinisterios] = useState(false);
   const abierto = guardados.find((e) => e.id === abiertoId) ?? null;
   const miGrupo = grupos.find((g) => g.id === grupo);
   // portada: imagen de la galeria (ancha); sin imagen quedan las formas de color
@@ -462,9 +465,12 @@ export default function PerfilScreen() {
                           ? () => router.push("/ayuda" as Href)
                           : op.id === "ministerios"
                             ? // con iglesia: sus salas; sin iglesia: unirse con el codigo
-                              iglesia
-                              ? () => router.push("/comunidad" as Href)
-                              : () => setConCodigo(true)
+                              // (el pastor: todas sus iglesias y salas)
+                              esPastor && iglesia
+                              ? () => setViendoMinisterios(true)
+                              : iglesia
+                                ? () => router.push("/comunidad" as Href)
+                                : () => setConCodigo(true)
                             : op.id === "editar"
                               ? () => router.push("/editar-perfil" as Href)
                               : op.id === "codigo"
@@ -503,7 +509,9 @@ export default function PerfilScreen() {
                     {op.id === "ministerios" ? (
                       // su iglesia (es una sola) o el aviso de que aun no se une
                       <View style={styles.flex}>
-                        <Text style={styles.ministerioLabel}>{op.label}</Text>
+                        <Text style={styles.ministerioLabel}>
+                          {esPastor ? "Mis ministerios" : op.label}
+                        </Text>
                         <Text
                           style={[
                             styles.ministerioIglesia,
@@ -511,9 +519,11 @@ export default function PerfilScreen() {
                           ]}
                           numberOfLines={1}
                         >
-                          {iglesia
-                            ? iglesia.sede
-                            : "Aún no te has unido a tu ministerio"}
+                          {esPastor && misIglesias.length > 0
+                            ? misIglesias.join(" · ")
+                            : iglesia
+                              ? iglesia.sede
+                              : "Aún no te has unido a tu ministerio"}
                         </Text>
                       </View>
                     ) : (
@@ -540,6 +550,9 @@ export default function PerfilScreen() {
 
       <ModalEstudio estudio={abierto} onCerrar={() => setAbiertoId(null)} />
       <ModalCodigo visible={conCodigo} onCerrar={() => setConCodigo(false)} />
+      {viendoMinisterios && (
+        <HojaMinisterios onCerrar={() => setViendoMinisterios(false)} />
+      )}
     </SafeAreaView>
   );
 }
