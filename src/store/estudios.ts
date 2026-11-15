@@ -575,10 +575,9 @@ export function usePuede(permiso: Permiso) {
 export function useEsLider(grupo: GrupoId) {
   const principal = useEsLiderPrincipal(grupo);
   const yo = useStore((s) => s.nombre ?? USUARIO.nombre);
-  const ayudantes = useStore(
-    (s) => s.salas.find((g) => g.id === grupo)?.ayudantes,
-  );
-  return principal || mismoNombre(ayudantes ?? [], yo);
+  const miId = useMiId();
+  const sala = useStore((s) => s.salas.find((g) => g.id === grupo));
+  return principal || (!!sala && esAyudanteDe(sala, yo, miId));
 }
 
 const igual = (a: string, b: string) =>
@@ -586,58 +585,93 @@ const igual = (a: string, b: string) =>
 const mismoNombre = (lista: string[], yo: string) =>
   lista.some((n) => igual(n, yo));
 
+// Mi cuenta en la iglesia activa (sin servidor: no hay)
+export const useMiId = () =>
+  useStore((s) => s.miembros.find((m) => m.esYo)?.id);
+
+// ¿Es el lider / un ayudante de la sala? Por su CUENTA si la sala la tiene
+// (asi no se confunde con otro del mismo nombre); si no, por el nombre
+// (salas viejas o sin servidor). Igual que en el servidor (es_guia)
+export const esLiderDe = (g: Grupo, nombre: string, id?: string) =>
+  g.liderId && id ? g.liderId === id : !!g.lider && igual(g.lider, nombre);
+export const esAyudanteDe = (g: Grupo, nombre: string, id?: string) =>
+  (!!id && (g.ayudantesIds ?? []).includes(id)) ||
+  // algun ayudante sin cuenta conocida (o no se sabe la mia): por nombre
+  ((!id || (g.ayudantesIds?.length ?? 0) < (g.ayudantes?.length ?? 0)) &&
+    mismoNombre(g.ayudantes ?? [], nombre));
+
 // Quien elige a los ayudantes de la sala: el pastor, el administrador o el
 // lider de la sala (un ayudante no nombra a otros)
 export function useEsLiderPrincipal(grupo: GrupoId) {
   const esPastor = useEsPastor();
   const admin = usePuede("roles");
   const yo = useStore((s) => s.nombre ?? USUARIO.nombre);
-  const lider = useStore((s) => s.salas.find((g) => g.id === grupo)?.lider);
+  const miId = useMiId();
+  const sala = useStore((s) => s.salas.find((g) => g.id === grupo));
   return (
     esPastor ||
     admin ||
-    (!!lider && (igual(lider, yo) || lider === USUARIO.nombre)) ||
+    (!!sala && (esLiderDe(sala, yo, miId) || sala.lider === USUARIO.nombre)) ||
     esLider(USUARIO.nombre, grupo)
   );
 }
 
 // El lider y los ayudantes entran a su sala sin la invitacion (el pastor
-// ya los eligio). Por su nombre, como los guarda la sala
-const guiaLaSala = (g: Grupo, nombre: string) =>
-  (!!g.lider && igual(g.lider, nombre)) ||
-  mismoNombre(g.ayudantes ?? [], nombre);
+// ya los eligio). Por su cuenta (o su nombre, si la sala no la tiene)
+// ¿Este turno es mio? Por mi cuenta si el turno la tiene; si no, por nombre
+export const esMiTurno = (
+  t: { persona: string; personaId?: string },
+  nombre: string,
+  id?: string,
+) => (t.personaId && id ? t.personaId === id : t.persona === nombre);
+
+export const guiaLaSala = (g: Grupo, nombre: string, id?: string) =>
+  esLiderDe(g, nombre, id) || esAyudanteDe(g, nombre, id);
 
 // Las salas que guia esta persona (para entrar y verlas en "Tus salas")
 export function useSalasQueGuio(): GrupoId[] {
   const yo = useStore((s) => s.nombre ?? USUARIO.nombre);
+  const miId = useMiId();
   return useGrupos()
-    .filter((g) => g.id !== "general" && guiaLaSala(g, yo))
+    .filter((g) => g.id !== "general" && guiaLaSala(g, yo, miId))
     .map((g) => g.id);
 }
 
-// ¿Esta persona (por su nombre) guia esa sala? Sin hook (listas de miembros)
-export function guiaSalaAhora(grupo: GrupoId, nombre: string) {
+// ¿Esta persona guia esa sala? Sin hook (listas de miembros)
+export function guiaSalaAhora(grupo: GrupoId, nombre: string, id?: string) {
   const sala = useStore.getState().salas.find((g) => g.id === grupo);
-  return !!sala && guiaLaSala(sala, nombre);
+  return !!sala && guiaLaSala(sala, nombre, id);
 }
 
 // Da o quita a alguien como ayudante de la sala. Se ve al instante y se
-// guarda en el servidor (si falla, vuelve a lo de alla)
-export function alternarAyudante(grupo: GrupoId, nombre: string) {
+// guarda en el servidor (si falla, vuelve a lo de alla). id: su cuenta
+export function alternarAyudante(grupo: GrupoId, nombre: string, id?: string) {
   const s = useStore.getState();
   const sala = s.salas.find((g) => g.id === grupo);
   if (!sala) return;
   const actuales = sala.ayudantes ?? [];
-  const ayudantes = mismoNombre(actuales, nombre)
-    ? actuales.filter((n) => !igual(n, nombre))
+  const actualesIds = sala.ayudantesIds ?? [];
+  const lo = esAyudanteDe(sala, nombre, id);
+  // al quitar: su nombre una vez (puede haber otro ayudante que se llame
+  // igual) y su cuenta
+  const i = actuales.findIndex((n) => igual(n, nombre));
+  const ayudantes = lo
+    ? [...actuales.slice(0, i), ...actuales.slice(i + 1)]
     : [...actuales, nombre];
-  editarSalaLocal(grupo, { ayudantes });
+  const ayudantesIds = lo
+    ? actualesIds.filter((x) => x !== id)
+    : id
+      ? [...actualesIds, id]
+      : actualesIds;
+  editarSalaLocal(grupo, { ayudantes, ayudantesIds });
   const iglesiaId = s.iglesia?.id;
   if (!esUuid(iglesiaId)) return;
-  const quitado = ayudantes.length < actuales.length;
+  const quitado = lo;
+  // las cuentas solo si se saben todas (si no, el servidor las busca)
+  const ids = ayudantesIds.length === ayudantes.length ? ayudantesIds : undefined;
   enFondo(
-    cambiarAyudantesRemoto(iglesiaId, grupo, ayudantes)
-      .then(() => avisarCargoSala(grupo, nombre, "ayudante", quitado))
+    cambiarAyudantesRemoto(iglesiaId, grupo, ayudantes, ids)
+      .then(() => avisarCargoSala(grupo, nombre, "ayudante", quitado, id))
       .catch((e) => {
         sincronizarSalas();
         throw e;
@@ -660,13 +694,19 @@ export function useMisTurnos(): MiTurno[] {
   const s = useStore();
   // nombre exacto: "pato" y "Pato" pueden ser dos hermanos distintos
   const yo = (s.nombre ?? USUARIO.nombre).trim();
+  // mi cuenta (la misma en todas mis iglesias): manda sobre el nombre
+  const miId = s.miembros.find((m) => m.esYo)?.id;
   const hoy = aKeyHoy();
   const deIglesia = (
     iglesia: Iglesia | undefined,
     editados?: Record<string, Turno[]>,
   ) =>
     unirTurnos(editados ?? {})
-      .filter((t) => t.persona.trim() === yo && t.fecha >= hoy)
+      .filter(
+        (t) =>
+          esMiTurno({ ...t, persona: t.persona.trim() }, yo, miId) &&
+          t.fecha >= hoy,
+      )
       .map((t) => {
         const [y, m, d] = t.fecha.split("-").map(Number);
         const dia = new Date(y, m - 1, d).getDay();
@@ -1149,7 +1189,9 @@ export async function sincronizarContenido() {
       ...(turnos && s.turnosAvisados === undefined
         ? {
             turnosAvisados: unirTurnos(s.turnosEditados)
-              .filter((t) => t.persona === yo)
+              .filter((t) =>
+                esMiTurno(t, yo, s.miembros.find((m) => m.esYo)?.id),
+              )
               .map((t) => `${t.fecha}|${t.rol}|${horaTurno(t) ?? ""}`),
           }
         : {}),
@@ -1247,11 +1289,20 @@ export function useTotalSalas(): number {
 }
 
 // El pastor cambia una sala ya creada (nombre, lider, que tiene...)
-export function editarSala(id: GrupoId, cambios: Partial<Omit<Grupo, "id">>) {
+export function editarSala(
+  id: GrupoId,
+  cambiosPedidos: Partial<Omit<Grupo, "id">>,
+) {
   const s0 = useStore.getState();
-  const antes = (
-    s0.salas.find((g) => g.id === id) ?? { ...s0.salasEditadas[id] }
-  ).lider;
+  const previa: Partial<Grupo> =
+    s0.salas.find((g) => g.id === id) ?? { ...s0.salasEditadas[id] };
+  const antes = previa.lider;
+  const antesId = previa.liderId;
+  // otro lider sin su cuenta (escrito a mano): la cuenta vieja ya no vale
+  const cambios =
+    "lider" in cambiosPedidos && !("liderId" in cambiosPedidos)
+      ? { ...cambiosPedidos, liderId: undefined }
+      : cambiosPedidos;
   cambiar((s) =>
     s.salas.some((g) => g.id === id)
       ? {
@@ -1267,12 +1318,15 @@ export function editarSala(id: GrupoId, cambios: Partial<Omit<Grupo, "id">>) {
   // cambio el lider: se le avisa al nuevo (y al que deja de serlo), despues
   // de guardar (el servidor revisa que la sala ya lo diga)
   const nuevo = "lider" in cambios ? cambios.lider : antes;
-  const cambio = !igual(antes ?? "", nuevo ?? "");
+  const nuevoId = "lider" in cambios ? cambios.liderId : antesId;
+  // por cuenta si se saben las dos (dos "Pato" no son el mismo)
+  const cambio =
+    antesId && nuevoId ? antesId !== nuevoId : !igual(antes ?? "", nuevo ?? "");
   subirSalaActual(id, () =>
     cambio
       ? Promise.all([
-          nuevo && avisarCargoSala(id, nuevo, "lider"),
-          antes && avisarCargoSala(id, antes, "lider", true),
+          nuevo && avisarCargoSala(id, nuevo, "lider", false, nuevoId),
+          antes && avisarCargoSala(id, antes, "lider", true, antesId),
         ])
       : undefined,
   );
@@ -1284,10 +1338,11 @@ function avisarCargoSala(
   persona: string,
   cargo: "lider" | "ayudante",
   quitado?: boolean,
+  personaId?: string, // su cuenta (si se sabe): no se confunde con otro
 ) {
   const iglesiaId = useStore.getState().iglesia?.id;
   if (!esUuid(iglesiaId)) return;
-  return avisarSala({ iglesiaId, sala, persona, cargo, quitado });
+  return avisarSala({ iglesiaId, sala, persona, personaId, cargo, quitado });
 }
 
 // Sube la sala (como quedo) a la iglesia activa: asi la ven los hermanos
@@ -1390,7 +1445,9 @@ export function crearSala(sala: Omit<Grupo, "id">) {
   const id = nueva;
   if (!id) return;
   subirSalaActual(id, () =>
-    sala.lider ? avisarCargoSala(id, sala.lider, "lider") : undefined,
+    sala.lider
+      ? avisarCargoSala(id, sala.lider, "lider", false, sala.liderId)
+      : undefined,
   );
 }
 
@@ -2181,10 +2238,13 @@ export function asignarTurno(
   rol: RolId,
   persona: string | null,
   hora?: string, // sin hora: mantiene la que tenia (o la del culto)
+  personaId?: string, // su cuenta (elegido de la lista de hermanos)
 ) {
-  const antesPersona = unirTurnos(useStore.getState().turnosEditados).find(
+  const previo = unirTurnos(useStore.getState().turnosEditados).find(
     (t) => t.fecha === fecha && t.rol === rol,
-  )?.persona;
+  );
+  const antesPersona = previo?.persona;
+  const antesId = previo?.personaId;
   cambiar((s) => {
     const delDia = unirTurnos(s.turnosEditados).filter(
       (t) => t.fecha === fecha,
@@ -2200,6 +2260,7 @@ export function asignarTurno(
             fecha,
             rol,
             persona,
+            ...(personaId ? { personaId } : {}),
             ...(nuevaHora ? { hora: nuevaHora } : {}),
           },
         ]
@@ -2209,13 +2270,16 @@ export function asignarTurno(
   // a quien asignaron (o cambiaron) le llega "Te asignaron un turno", y a
   // quien sacaron (o reemplazaron) "Te quitaron de un turno", despues de
   // que el dia ya este arriba
-  const nuevo = !!persona && persona !== antesPersona;
-  const quitado =
-    !!antesPersona && antesPersona !== persona ? antesPersona : undefined;
+  // otra persona: por su cuenta si se saben las dos (dos "Pato" no son el
+  // mismo); si no, por el nombre
+  const otra =
+    antesId && personaId ? antesId !== personaId : persona !== antesPersona;
+  const nuevo = !!persona && otra;
+  const quitado = !!antesPersona && (otra || !persona) ? antesPersona : undefined;
   subirDia(
     fecha,
     nuevo ? rol : undefined,
-    quitado ? { rol, persona: quitado } : undefined,
+    quitado ? { rol, persona: quitado, personaId: antesId } : undefined,
   );
 }
 
@@ -2223,7 +2287,7 @@ export function asignarTurno(
 function subirDia(
   fecha: string,
   avisarRol?: RolId,
-  quitado?: { rol: RolId; persona: string },
+  quitado?: { rol: RolId; persona: string; personaId?: string },
 ) {
   const s = useStore.getState();
   const iglesiaId = s.iglesia?.id;
@@ -2262,6 +2326,7 @@ function subirDia(
               rol: avisar.rolNombre ?? avisar.rol,
               hora: horaTurno(avisar),
               persona: avisar.persona,
+              personaId: avisar.personaId,
             }),
           quitado &&
             avisarTurno({
@@ -2270,6 +2335,7 @@ function subirDia(
               fecha,
               rol: nombres[quitado.rol]?.label ?? quitado.rol,
               persona: quitado.persona,
+              personaId: quitado.personaId,
             }),
         ]),
       ),
@@ -2338,6 +2404,15 @@ export function alternarMeGusta(
 export function marcarAnunciosAvisados(ids: string[]) {
   cambiar((s) => ({
     anunciosAvisados: [...new Set([...(s.anunciosAvisados ?? []), ...ids])],
+  }));
+}
+
+// Ya no es lider de esa sala: se olvida (si lo vuelven a nombrar, se avisa)
+export function olvidarAnunciosAvisados(claves: string[]) {
+  cambiar((s) => ({
+    anunciosAvisados: (s.anunciosAvisados ?? []).filter(
+      (k) => !claves.includes(k),
+    ),
   }));
 }
 

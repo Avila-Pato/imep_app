@@ -19,5 +19,6 @@ export type Turno = {
   fecha: string; // "YYYY-MM-DD"
   rol: RolId;
   persona: string;
+  personaId?: string; // su cuenta (no se confunde con otro del mismo nombre)
   hora?: string; // "HH:MM" que fijo el admin; sin hora = la del culto (horaTurno)
 };

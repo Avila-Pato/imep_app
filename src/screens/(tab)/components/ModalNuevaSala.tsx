@@ -66,6 +66,9 @@ const FUNCIONES: {
     icono: "book",
   },
 ];
+const igualNombre = (a: string, b: string) =>
+  a.trim().toLowerCase() === b.trim().toLowerCase();
+
 const TODAS: Record<FuncionSala, boolean> = {
   chat: true,
   oracion: true,
@@ -123,12 +126,16 @@ export default function ModalNuevaSala({
   const [tono, setTono] = useState(sala?.tono ?? TONOS[0]);
   // lider: tendra las opciones de la sala (palabra de la semana, aprobar)
   const [lider, setLider] = useState<string | null>(sala?.lider ?? null);
+  // su cuenta (elegido de la lista): asi no se confunde con otro del mismo
+  // nombre. Escrito a mano (o invitado sin cuenta): sin cuenta
+  const [liderId, setLiderId] = useState<string | undefined>(sala?.liderId);
   // "Lo elijo despues": la sala se crea sin lider (el pastor la guia mientras)
   const [despues, setDespues] = useState(
     !!sala && sala.id !== "general" && !sala.lider,
   );
-  const elegirLider = (n: string | null) => {
+  const elegirLider = (n: string | null, id?: string) => {
     setLider(n);
+    setLiderId(n ? id : undefined);
     setDespues(false);
   };
   const [funciones, setFunciones] = useState({
@@ -168,13 +175,33 @@ export default function ModalNuevaSala({
   const [otro, setOtro] = useState("");
   const { nombre: miNombre, invitados } = useEstudios();
   const hermanos = useMiembros();
-  const personas = [
-    ...new Set([
-      ...hermanos.map((m) => m.nombre),
-      ...invitados,
-      ...(lider ? [lider] : []),
-    ]),
-  ].filter((n) => n !== (miNombre ?? USUARIO.nombre));
+  // los hermanos (con su cuenta); los invitados y el lider escrito a mano,
+  // solo por nombre. Si dos se llaman igual, se distinguen por cuando se unieron
+  const yoNombre = miNombre ?? USUARIO.nombre;
+  const conCuenta = hermanos.filter((m) => !m.esYo && m.nombre !== yoNombre);
+  const repetidos = (n: string) =>
+    conCuenta.filter((m) => igualNombre(m.nombre, n)).length > 1;
+  const personas: { clave: string; nombre: string; id?: string; detalle?: string }[] = [
+    ...conCuenta.map((m, i) => ({
+      clave: m.id,
+      nombre: m.nombre,
+      id: m.id,
+      detalle: repetidos(m.nombre)
+        ? m.unido
+          ? `se unió ${new Date(m.unido).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}`
+          : `${i + 1}`
+        : undefined,
+    })),
+    ...[...invitados, ...(lider && !liderId ? [lider] : [])]
+      .filter(
+        (n, i, todos) =>
+          n !== yoNombre &&
+          todos.indexOf(n) === i &&
+          !conCuenta.some((m) => igualNombre(m.nombre, n)),
+      )
+      .map((n) => ({ clave: `n:${n}`, nombre: n })),
+  ];
+  const claveLider = liderId ?? (lider ? `n:${lider}` : undefined);
   // toda sala tiene un lider que la administra (la de toda la iglesia la
   // guia el pastor)
   const pideLider = sala?.id !== "general";
@@ -190,6 +217,7 @@ export default function ModalNuevaSala({
     setIcono(ICONOS[0]);
     setTono(TONOS[0]);
     setLider(null);
+    setLiderId(undefined);
     setDespues(false);
     setOtro("");
     setFunciones(TODAS);
@@ -209,6 +237,7 @@ export default function ModalNuevaSala({
       icono,
       tono,
       lider: lider ?? undefined,
+      liderId: lider ? liderId : undefined,
       funciones,
       tipo,
       foto: foto || undefined,
@@ -529,6 +558,7 @@ export default function ModalNuevaSala({
                               <Pressable
                                 onPress={() => {
                                   setLider(null);
+                                  setLiderId(undefined);
                                   setDespues(true);
                                 }}
                                 style={[
@@ -552,12 +582,16 @@ export default function ModalNuevaSala({
                                 </Text>
                               </Pressable>
                             )}
-                            {personas.map((n) => {
-                              const activo = n === lider;
+                            {personas.map((p) => {
+                              const activo = p.clave === claveLider;
                               return (
                                 <Pressable
-                                  key={n}
-                                  onPress={() => elegirLider(activo ? null : n)}
+                                  key={p.clave}
+                                  onPress={() =>
+                                    activo
+                                      ? elegirLider(null)
+                                      : elegirLider(p.nombre, p.id)
+                                  }
                                   style={[
                                     styles.persona,
                                     activo && styles.personaActiva,
@@ -577,7 +611,12 @@ export default function ModalNuevaSala({
                                       activo && styles.personaTextoActiva,
                                     ]}
                                   >
-                                    {n}
+                                    {p.nombre}
+                                    {!!p.detalle && (
+                                      <Text style={styles.personaDetalle}>
+                                        {` · ${p.detalle}`}
+                                      </Text>
+                                    )}
                                   </Text>
                                 </Pressable>
                               );
@@ -991,6 +1030,11 @@ const styles = StyleSheet.create({
   personaTextoActiva: {
     color: DARK_BG,
     fontWeight: "600",
+  },
+  // dos con el mismo nombre: cuando se unio (para saber cual es)
+  personaDetalle: {
+    fontWeight: "400",
+    opacity: 0.7,
   },
   opciones: {
     flexDirection: "row",

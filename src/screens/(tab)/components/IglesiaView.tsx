@@ -12,8 +12,10 @@ import {
 } from "@/constants/constans";
 import { miembrosDe } from "@/screens/sala/components/MiembrosSala";
 import {
+  esLiderDe,
   useEsPastor,
   useEstudios,
+  useMiId,
   useGrupos,
   useSalasQueGuio,
   usePuede,
@@ -145,6 +147,7 @@ export default function IglesiaView() {
   // las que guia (lider o ayudante): entra sin invitacion. El pastor ya
   // entra a todas desde la lista de abajo
   const guio = useSalasQueGuio();
+  const miId = useMiId();
   const guiadas = esPastor
     ? []
     : salas.filter(
@@ -258,7 +261,7 @@ export default function IglesiaView() {
                 key={g.id}
                 titulo={g.label}
                 meta={`${
-                  g.lider?.trim().toLowerCase() === nombreYo
+                  esLiderDe(g, nombreYo, miId)
                     ? "Eres el líder"
                     : "Ayudas a administrarla"
                 } · ${cuantos(miembrosDe(g.id).length)}`}

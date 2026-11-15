@@ -759,6 +759,7 @@ export default function CronogramaView() {
         rol={rolAbierto}
         fecha={capitalizar(fechaLarga(seleccionado))}
         actual={turnoAbierto?.persona}
+        actualId={turnoAbierto?.personaId}
         hora={turnoAbierto ? horaTurno(turnoAbierto) : (horaPendiente ?? hora)}
         horaCulto={hora}
         onHora={(h) => {
@@ -769,7 +770,7 @@ export default function CronogramaView() {
             setRolEditado(rolAbierto);
           } else setHoraPendiente(h);
         }}
-        onElegir={(persona) => {
+        onElegir={(persona, personaId) => {
           if (rolAbierto) setRolEditado(rolAbierto);
           if (rolAbierto)
             asignarTurno(
@@ -777,6 +778,7 @@ export default function CronogramaView() {
               rolAbierto,
               persona,
               horaPendiente ?? undefined,
+              personaId,
             );
           setRolAbierto(null);
         }}

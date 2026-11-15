@@ -13,8 +13,14 @@ import {
   marcarTurnosAvisados,
   olvidarTurnosAvisados,
   marcarAnunciosAvisados,
+  olvidarAnunciosAvisados,
+  esAyudanteDe,
+  esLiderDe,
+  esMiTurno,
+  useMiId,
   TipoAviso,
   useEstudios,
+  useGrupos,
   useHorarios,
   usePuede,
   useRoles,
@@ -53,6 +59,8 @@ export function useRecordatorios() {
   const quiere = (t: TipoAviso) => avisos[t] ?? true;
   const yo = nombre ?? USUARIO.nombre;
   const roles = useRoles();
+  const grupos = useGrupos(); // las salas (para "te nombraron líder")
+  const miId = useMiId();
   const horarios = useHorarios(); // los de la iglesia activa
   const nombreIglesia = iglesia?.sede;
 
@@ -84,7 +92,9 @@ export function useRecordatorios() {
   // Mis turnos: el dia anterior a las 19:00 y el mismo dia 2 horas antes.
   // Con push, los manda el servidor (recordar-turnos y recordar-pronto):
   // llegan aunque no haya abierto la app y no se repiten
-  const misTurnos = unirTurnos(turnosEditados).filter((t) => t.persona === yo);
+  const misTurnos = unirTurnos(turnosEditados).filter((t) =>
+    esMiTurno(t, yo, miId),
+  );
   if (quiere("turnos") && !PUSH_ACTIVO) {
     for (const t of misTurnos) {
       const hora = horaTurno(t) ?? "19:00";
@@ -323,6 +333,63 @@ export function useRecordatorios() {
     }
     marcarAnunciosAvisados(lista.map((m) => `msg:${m.id}`));
   }, [firmaAvisosLider, avisarSalas]);
+
+  // Me nombraron lider (o ayudante) de una sala: "Te nombraron líder de
+  // Niños". Con push llega del servidor (avisar-sala); esto es para Expo Go.
+  // Se anota con los anuncios avisados; si deja de serlo se olvida (asi, si
+  // lo vuelven a nombrar, se avisa de nuevo). La primera vez solo se anotan
+  const iglesiaId = iglesia?.id ?? "";
+  // por mi cuenta (otro "Pato" no recibe mi aviso); sin ella, por nombre
+  const misSalas = grupos
+    .filter((g) => g.id !== "general")
+    .flatMap((g) =>
+      esLiderDe(g, yo, miId)
+        ? [{ clave: `lider:${iglesiaId}:${g.id}`, id: g.id, sala: g.label, lider: true }]
+        : esAyudanteDe(g, yo, miId)
+          ? [{ clave: `ayuda:${iglesiaId}:${g.id}`, id: g.id, sala: g.label, lider: false }]
+          : [],
+    );
+  const avisadas = anunciosAvisados ?? [];
+  const firmaSalas = JSON.stringify(
+    misSalas.filter((s) => !avisadas.includes(s.clave)),
+  );
+  // las que tenia en esta iglesia y ya no
+  const firmaSalasQuitadas = JSON.stringify(
+    avisadas.filter(
+      (k) =>
+        /^(lider|ayuda):/.test(k) &&
+        k.split(":")[1] === iglesiaId &&
+        !misSalas.some((s) => s.clave === k),
+    ),
+  );
+  useEffect(() => {
+    const lista: { clave: string; id: string; sala: string; lider: boolean }[] =
+      JSON.parse(firmaSalas);
+    if (!lista.length) return;
+    if (!primeraVezAnuncios && !PUSH_ACTIVO) {
+      for (const s of lista) {
+        avisarAhora(
+          s.lider
+            ? `Te nombraron líder de ${s.sala} 🛡️`
+            : `Ahora ayudas a administrar ${s.sala} 🛡️`,
+          [
+            s.lider
+              ? "Ya puedes entrar a la sala: publicar avisos, encuentros y aprobar peticiones"
+              : "Ya puedes entrar a la sala y ayudar a tu líder",
+            nombreIglesia,
+          ]
+            .filter(Boolean)
+            .join(" · "),
+          `/sala/${s.id}`,
+        ).catch(() => {});
+      }
+    }
+    marcarAnunciosAvisados(lista.map((s) => s.clave));
+  }, [firmaSalas, primeraVezAnuncios, nombreIglesia]);
+  useEffect(() => {
+    const claves: string[] = JSON.parse(firmaSalasQuitadas);
+    if (claves.length) olvidarAnunciosAvisados(claves);
+  }, [firmaSalasQuitadas]);
 
   // Turnos que tenia y ya no (el admin lo saco o puso a otro): "te quitaron".
   // Se compara por dia y rol (un cambio de hora no cuenta como quitado)

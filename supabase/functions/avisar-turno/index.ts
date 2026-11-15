@@ -17,6 +17,11 @@ Deno.serve(async (req) => {
     string
   >;
   const quitado = tipo === "quitado";
+  // su cuenta (la app nueva la manda): no se confunde con otro del mismo
+  // nombre. Sin ella (app vieja), por el nombre
+  const personaId = /^[0-9a-f-]{36}$/i.test(b.persona_id ?? "")
+    ? (b.persona_id as string)
+    : undefined;
   if (!iglesia_id || !fecha || !rol || !persona) {
     return json({ error: "faltan datos" }, 400);
   }
@@ -43,11 +48,18 @@ Deno.serve(async (req) => {
     .eq("id", iglesia_id)
     .maybeSingle();
 
-  const { data: tokens, error } = await admin().rpc("tokens_de_persona", {
-    p_iglesia: iglesia_id,
-    p_nombre: persona,
-    p_excluir: yo.user.id, // si el admin se asigna a si mismo, no se avisa
-  });
+  // si el admin se asigna a si mismo, no se avisa
+  const { data: tokens, error } = personaId
+    ? await admin().rpc("tokens_de_usuario", {
+        p_iglesia: iglesia_id,
+        p_usuario: personaId,
+        p_excluir: yo.user.id,
+      })
+    : await admin().rpc("tokens_de_persona", {
+        p_iglesia: iglesia_id,
+        p_nombre: persona,
+        p_excluir: yo.user.id,
+      });
   if (error) return json({ error: error.message }, 500);
 
   const dia = new Date(`${fecha}T12:00:00`).toLocaleDateString("es-CL", {

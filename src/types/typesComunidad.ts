@@ -11,8 +11,10 @@ export type Grupo = {
   icono: IconName;
   tono?: string; // color suave del gajo en la rueda de salas
   lider?: string; // lo elige el pastor/administrador al crear la sala
+  liderId?: string; // su cuenta (no se confunde con otro del mismo nombre)
   // tambien la administran (los elige el lider o el pastor entre los de la sala)
   ayudantes?: string[];
+  ayudantesIds?: string[]; // sus cuentas (las que se saben)
   // que tiene la sala (sin dato = si). Miembros siempre esta
   funciones?: Partial<Record<FuncionSala, boolean>>;
   tipo?: TipoSala; // para quien es (niños, jovenes...): define lo de abajo

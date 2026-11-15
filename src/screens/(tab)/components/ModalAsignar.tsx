@@ -41,11 +41,23 @@ type Props = {
   rol: RolId | null; // null = cerrado
   fecha: string; // "Domingo, 1 de noviembre"
   actual?: string; // persona asignada ahora
+  actualId?: string; // su cuenta (si se sabe)
   hora?: string; // "HH:MM" del turno (o la del culto)
   horaCulto?: string; // para mostrar si cambio respecto al culto
   onHora: (hora: string) => void;
-  onElegir: (persona: string | null) => void;
+  // id: su cuenta (los hermanos de la app). Sin id: escrito a mano
+  onElegir: (persona: string | null, id?: string) => void;
   onCerrar: () => void;
+};
+
+// Alguien de la lista: un hermano de la app (con su cuenta) o uno agregado
+// a mano (solo nombre)
+type Persona = {
+  clave: string;
+  nombre: string;
+  id?: string;
+  agregado?: boolean;
+  detalle?: string; // para distinguir a dos con el mismo nombre
 };
 
 // Hoja para que el admin elija a la persona de un rol
@@ -53,6 +65,7 @@ export default function ModalAsignar({
   rol,
   fecha,
   actual,
+  actualId,
   hora,
   horaCulto,
   onHora,
@@ -61,32 +74,52 @@ export default function ModalAsignar({
 }: Props) {
   const { invitados } = useEstudios();
   const avatarDe = useAvatarDe();
-  // los hermanos que se unieron a la iglesia (sin repetir)
-  const REGISTRADOS = [...new Set(useMiembros().map((m) => m.nombre))].sort(
-    (a, b) => a.localeCompare(b, "es"),
-  );
+  // los hermanos que se unieron a la iglesia, cada uno con su cuenta (dos
+  // con el mismo nombre son dos personas: se distinguen por cuando se unieron)
+  const miembros = useMiembros();
+  const repetido = (n: string) =>
+    miembros.filter((m) => sinTildes(m.nombre) === sinTildes(n)).length > 1;
+  const REGISTRADOS: Persona[] = miembros.map((m) => ({
+    clave: m.id,
+    nombre: m.nombre,
+    id: m.id,
+    ...(repetido(m.nombre)
+      ? {
+          detalle: m.unido
+            ? `Se unió el ${new Date(m.unido).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" })}`
+            : "Hay otra persona con este nombre",
+        }
+      : {}),
+  }));
   const roles = useRoles();
   const [busqueda, setBusqueda] = useState("");
   const texto = busqueda.trim().replace(/\s+/g, " ");
   // registrados + los que se agregaron a mano antes (sin cuenta en la app)
-  const sinCuenta = invitados.filter((n) => !REGISTRADOS.includes(n));
+  const sinCuenta: Persona[] = invitados
+    .filter((n) => !REGISTRADOS.some((r) => r.nombre === n))
+    .map((n) => ({ clave: `n:${n}`, nombre: n, agregado: true }));
   const personas = [...REGISTRADOS, ...sinCuenta].sort((a, b) =>
-    a.localeCompare(b, "es"),
+    a.nombre.localeCompare(b.nombre, "es"),
   );
-  const lista = personas.filter((p) => sinTildes(p).includes(sinTildes(texto)));
+  const lista = personas.filter((p) =>
+    sinTildes(p.nombre).includes(sinTildes(texto)),
+  );
   // alguien que no esta en la lista (ej: predicador invitado, hermano sin la app)
   const nuevo =
-    !!texto && !personas.some((p) => sinTildes(p) === sinTildes(texto));
+    !!texto && !personas.some((p) => sinTildes(p.nombre) === sinTildes(texto));
+  // la asignada ahora: por su cuenta si se sabe; si no, por su nombre
+  const esActual = (p: Persona) =>
+    actualId && p.id ? p.id === actualId : !!actual && p.nombre === actual;
 
-  const elegir = (persona: string | null) => {
-    onElegir(persona);
+  const elegir = (persona: Persona | null) => {
+    onElegir(persona?.nombre ?? null, persona?.id);
     setBusqueda("");
   };
   // antes de asignar o quitar, se pregunta (le llega una notificacion)
   const nombreRol = rol ? roles.de(rol).label : "";
   const cuando = `${fecha}${hora ? ` a las ${hora}` : ""}`;
-  const confirmarElegir = (persona: string | null) => {
-    if (persona === (actual ?? null)) return cerrar(); // ya estaba
+  const confirmarElegir = (persona: Persona | null) => {
+    if (persona ? esActual(persona) : !actual) return cerrar(); // ya estaba
     if (persona === null) {
       return confirmar(
         `¿Quitar a ${actual}?`,
@@ -96,7 +129,7 @@ export default function ModalAsignar({
       );
     }
     confirmar(
-      `¿Asignar a ${persona}?`,
+      `¿Asignar a ${persona.nombre}?`,
       actual
         ? `Tendrá ${nombreRol} el ${cuando}, en lugar de ${actual}. Si tienen la app, les avisaremos.`
         : `Tendrá ${nombreRol} el ${cuando}. Si tiene la app, le llegará un aviso.`,
@@ -108,7 +141,7 @@ export default function ModalAsignar({
   const agregar = () => {
     if (!nuevo) return;
     agregarInvitado(texto); // queda guardado para la proxima vez
-    confirmarElegir(texto);
+    confirmarElegir({ clave: `n:${texto}`, nombre: texto });
   };
   const cerrar = () => {
     onCerrar();
@@ -229,11 +262,11 @@ export default function ModalAsignar({
                       )
                     )}
                     {lista.map((p) => {
-                      const elegido = p === actual;
-                      const agregado = sinCuenta.includes(p);
+                      const elegido = esActual(p);
+                      const agregado = !!p.agregado;
                       return (
                         <Pressable
-                          key={p}
+                          key={p.clave}
                           onPress={() => confirmarElegir(p)}
                           style={({ pressed }) => [
                             styles.fila,
@@ -246,16 +279,16 @@ export default function ModalAsignar({
                             style={[styles.anillo, elegido && styles.anilloSel]}
                           >
                             <AvatarPersona
-                              nombre={p}
-                              avatar={avatarDe(p)}
+                              nombre={p.nombre}
+                              avatar={avatarDe(p.nombre)}
                               tamano={36}
                             />
                           </View>
                           <View style={styles.flex}>
-                            <Text style={styles.nombre}>{p}</Text>
-                            {agregado && (
+                            <Text style={styles.nombre}>{p.nombre}</Text>
+                            {(agregado || !!p.detalle) && (
                               <Text style={styles.detalle}>
-                                Agregado a mano
+                                {agregado ? "Agregado a mano" : p.detalle}
                               </Text>
                             )}
                           </View>
@@ -264,9 +297,9 @@ export default function ModalAsignar({
                           )}
                           {agregado && !elegido && (
                             <Pressable
-                              onPress={() => quitarInvitado(p)}
+                              onPress={() => quitarInvitado(p.nombre)}
                               hitSlop={10}
-                              accessibilityLabel={`Quitar a ${p} de la lista`}
+                              accessibilityLabel={`Quitar a ${p.nombre} de la lista`}
                             >
                               <Octicons name="trash" size={14} color={MUTED} />
                             </Pressable>

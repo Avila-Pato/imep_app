@@ -20,6 +20,12 @@ Deno.serve(async (req) => {
   const iglesia_id = b.iglesia_id as string | undefined;
   const salaId = b.sala as string | undefined;
   const persona = b.persona as string | undefined;
+  // su cuenta (la app nueva la manda): asi no se confunde con otro del mismo
+  // nombre. Sin ella (app vieja), por el nombre como antes
+  const personaId =
+    typeof b.persona_id === "string" && /^[0-9a-f-]{36}$/i.test(b.persona_id)
+      ? b.persona_id
+      : undefined;
   const cargo = b.cargo === "ayudante" ? "ayudante" : "lider";
   const quitado = b.quitado === true;
   if (!iglesia_id || !salaId || !persona?.trim()) {
@@ -56,24 +62,34 @@ Deno.serve(async (req) => {
   // la sala tiene que decirlo ya (nombrado) o ya no (quitado)
   const { data: sala } = await usuario
     .from("salas")
-    .select("label, lider, ayudantes, iglesias(nombre)")
+    .select("label, lider, ayudantes, lider_id, ayudantes_ids, iglesias(nombre)")
     .eq("iglesia_id", iglesia_id)
     .eq("id", salaId)
     .maybeSingle();
   if (!sala) return json({ error: "sala no encontrada" }, 404);
-  const loTiene =
-    cargo === "lider"
+  const loTiene = personaId
+    ? cargo === "lider"
+      ? sala.lider_id === personaId
+      : ((sala.ayudantes_ids as string[] | null) ?? []).includes(personaId)
+    : cargo === "lider"
       ? igual(sala.lider ?? "", persona)
       : ((sala.ayudantes as string[] | null) ?? []).some((n) =>
           igual(n, persona),
         );
   if (loTiene === quitado) return json({ enviados: 0 });
 
-  const { data: tokens, error } = await admin().rpc("tokens_de_persona", {
-    p_iglesia: iglesia_id,
-    p_nombre: persona.trim(),
-    p_excluir: yo.user.id, // si se nombra a si mismo, no se avisa
-  });
+  // si se nombra a si mismo, no se avisa
+  const { data: tokens, error } = personaId
+    ? await admin().rpc("tokens_de_usuario", {
+        p_iglesia: iglesia_id,
+        p_usuario: personaId,
+        p_excluir: yo.user.id,
+      })
+    : await admin().rpc("tokens_de_persona", {
+        p_iglesia: iglesia_id,
+        p_nombre: persona.trim(),
+        p_excluir: yo.user.id,
+      });
   if (error) return json({ error: error.message }, 500);
 
   const nombreSala = sala.label;

@@ -171,6 +171,7 @@ export async function avisarSala(datos: {
   iglesiaId: string;
   sala: string;
   persona: string;
+  personaId?: string; // su cuenta: no se confunde con otro del mismo nombre
   cargo: "lider" | "ayudante";
   quitado?: boolean;
 }) {
@@ -179,6 +180,7 @@ export async function avisarSala(datos: {
     iglesia_id: datos.iglesiaId,
     sala: datos.sala,
     persona: datos.persona,
+    ...(esUuid(datos.personaId) ? { persona_id: datos.personaId } : {}),
     cargo: datos.cargo,
     quitado: !!datos.quitado,
   });
@@ -260,6 +262,8 @@ export async function subirTurnosDelDia(
       rol: t.rol,
       rol_nombre: t.rolNombre ?? null,
       persona: t.persona,
+      // su cuenta; sin ella, el servidor la busca por el nombre (si es unico)
+      ...(esUuid(t.personaId) ? { persona_id: t.personaId } : {}),
       hora: t.hora ?? null,
     })),
   );
@@ -271,7 +275,7 @@ export async function bajarTurnos(iglesiaId: string, desde: string) {
   if (!(await listo(iglesiaId))) return null;
   const { data, error } = await supabase!
     .from("turnos")
-    .select("fecha, rol, persona, hora")
+    .select("fecha, rol, persona, persona_id, hora")
     .eq("iglesia_id", iglesiaId)
     .gte("fecha", desde);
   if (error) throw error;
@@ -282,6 +286,7 @@ export async function bajarTurnos(iglesiaId: string, desde: string) {
       fecha: t.fecha,
       rol: t.rol,
       persona: t.persona,
+      ...(t.persona_id ? { personaId: t.persona_id } : {}),
       ...(t.hora ? { hora: t.hora } : {}),
     });
   }
@@ -377,9 +382,11 @@ export async function avisarTurno(datos: {
   rol: string;
   hora?: string;
   persona: string;
+  personaId?: string; // su cuenta: le llega solo a esa persona
 }) {
   if (!supabase || !esUuid(datos.iglesiaId)) return;
   await llamarFuncion("avisar-turno", {
+    ...(esUuid(datos.personaId) ? { persona_id: datos.personaId } : {}),
     tipo: datos.tipo,
     iglesia_id: datos.iglesiaId,
     fecha: datos.fecha,

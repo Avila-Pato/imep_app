@@ -84,10 +84,16 @@ export default function PerfilMiembro({
       })
     : undefined;
 
-  // sus proximos turnos (por su nombre exacto, como en el cronograma)
+  // sus proximos turnos: por su cuenta si el turno la tiene; si no, por su
+  // nombre exacto (como en el cronograma)
   const hoy = hoyKey();
   const turnos = unirTurnos(turnosEditados)
-    .filter((t) => t.persona.trim() === miembro.nombre.trim() && t.fecha >= hoy)
+    .filter(
+      (t) =>
+        (t.personaId && miembro.id
+          ? t.personaId === miembro.id
+          : t.persona.trim() === miembro.nombre.trim()) && t.fecha >= hoy,
+    )
     .sort((a, b) => a.fecha.localeCompare(b.fecha))
     .slice(0, 3);
 

@@ -19,6 +19,8 @@ type FilaSala = {
   solo_lider: boolean | null;
   letra_grande: boolean | null;
   ayudantes: string[] | null;
+  lider_id: string | null;
+  ayudantes_ids: string[] | null;
 };
 
 // Devuelve la URL de la foto si se subio una nueva (la del telefono)
@@ -43,6 +45,10 @@ export async function subirSala(iglesiaId: string, g: Grupo) {
     solo_lider: !!g.soloLider,
     letra_grande: !!g.letraGrande,
     ayudantes: g.ayudantes ?? [],
+    // sus cuentas, si se saben (elegidos de la lista de miembros). Si no se
+    // mandan, el servidor las busca por el nombre (si es unico)
+    ...(g.liderId ? { lider_id: g.liderId } : {}),
+    ...(g.ayudantesIds ? { ayudantes_ids: g.ayudantesIds } : {}),
   };
   const { error } = await supabase.from("salas").upsert(fila);
   // el lider de la sala no puede editarla entera (no es administrador): va
@@ -85,7 +91,7 @@ export async function bajarSalas(iglesiaId: string) {
   const { data, error } = await supabase
     .from("salas")
     .select(
-      "id, label, descripcion, icono, tono, lider, funciones, tipo, foto, solo_lider, letra_grande, ayudantes",
+      "id, label, descripcion, icono, tono, lider, funciones, tipo, foto, solo_lider, letra_grande, ayudantes, lider_id, ayudantes_ids",
     )
     .eq("iglesia_id", iglesiaId)
     .order("creado");
@@ -97,6 +103,7 @@ export async function bajarSalas(iglesiaId: string) {
     icono: f.icono as Grupo["icono"],
     ...(f.tono ? { tono: f.tono } : {}),
     ...(f.lider ? { lider: f.lider } : {}),
+    ...(f.lider_id ? { liderId: f.lider_id } : {}),
     ...(f.funciones && Object.keys(f.funciones).length
       ? { funciones: f.funciones }
       : {}),
@@ -105,6 +112,7 @@ export async function bajarSalas(iglesiaId: string) {
     ...(f.solo_lider ? { soloLider: true } : {}),
     ...(f.letra_grande ? { letraGrande: true } : {}),
     ...(f.ayudantes?.length ? { ayudantes: f.ayudantes } : {}),
+    ...(f.ayudantes_ids?.length ? { ayudantesIds: f.ayudantes_ids } : {}),
   }));
 }
 
@@ -114,6 +122,7 @@ export async function cambiarAyudantesRemoto(
   iglesiaId: string,
   sala: string,
   nombres: string[],
+  ids?: string[], // sus cuentas (si se saben todas)
 ) {
   if (!supabase || !esUuid(iglesiaId)) return;
   await asegurarSesion();
@@ -121,6 +130,7 @@ export async function cambiarAyudantesRemoto(
     p_iglesia: iglesiaId,
     p_sala: sala,
     p_nombres: nombres,
+    ...(ids ? { p_ids: ids } : {}),
   });
   if (error) throw error;
 }

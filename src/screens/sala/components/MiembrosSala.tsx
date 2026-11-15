@@ -1,6 +1,8 @@
 import AvatarPersona from "@/components/AvatarPersona";
 import {
   alternarAyudante,
+  esAyudanteDe,
+  esLiderDe,
   guiaSalaAhora,
   miembrosActuales,
   useAvatarDe,
@@ -37,7 +39,7 @@ export function miembrosDe(grupo: GrupoId): Miembro[] {
         m.sala === grupo ||
         m.id === "yo" ||
         // el lider y sus ayudantes estan aunque no usaron la invitacion
-        guiaSalaAhora(grupo, m.nombre),
+        guiaSalaAhora(grupo, m.nombre, m.id !== "yo" ? m.id : undefined),
     )
     .map((m) => ({
       nombre: m.nombre,
@@ -48,9 +50,6 @@ export function miembrosDe(grupo: GrupoId): Miembro[] {
       ...(m.sinOracion ? { sinOracion: true } : {}),
     }));
 }
-
-const igual = (a = "", b = "") =>
-  a.trim().toLowerCase() === b.trim().toLowerCase();
 
 // lider: puede escribirle en privado a cada hermano. El lider de la sala (o
 // el pastor) ademas elige quienes le ayudan a administrarla
@@ -69,7 +68,6 @@ export default function MiembrosSala({
   const sala = useGrupos().find((g) => g.id === grupo);
   // la de toda la iglesia la guia el pastor (sin ayudantes)
   const eligeAyudantes = useEsLiderPrincipal(grupo) && grupo !== "general";
-  const ayudantes = sala?.ayudantes ?? [];
 
   return (
     <ScrollView
@@ -89,8 +87,9 @@ export default function MiembrosSala({
       )}
       {miembros.map((m, i) => {
         const yo = !!m.esYo;
-        const esLiderSala = !!sala?.lider && igual(sala.lider, m.nombre);
-        const esAyudante = ayudantes.some((n) => igual(n, m.nombre));
+        // por su cuenta (dos "Pato" no son el mismo); sin ella, por nombre
+        const esLiderSala = !!sala && esLiderDe(sala, m.nombre, m.id);
+        const esAyudante = !!sala && esAyudanteDe(sala, m.nombre, m.id);
         const etiqueta =
           m.rol ?? (esLiderSala ? "Líder" : esAyudante ? "Ayudante" : null);
         // el pastor y el lider ya administran; uno no se nombra a si mismo
@@ -128,7 +127,7 @@ export default function MiembrosSala({
             </View>
             {puedeNombrar ? (
               <Pressable
-                onPress={() => alternarAyudante(grupo, m.nombre)}
+                onPress={() => alternarAyudante(grupo, m.nombre, m.id)}
                 hitSlop={6}
                 style={({ pressed }) => [
                   styles.ayudante,
