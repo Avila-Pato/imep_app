@@ -906,19 +906,28 @@ export function useSalasDeTodas() {
   const salas = useStore((s) => s.salas);
   const salasEditadas = useStore((s) => s.salasEditadas);
   const porIglesia = useStore((s) => s.porIglesia);
+  const grupo = useStore((s) => s.grupo);
+  const yo = useStore((s) => s.nombre ?? USUARIO.nombre);
+  const miId = useMiId(); // mi cuenta: la misma en todas mis iglesias
   const lista = iglesias ?? (activa ? [activa] : []);
   return lista.map((iglesia) => {
     const esActiva = misma(iglesia, activa);
     const datos = esActiva
-      ? { salas, salasEditadas }
+      ? { salas, salasEditadas, grupo }
       : (porIglesia?.[idIglesia(iglesia)] ?? {});
+    const todas = [
+      ...GRUPOS.map((g) => ({ ...g, ...datos.salasEditadas?.[g.id] })),
+      ...(datos.salas ?? []),
+    ];
     return {
       iglesia,
       activa: esActiva,
-      salas: [
-        ...GRUPOS.map((g) => ({ ...g, ...datos.salasEditadas?.[g.id] })),
-        ...(datos.salas ?? []),
-      ],
+      salas: todas,
+      miGrupo: datos.grupo, // la sala a la que entro con su invitacion
+      // las que guia (lider o ayudante): entra sin invitacion
+      guio: todas
+        .filter((g) => g.id !== "general" && guiaLaSala(g, yo, miId))
+        .map((g) => g.id),
     };
   });
 }

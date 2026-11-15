@@ -10,21 +10,32 @@ import {
   SURFACE,
   TEXT,
 } from "@/constants/constans";
-import { elegirIglesia, useSalasDeTodas } from "@/store/estudios";
+import { elegirIglesia, useEsPastor, useSalasDeTodas } from "@/store/estudios";
+import { puedeVerSala } from "@/utils/peticiones";
 import { GrupoId } from "@/types/typesComunidad";
 import { Iglesia } from "@/types/typesHome";
 import Octicons from "@expo/vector-icons/Octicons";
 import { Href, router } from "expo-router";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
-// "Mis ministerios" del pastor: cada iglesia suya con todas sus salas.
-// Tocar una sala la abre (si es de otra iglesia, primero cambia a esa)
+// "Mis ministerios" (pastor) / "Mi ministerio" (hermano): cada iglesia con
+// todas sus salas. Tocar una sala la abre (si es de otra iglesia, primero
+// cambia a esa). El hermano ve tambien las salas a las que no pertenece,
+// con candado: entra con el codigo que le da el lider
 export default function HojaMinisterios({
   onCerrar,
 }: {
   onCerrar: () => void;
 }) {
   const todas = useSalasDeTodas();
+  const esPastor = useEsPastor();
 
   const abrir = (iglesia: Iglesia, activa: boolean, sala: GrupoId) => {
     if (!activa) elegirIglesia(iglesia);
@@ -51,7 +62,9 @@ export default function HojaMinisterios({
               <View style={styles.asa} />
               <View style={styles.cabecera}>
                 <View style={styles.flex}>
-                  <Text style={styles.titulo}>Mis ministerios</Text>
+                  <Text style={styles.titulo}>
+                    {esPastor ? "Mis ministerios" : "Mi ministerio"}
+                  </Text>
                   <Text style={styles.sub}>
                     {todas.length === 1
                       ? "Tu iglesia y sus salas"
@@ -71,7 +84,7 @@ export default function HojaMinisterios({
                 style={styles.lista}
                 showsVerticalScrollIndicator={false}
               >
-                {todas.map(({ iglesia, activa, salas }) => (
+                {todas.map(({ iglesia, activa, salas, miGrupo, guio }) => (
                   <View key={iglesia.id ?? iglesia.sede} style={styles.bloque}>
                     <View style={styles.iglesiaFila}>
                       <Text style={styles.iglesia} numberOfLines={1}>
@@ -81,38 +94,72 @@ export default function HojaMinisterios({
                         <Text style={styles.activa}>Abierta ahora</Text>
                       )}
                     </View>
-                    {salas.map((sala, i) => (
-                      <Pressable
-                        key={sala.id}
-                        onPress={() => abrir(iglesia, activa, sala.id)}
-                        style={({ pressed }) => [
-                          styles.sala,
-                          i > 0 && styles.conLinea,
-                          pressed && styles.presionado,
-                        ]}
-                        accessibilityLabel={`Abrir la sala ${sala.label} de ${iglesia.sede}`}
-                      >
-                        <IconoSala sala={sala} tamano={36} />
-                        <View style={styles.flex}>
-                          <Text style={styles.salaNombre} numberOfLines={1}>
-                            {sala.id === "general"
-                              ? "Toda la iglesia"
-                              : sala.label}
-                          </Text>
-                          <Text style={styles.salaDetalle} numberOfLines={1}>
-                            {sala.id === "general"
-                              ? "La sala de todos"
-                              : sala.lider
-                                ? `Líder: ${sala.lider}`
-                                : "Sin líder aún"}
-                          </Text>
-                        </View>
-                        <Octicons name="chevron-right" size={16} color={MUTED} />
-                      </Pressable>
-                    ))}
+                    {salas.map((sala, i) => {
+                      // el pastor entra a todas; el hermano, a la de toda
+                      // la iglesia, la suya y las que guia
+                      const entra =
+                        esPastor || puedeVerSala(sala.id, miGrupo, guio);
+                      const esMia = !esPastor && sala.id === miGrupo;
+                      return (
+                        <Pressable
+                          key={sala.id}
+                          onPress={
+                            entra
+                              ? () => abrir(iglesia, activa, sala.id)
+                              : undefined
+                          }
+                          disabled={!entra}
+                          style={({ pressed }) => [
+                            styles.sala,
+                            i > 0 && styles.conLinea,
+                            pressed && styles.presionado,
+                            !entra && styles.cerrada,
+                          ]}
+                          accessibilityLabel={
+                            entra
+                              ? `Abrir la sala ${sala.label} de ${iglesia.sede}`
+                              : `${sala.label}: necesitas el código de esta sala`
+                          }
+                        >
+                          <IconoSala sala={sala} tamano={36} />
+                          <View style={styles.flex}>
+                            <Text style={styles.salaNombre} numberOfLines={1}>
+                              {sala.id === "general"
+                                ? "Toda la iglesia"
+                                : sala.label}
+                            </Text>
+                            <Text style={styles.salaDetalle} numberOfLines={1}>
+                              {sala.id === "general"
+                                ? "La sala de todos"
+                                : !entra
+                                  ? "Pide el código a tu líder para entrar"
+                                  : [
+                                      esMia
+                                        ? "Tu sala"
+                                        : guio.includes(sala.id)
+                                          ? "La guías"
+                                          : undefined,
+                                      sala.lider
+                                        ? `Líder: ${sala.lider}`
+                                        : "Sin líder aún",
+                                    ]
+                                      .filter(Boolean)
+                                      .join(" · ")}
+                            </Text>
+                          </View>
+                          <Octicons
+                            name={entra ? "chevron-right" : "lock"}
+                            size={16}
+                            color={MUTED}
+                          />
+                        </Pressable>
+                      );
+                    })}
                     {salas.length === 1 && (
                       <Text style={styles.vacio}>
-                        Aún no hay salas de grupo. Créalas desde Comunidad.
+                        {esPastor
+                          ? "Aún no hay salas de grupo. Créalas desde Comunidad."
+                          : "Aún no hay salas de grupo en esta iglesia."}
                       </Text>
                     )}
                   </View>
@@ -214,6 +261,10 @@ const styles = StyleSheet.create({
   },
   presionado: {
     opacity: 0.6,
+  },
+  // sala a la que no pertenece (entra con su codigo)
+  cerrada: {
+    opacity: 0.55,
   },
   salaNombre: {
     fontFamily: FUENTE.semibold,

@@ -465,12 +465,10 @@ export default function PerfilScreen() {
                           ? () => router.push("/ayuda" as Href)
                           : op.id === "ministerios"
                             ? // con iglesia: sus salas; sin iglesia: unirse con el codigo
-                              // (el pastor: todas sus iglesias y salas)
-                              esPastor && iglesia
+                              // (sus iglesias y todas sus salas, sin salir del perfil)
+                              iglesia
                               ? () => setViendoMinisterios(true)
-                              : iglesia
-                                ? () => router.push("/comunidad" as Href)
-                                : () => setConCodigo(true)
+                              : () => setConCodigo(true)
                             : op.id === "editar"
                               ? () => router.push("/editar-perfil" as Href)
                               : op.id === "codigo"
