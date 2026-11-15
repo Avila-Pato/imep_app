@@ -184,6 +184,59 @@ export async function avisarSala(datos: {
   });
 }
 
+// ───────────── Roles y permisos (cargos) ─────────────
+
+// Los roles de la iglesia: quien (usuario) tiene cual
+export async function bajarCargos(iglesiaId: string) {
+  if (!(await listo(iglesiaId))) return null;
+  const { data, error } = await supabase!
+    .from("cargos")
+    .select("usuario_id, cargo")
+    .eq("iglesia_id", iglesiaId);
+  if (error) throw error;
+  return (data ?? []) as { usuario_id: string; cargo: string }[];
+}
+
+// Dar (o quitar) un rol a un hermano. Solo el pastor o quien tiene "roles"
+export async function cambiarCargoRemoto(
+  iglesiaId: string,
+  usuarioId: string,
+  cargo: string,
+  dar: boolean,
+) {
+  if (!(await listo(iglesiaId))) return;
+  const { error } = dar
+    ? await supabase!
+        .from("cargos")
+        .upsert(
+          { iglesia_id: iglesiaId, usuario_id: usuarioId, cargo },
+          { ignoreDuplicates: true },
+        )
+    : await supabase!
+        .from("cargos")
+        .delete()
+        .eq("iglesia_id", iglesiaId)
+        .eq("usuario_id", usuarioId)
+        .eq("cargo", cargo);
+  if (error) throw error;
+}
+
+// Le avisa al hermano que le dieron (o quitaron) un rol
+export async function avisarCargo(
+  iglesiaId: string,
+  usuarioId: string,
+  cargo: string,
+  quitado: boolean,
+) {
+  if (!supabase || !esUuid(iglesiaId)) return;
+  await llamarFuncion("avisar-cargo", {
+    iglesia_id: iglesiaId,
+    usuario_id: usuarioId,
+    cargo,
+    quitado,
+  });
+}
+
 // ───────────── Turnos ─────────────
 
 // Reemplaza los turnos de un dia (asi tambien se borran los que se quitaron)

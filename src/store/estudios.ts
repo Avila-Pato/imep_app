@@ -34,6 +34,9 @@ import {
   avisarPeticion,
   avisarPeticionAprobada,
   avisarSala,
+  avisarCargo,
+  bajarCargos,
+  cambiarCargoRemoto,
   avisarTurno,
   bajarAnuncios,
   bajarMiembros,
@@ -1020,6 +1023,11 @@ export async function sincronizarContenido() {
     console.warn("[supabase]", e?.message ?? e);
     return [null, null, null] as const;
   });
+  // los roles (si falla, se quedan los de antes)
+  const filasCargos = await bajarCargos(id).catch((e) => {
+    console.warn("[supabase]", e?.message ?? e);
+    return null;
+  });
   // si mientras tanto cambio de iglesia, no mezclar
   if (useStore.getState().iglesia?.id !== id) return;
   cambiar((s) => ({
@@ -1055,6 +1063,10 @@ export async function sincronizarContenido() {
         }
       : {}),
     ...(miembros ? { miembros } : {}),
+    // manda el servidor: cada rol con el nombre de su hermano
+    ...(filasCargos
+      ? { cargos: cargosPorNombre(filasCargos, miembros ?? s.miembros) }
+      : {}),
   }));
   // Primera descarga (app nueva o reiniciada): lo que ya habia se anota como
   // visto, asi no avisa lo viejo pero si TODO lo que llegue despues (antes,
@@ -1314,18 +1326,52 @@ export function crearSala(sala: Omit<Grupo, "id">) {
 }
 
 // El pastor da o quita un rol a un hermano (puede tener varios)
-export function alternarCargo(persona: string, cargo: CargoId) {
-  cambiar((s) => {
-    const actuales = s.cargos[persona] ?? [];
-    return {
-      cargos: {
-        ...s.cargos,
-        [persona]: actuales.includes(cargo)
-          ? actuales.filter((c) => c !== cargo)
-          : [...actuales, cargo],
-      },
-    };
-  });
+// Se ve al instante y se guarda en el servidor (asi el hermano lo tiene en
+// SU telefono y el servidor lo deja editar). Devuelve como le fue:
+// "listo" | "error" (se deshizo) | "local" (sin servidor: solo aqui)
+export async function alternarCargo(
+  persona: string,
+  cargo: CargoId,
+): Promise<"listo" | "error" | "local"> {
+  const s = useStore.getState();
+  const tenia = (s.cargos[persona] ?? []).includes(cargo);
+  const poner = (dar: boolean) =>
+    cambiar((x) => {
+      const actuales = (x.cargos[persona] ?? []).filter((c) => c !== cargo);
+      return {
+        cargos: {
+          ...x.cargos,
+          [persona]: dar ? [...actuales, cargo] : actuales,
+        },
+      };
+    });
+  poner(!tenia);
+  const iglesiaId = s.iglesia?.id;
+  const hermano = s.miembros.find((m) => m.nombre === persona);
+  if (!esUuid(iglesiaId) || !hermano) return "local";
+  try {
+    await cambiarCargoRemoto(iglesiaId, hermano.id, cargo, !tenia);
+  } catch (e) {
+    console.warn("[supabase]", (e as Error)?.message ?? e);
+    poner(tenia); // no se pudo: vuelve como estaba
+    return "error";
+  }
+  enFondo(avisarCargo(iglesiaId, hermano.id, cargo, tenia));
+  return "listo";
+}
+
+// Filas del servidor -> { nombre: [roles] } (con el nombre de su perfil)
+function cargosPorNombre(
+  filas: { usuario_id: string; cargo: string }[],
+  miembros: MiembroIglesia[],
+): Record<string, CargoId[]> {
+  const nombres = new Map(miembros.map((m) => [m.id, m.nombre]));
+  const r: Record<string, CargoId[]> = {};
+  for (const f of filas) {
+    const nombre = nombres.get(f.usuario_id);
+    if (nombre) (r[nombre] ??= []).push(f.cargo as CargoId);
+  }
+  return r;
 }
 
 // Prende o apaga un tipo de notificacion

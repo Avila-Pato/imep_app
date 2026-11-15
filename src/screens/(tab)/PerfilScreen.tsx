@@ -408,80 +408,83 @@ export default function PerfilScreen() {
               {grupo.titulo.toUpperCase()}
             </Text>
             <View>
-              {grupo.opciones.map((op, i) => (
-                <Pressable
-                  key={op.id}
-                  // por ahora solo estas opciones hacen algo
-                  onPress={
-                    op.id === "privacidad"
-                      ? () => router.push("/privacidad" as Href)
-                      : op.id === "ayuda"
-                        ? () => router.push("/ayuda" as Href)
-                        : op.id === "ministerios"
-                          ? // con iglesia: sus salas; sin iglesia: unirse con el codigo
-                            iglesia
-                            ? () => router.push("/comunidad" as Href)
-                            : () => setConCodigo(true)
-                          : op.id === "editar"
-                            ? () => router.push("/editar-perfil" as Href)
-                            : op.id === "codigo"
-                              ? () => setConCodigo(true)
-                              : op.id === "notificaciones"
-                                ? () => router.push("/notificaciones" as Href)
-                                : op.id === "reiniciar"
-                                  ? () =>
-                                      confirmarReinicio(esPastor, misIglesias)
-                                  : undefined
-                  }
-                  style={({ pressed }) => [
-                    styles.opcion,
-                    i > 0 && styles.conLinea,
-                    pressed && styles.presionado,
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.opcionIcono,
-                      op.peligro && styles.opcionIconoPeligro,
+              {grupo.opciones
+                // el pastor no se une con codigo: el los crea (Panel)
+                .filter((op) => !(esPastor && op.id === "codigo"))
+                .map((op, i) => (
+                  <Pressable
+                    key={op.id}
+                    // por ahora solo estas opciones hacen algo
+                    onPress={
+                      op.id === "privacidad"
+                        ? () => router.push("/privacidad" as Href)
+                        : op.id === "ayuda"
+                          ? () => router.push("/ayuda" as Href)
+                          : op.id === "ministerios"
+                            ? // con iglesia: sus salas; sin iglesia: unirse con el codigo
+                              iglesia
+                              ? () => router.push("/comunidad" as Href)
+                              : () => setConCodigo(true)
+                            : op.id === "editar"
+                              ? () => router.push("/editar-perfil" as Href)
+                              : op.id === "codigo"
+                                ? () => setConCodigo(true)
+                                : op.id === "notificaciones"
+                                  ? () => router.push("/notificaciones" as Href)
+                                  : op.id === "reiniciar"
+                                    ? () =>
+                                        confirmarReinicio(esPastor, misIglesias)
+                                    : undefined
+                    }
+                    style={({ pressed }) => [
+                      styles.opcion,
+                      i > 0 && styles.conLinea,
+                      pressed && styles.presionado,
                     ]}
                   >
-                    <Octicons
-                      name={op.icon}
-                      size={16}
-                      color={op.peligro ? PRIMARY : TEXT}
-                    />
-                  </View>
-                  {op.id === "ministerios" ? (
-                    // su iglesia (es una sola) o el aviso de que aun no se une
-                    <View style={styles.flex}>
-                      <Text style={styles.ministerioLabel}>{op.label}</Text>
-                      <Text
-                        style={[
-                          styles.ministerioIglesia,
-                          !iglesia && styles.ministerioSin,
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {iglesia
-                          ? iglesia.sede
-                          : "Aún no te has unido a tu ministerio"}
-                      </Text>
-                    </View>
-                  ) : (
-                    <Text
+                    <View
                       style={[
-                        styles.opcionTexto,
-                        op.peligro && styles.opcionTextoPeligro,
+                        styles.opcionIcono,
+                        op.peligro && styles.opcionIconoPeligro,
                       ]}
                     >
-                      {op.label}
-                    </Text>
-                  )}
-                  {!op.peligro && (
-                    <Octicons name="chevron-right" size={16} color={MUTED} />
-                  )}
-                </Pressable>
-              ))}
+                      <Octicons
+                        name={op.icon}
+                        size={16}
+                        color={op.peligro ? PRIMARY : TEXT}
+                      />
+                    </View>
+                    {op.id === "ministerios" ? (
+                      // su iglesia (es una sola) o el aviso de que aun no se une
+                      <View style={styles.flex}>
+                        <Text style={styles.ministerioLabel}>{op.label}</Text>
+                        <Text
+                          style={[
+                            styles.ministerioIglesia,
+                            !iglesia && styles.ministerioSin,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {iglesia
+                            ? iglesia.sede
+                            : "Aún no te has unido a tu ministerio"}
+                        </Text>
+                      </View>
+                    ) : (
+                      <Text
+                        style={[
+                          styles.opcionTexto,
+                          op.peligro && styles.opcionTextoPeligro,
+                        ]}
+                      >
+                        {op.label}
+                      </Text>
+                    )}
+                    {!op.peligro && (
+                      <Octicons name="chevron-right" size={16} color={MUTED} />
+                    )}
+                  </Pressable>
+                ))}
             </View>
           </View>
         ))}

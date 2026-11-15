@@ -24,8 +24,9 @@ import { CargoId } from "@/types/typesCargos";
 import { iniciales } from "@/utils/texto";
 import Octicons from "@expo/vector-icons/Octicons";
 import { Href, Redirect, router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -33,9 +34,15 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 const IDS = Object.keys(CARGOS) as CargoId[];
+const ROJO = "#E5484D";
+
+type Aviso = { texto: string; error?: boolean };
 
 // Lo que deja hacer cada permiso
 const PUEDE: Record<string, string> = {
@@ -54,6 +61,38 @@ export default function PermisosScreen() {
   const [busqueda, setBusqueda] = useState("");
   // los hermanos que se unieron (menos el pastor)
   const PERSONAS = useMiembros().filter((m) => m.rol !== "pastor");
+  // el chip que se esta guardando ("Ana|secretaria") y el mensaje de abajo
+  const [guardando, setGuardando] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<Aviso | null>(null);
+  const { top } = useSafeAreaInsets(); // el aviso va bajo la barra de estado
+  const espera = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(espera.current), []);
+
+  const mostrar = (a: Aviso) => {
+    setAviso(a);
+    clearTimeout(espera.current);
+    espera.current = setTimeout(() => setAviso(null), 3200);
+  };
+
+  const tocar = async (persona: string, id: CargoId, tenia: boolean) => {
+    if (guardando) return; // uno a la vez
+    setGuardando(`${persona}|${id}`);
+    const r = await alternarCargo(persona, id);
+    setGuardando(null);
+    const rol = CARGOS[id].label;
+    if (r === "error") {
+      mostrar({
+        texto: "No se pudo guardar. Revisa tu conexión e inténtalo de nuevo.",
+        error: true,
+      });
+    } else {
+      mostrar({
+        texto: tenia
+          ? `Guardado: ${persona} ya no es ${rol}`
+          : `Guardado: ${persona} ahora es ${rol}`,
+      });
+    }
+  };
 
   if (!puedeRoles) return <Redirect href={"/perfil" as Href} />;
 
@@ -176,11 +215,12 @@ export default function PermisosScreen() {
               <View style={styles.chips}>
                 {IDS.map((id) => {
                   const activo = suyos.includes(id);
+                  const subiendo = guardando === `${persona.nombre}|${id}`;
                   return (
                     <Pressable
                       key={id}
-                      onPress={() => alternarCargo(persona.nombre, id)}
-                      disabled={bloqueado}
+                      onPress={() => tocar(persona.nombre, id, activo)}
+                      disabled={bloqueado || !!guardando}
                       style={({ pressed }) => [
                         styles.chip,
                         activo && styles.chipActivo,
@@ -191,11 +231,19 @@ export default function PermisosScreen() {
                       accessibilityState={{ checked: activo }}
                       accessibilityLabel={`${CARGOS[id].label} para ${persona.nombre}`}
                     >
-                      <Octicons
-                        name={activo ? "check" : CARGOS[id].icono}
-                        size={12}
-                        color={activo ? DARK_BG : MUTED}
-                      />
+                      {subiendo ? (
+                        <ActivityIndicator
+                          size="small"
+                          color={activo ? DARK_BG : MUTED}
+                          style={styles.cargando}
+                        />
+                      ) : (
+                        <Octicons
+                          name={activo ? "check" : CARGOS[id].icono}
+                          size={12}
+                          color={activo ? DARK_BG : MUTED}
+                        />
+                      )}
                       <Text
                         style={[
                           styles.chipTexto,
@@ -212,6 +260,31 @@ export default function PermisosScreen() {
           );
         })}
       </ScrollView>
+
+      {/* Se guardo (o no): el pastor sabe que puede volver tranquilo */}
+      {aviso && (
+        <View
+          // bajo la barra de estado y el titulo
+          style={[
+            styles.aviso,
+            { top: top + 52 },
+            aviso.error && styles.avisoError,
+          ]}
+          accessibilityLiveRegion="polite"
+          accessibilityRole="alert"
+        >
+          <Octicons
+            name={aviso.error ? "alert" : "check-circle-fill"}
+            size={18}
+            color={aviso.error ? ROJO : "#FFFFFF"}
+          />
+          <Text
+            style={[styles.avisoTexto, aviso.error && styles.avisoTextoError]}
+          >
+            {aviso.texto}
+          </Text>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -226,6 +299,44 @@ const styles = StyleSheet.create({
   },
   presionado: {
     opacity: 0.6,
+  },
+  cargando: {
+    transform: [{ scale: 0.6 }],
+    width: 12,
+    height: 12,
+  },
+  // guardado: el color del tema (cada iglesia el suyo), texto blanco
+  aviso: {
+    position: "absolute",
+    right: PADDING,
+    maxWidth: "88%",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING,
+    paddingHorizontal: SPACING * 1.6,
+    paddingVertical: SPACING * 1.4,
+    borderRadius: 16,
+    backgroundColor: PRIMARY,
+    shadowColor: "#000",
+    shadowOpacity: 0.3,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 10,
+  },
+  // error: invertido (claro en tema oscuro y al reves) con el icono rojo,
+  // asi no se confunde con el de guardado aunque el tema sea rojo
+  avisoError: {
+    backgroundColor: TEXT,
+  },
+  avisoTexto: {
+    flexShrink: 1,
+    fontFamily: FUENTE.semibold,
+    fontSize: 14,
+    lineHeight: 19,
+    color: "#FFFFFF",
+  },
+  avisoTextoError: {
+    color: DARK_BG,
   },
   cabecera: {
     flexDirection: "row",

@@ -13,7 +13,8 @@ import { useEffect } from "react";
 // En vivo (Supabase Realtime): cuando el admin cambia el cronograma, publica
 // un anuncio o se une un hermano, esta app se entera al instante y trae lo
 // nuevo (sin cerrar y abrir). Realtime respeta las reglas RLS
-const TABLAS = ["turnos", "anuncios", "miembros"] as const;
+// cargos: el pastor da o quita un rol (el hermano puede editar al instante)
+const TABLAS = ["turnos", "anuncios", "miembros", "cargos"] as const;
 
 export function useEnVivo() {
   const id = useIglesia()?.id;
