@@ -30,6 +30,7 @@ import {
   useEstudios,
 } from "@/store/estudios";
 import AvisoActualizar from "@/components/AvisoActualizar";
+import { supabase } from "@/lib/supabase";
 import { useFonts } from "expo-font";
 import {
   DarkTheme,
@@ -111,12 +112,21 @@ export default function RootLayout() {
     });
     registrarPush();
     const quitarPermiso = alActivarPermiso(registrarPush);
+    // Cada vez que entra a una cuenta (Google, otra cuenta, o de nuevo tras
+    // "Reiniciar la app" / "Eliminar mi cuenta", que lo quitan del servidor):
+    // este telefono vuelve a quedar a su nombre. Si no, los avisos (ej: "Te
+    // nombraron líder") no le llegaban hasta cerrar y abrir la app.
+    // (fuera del callback: Supabase pide no llamarlo ahi adentro)
+    const sesion = supabase?.auth.onAuthStateChange((evento) => {
+      if (evento === "SIGNED_IN") setTimeout(registrarPush, 0);
+    });
     const sub = AppState.addEventListener("change", (estado) => {
       // al volver: iglesias nuevas del pastor y lo nuevo de la activa
       if (estado === "active") sincronizarIglesias().then(sincronizarContenido);
     });
     return () => {
       quitarPermiso();
+      sesion?.data.subscription.unsubscribe();
       sub.remove();
     };
   }, [cargado]);
