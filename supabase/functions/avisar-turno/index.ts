@@ -4,6 +4,8 @@
 // Comprueba que quien llama puede editar el cronograma de esa iglesia y le
 // avisa a esa persona: "Te asignaron un turno · Palabra · dom 23 nov · 19:30"
 // o, si la sacaron (tipo "quitado"): "Te quitaron de un turno · Palabra · ..."
+// o, si le cambiaron la hora (tipo "hora"): "🕒 Cambió la hora de tu turno ·
+// Palabra · dom 23 nov · ahora a las 16:00"
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { admin, enviar, json, preflight } from "../_shared/push.ts";
 
@@ -17,6 +19,7 @@ Deno.serve(async (req) => {
     string
   >;
   const quitado = tipo === "quitado";
+  const nuevaHora = tipo === "hora";
   // su cuenta (la app nueva la manda): no se confunde con otro del mismo
   // nombre. Sin ella (app vieja), por el nombre
   const personaId = /^[0-9a-f-]{36}$/i.test(b.persona_id ?? "")
@@ -70,8 +73,17 @@ Deno.serve(async (req) => {
   const resultado = await enviar(
     (tokens ?? []).map((t: { token: string }) => ({
       to: t.token,
-      title: quitado ? "Te quitaron de un turno" : "Te asignaron un turno 📋",
-      body: [rol, dia, quitado ? undefined : hora, iglesia?.nombre]
+      title: quitado
+        ? "Te quitaron de un turno"
+        : nuevaHora
+          ? "🕒 Cambió la hora de tu turno"
+          : "Te asignaron un turno 📋",
+      body: [
+        rol,
+        dia,
+        quitado ? undefined : nuevaHora ? `ahora a las ${hora}` : hora,
+        iglesia?.nombre,
+      ]
         .filter(Boolean)
         .join(" · "),
       data: { url: "/eventos?vista=cronograma", iglesia_id },

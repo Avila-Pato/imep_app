@@ -17,6 +17,7 @@ import {
   esAyudanteDe,
   esLiderDe,
   esMiTurno,
+  firmaHorario,
   useMiId,
   TipoAviso,
   useEstudios,
@@ -132,6 +133,10 @@ export function useRecordatorios() {
       rol: roles.de(t.rol).label,
       fecha: t.fecha,
       hora: horaTurno(t),
+      // ya lo tenia anotado ese dia y rol con otra hora: le cambiaron la hora
+      antes: (turnosAvisados ?? []).filter((k) =>
+        k.startsWith(`${t.fecha}|${t.rol}|`),
+      ),
     })),
   );
   const primeraVez = turnosAvisados === undefined;
@@ -142,6 +147,7 @@ export function useRecordatorios() {
       rol: string;
       fecha: string;
       hora?: string;
+      antes: string[];
     }[] = JSON.parse(firmaNuevos);
     if (!lista.length) return;
     // con push, el aviso llega del servidor (aunque la app este cerrada)
@@ -152,15 +158,23 @@ export function useRecordatorios() {
           day: "numeric",
           month: "long",
         });
+        const cambioHora = t.antes.length > 0;
         avisarAhora(
-          "Te asignaron un turno 📋",
-          [t.rol, dia, t.hora && `${t.hora} hrs`, nombreIglesia]
+          cambioHora ? "🕒 Cambió la hora de tu turno" : "Te asignaron un turno 📋",
+          [
+            t.rol,
+            dia,
+            t.hora && (cambioHora ? `ahora a las ${t.hora} hrs` : `${t.hora} hrs`),
+            nombreIglesia,
+          ]
             .filter(Boolean)
             .join(" · "),
           "/eventos?vista=cronograma",
         ).catch(() => {});
       }
     }
+    // la hora vieja ya no cuenta (si la vuelven a cambiar, se avisa de nuevo)
+    olvidarTurnosAvisados(lista.flatMap((t) => t.antes));
     marcarTurnosAvisados(lista.map((t) => t.clave));
   }, [firmaNuevos, primeraVez, avisarTurnos, nombreIglesia]);
 
@@ -215,6 +229,61 @@ export function useRecordatorios() {
     }
     marcarAnunciosAvisados(lista.map((a) => a.id));
   }, [firmaAnuncios, primeraVezAnuncios, avisarAnuncios, nombreIglesia]);
+
+  // Anuncios que cambiaron de dia, hora o lugar (los edito otro): "Cambió el
+  // horario". Con push llega del servidor; esto es para Expo Go. Se anota
+  // cuando y donde era cada uno; el que no estaba anotado solo se anota
+  const firmas = anuncios.map((a) => ({ a, firma: firmaHorario(a) }));
+  const sinAnotar = firmas.filter(
+    ({ firma }) => !(anunciosAvisados ?? []).includes(firma),
+  );
+  const firmaCambios = JSON.stringify(
+    sinAnotar.map(({ a, firma }) => ({
+      firma,
+      id: a.id,
+      titulo: a.titulo,
+      fecha: a.fecha,
+      hora: a.hora,
+      lugar: a.lugar,
+      // ya tenia otro horario anotado: lo cambiaron
+      cambio: (anunciosAvisados ?? []).some((k) => k.startsWith(`h:${a.id}=`)),
+    })),
+  );
+  useEffect(() => {
+    const lista: {
+      firma: string;
+      id: string;
+      titulo: string;
+      fecha: string;
+      hora?: string;
+      lugar?: string;
+      cambio: boolean;
+    }[] = JSON.parse(firmaCambios);
+    if (!lista.length) return;
+    if (avisarAnuncios && !PUSH_ACTIVO) {
+      for (const a of lista.filter((x) => x.cambio)) {
+        const dia = deKey(a.fecha).toLocaleDateString("es-ES", {
+          weekday: "short",
+          day: "numeric",
+          month: "short",
+        });
+        avisarAhora(
+          `🔄 Cambió el horario: ${a.titulo}`,
+          [`Ahora: ${dia}`, a.hora, a.lugar?.trim(), nombreIglesia]
+            .filter(Boolean)
+            .join(" · "),
+          "/eventos?vista=anuncios",
+        ).catch(() => {});
+      }
+    }
+    olvidarAnunciosAvisados(
+      (anunciosAvisados ?? []).filter((k) =>
+        lista.some((x) => k.startsWith(`h:${x.id}=`)),
+      ),
+    );
+    marcarAnunciosAvisados(lista.map((x) => x.firma));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- anunciosAvisados: va en la firma
+  }, [firmaCambios, avisarAnuncios, nombreIglesia]);
 
   // Peticiones de oracion que esperan aprobacion (solo a quien las revisa):
   // "Fulano pide oracion". Se anotan con los anuncios avisados (ids unicos)

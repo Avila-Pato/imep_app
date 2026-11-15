@@ -163,7 +163,9 @@ export type Subida = {
   etapa: EtapaSubida;
   desde: string; // ISO: cuando empezo (para mostrar los segundos)
   iglesiaId: string;
-  avisar?: boolean; // anuncio nuevo: avisar a la iglesia al terminar
+  // avisar a la iglesia al terminar: anuncio nuevo (true, como antes) o
+  // "cambio" (se edito el dia, la hora o el lugar)
+  avisar?: boolean | "cambio";
   error?: string;
 };
 
@@ -1944,19 +1946,41 @@ export function guardarAnuncio(
 ) {
   publicarEnOtras(a, otras);
   const s = useStore.getState();
-  const existe = !!a.id && s.anuncios.some((x) => x.id === a.id);
+  const previo = a.id ? s.anuncios.find((x) => x.id === a.id) : undefined;
+  const existe = !!previo;
   const anuncio: Anuncio = { ...a, id: existe ? a.id! : nuevoUuid() };
+  // editado: si cambio cuando o donde es, se avisa a la iglesia
+  const cambioHorario =
+    !!previo &&
+    (previo.fecha !== anuncio.fecha ||
+      (previo.hora ?? "") !== (anuncio.hora ?? "") ||
+      (previo.lugar ?? "").trim() !== (anuncio.lugar ?? "").trim());
   cambiar({
     anuncios: existe
       ? s.anuncios.map((x) => (x.id === anuncio.id ? anuncio : x))
       : [anuncio, ...s.anuncios],
-    // lo publico esta persona: a ella no se le avisa
-    anunciosAvisados: [...(s.anunciosAvisados ?? []), anuncio.id],
+    // lo publico (o edito) esta persona: a ella no se le avisa
+    anunciosAvisados: [
+      ...(s.anunciosAvisados ?? []).filter(
+        (k) => !k.startsWith(`h:${anuncio.id}=`),
+      ),
+      anuncio.id,
+      firmaHorario(anuncio),
+    ],
   });
   const iglesiaId = s.iglesia?.id;
   if (!conectado() || !esUuid(iglesiaId)) return;
-  subirAnuncioConEstado(iglesiaId, anuncio, !existe);
+  subirAnuncioConEstado(
+    iglesiaId,
+    anuncio,
+    !existe ? "nuevo" : cambioHorario ? "cambio" : false,
+  );
 }
+
+// Cuando y donde es un anuncio (para notar si lo cambiaron): se guarda con
+// los anuncios avisados como "h:<id>=<fecha>|<hora>|<lugar>"
+export const firmaHorario = (a: Pick<Anuncio, "id" | "fecha" | "hora" | "lugar">) =>
+  `h:${a.id}=${a.fecha}|${a.hora ?? ""}|${(a.lugar ?? "").trim()}`;
 
 // Copia de un anuncio NUEVO en otras iglesias del pastor (no la activa)
 function publicarEnOtras(
@@ -1984,7 +2008,7 @@ function publicarEnOtras(
       };
     });
     if (conectado() && esUuid(otra.id))
-      subirAnuncioConEstado(otra.id, copia, true);
+      subirAnuncioConEstado(otra.id, copia, "nuevo");
   }
 }
 
@@ -2047,7 +2071,7 @@ const mensajeDe = (e: unknown) => {
 function subirAnuncioConEstado(
   iglesiaId: string,
   anuncio: Anuncio,
-  avisar: boolean,
+  avisar: "nuevo" | "cambio" | false,
 ) {
   const clave = anuncio.id;
   const conFoto = !!anuncio.imagen && !anuncio.imagen.startsWith("https://");
@@ -2055,7 +2079,7 @@ function subirAnuncioConEstado(
     etapa: conFoto ? "foto" : "guardando",
     desde: new Date().toISOString(),
     iglesiaId,
-    avisar,
+    avisar: avisar === "cambio" ? "cambio" : !!avisar,
     error: undefined,
   });
   subirAnuncio(iglesiaId, anuncio, () =>
@@ -2070,7 +2094,7 @@ function subirAnuncioConEstado(
       // el aviso falla, el anuncio igual quedo publicado
       if (avisar) {
         ponerSubida(clave, { etapa: "avisando" });
-        await avisarAnuncio(anuncio.id).catch((e) =>
+        await avisarAnuncio(anuncio.id, avisar === "cambio").catch((e) =>
           console.warn("[supabase]", e?.message ?? e),
         );
       }
@@ -2121,7 +2145,11 @@ export function reintentarSubida(clave: string) {
       : (s.porIglesia?.[sub.iglesiaId]?.anuncios ?? [])
   ).find((a) => a.id === clave);
   if (!anuncio) return quitarSubida(clave); // ya no existe
-  subirAnuncioConEstado(sub.iglesiaId, anuncio, !!sub.avisar);
+  subirAnuncioConEstado(
+    sub.iglesiaId,
+    anuncio,
+    sub.avisar === "cambio" ? "cambio" : sub.avisar ? "nuevo" : false,
+  );
 }
 
 // Al abrir la app: lo que quedo a medias o fallo se reintenta solo
@@ -2288,6 +2316,7 @@ function subirDia(
   fecha: string,
   avisarRol?: RolId,
   quitado?: { rol: RolId; persona: string; personaId?: string },
+  cambioHora?: RolId, // se cambio la hora de este turno (ya con persona)
 ) {
   const s = useStore.getState();
   const iglesiaId = s.iglesia?.id;
@@ -2298,6 +2327,7 @@ function subirDia(
     rolNombre: nombres[t.rol]?.label,
   }));
   const avisar = turnos.find((t) => t.rol === avisarRol);
+  const conHoraNueva = turnos.find((t) => t.rol === cambioHora);
   // estado "Guardando cronograma…" (el aviso a la persona va aparte: si
   // falla, el cronograma igual quedo guardado)
   const clave = `dia:${iglesiaId}:${fecha}`;
@@ -2337,6 +2367,16 @@ function subirDia(
               persona: quitado.persona,
               personaId: quitado.personaId,
             }),
+          conHoraNueva &&
+            avisarTurno({
+              tipo: "hora",
+              iglesiaId,
+              fecha,
+              rol: conHoraNueva.rolNombre ?? conHoraNueva.rol,
+              hora: horaTurno(conHoraNueva),
+              persona: conHoraNueva.persona,
+              personaId: conHoraNueva.personaId,
+            }),
         ]),
       ),
   );
@@ -2356,7 +2396,8 @@ export function fijarHoraTurno(fecha: string, rol: RolId, hora: string) {
       },
     };
   });
-  subirDia(fecha);
+  // a la persona del turno: "Cambió la hora de tu turno"
+  subirDia(fecha, undefined, undefined, rol);
 }
 
 // Guarda un versiculo (o varios seguidos) en el perfil

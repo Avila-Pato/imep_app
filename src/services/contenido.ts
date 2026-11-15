@@ -141,10 +141,14 @@ async function llamarFuncion(nombre: string, body: object) {
   throw new Error(`${nombre} ${detalle}`);
 }
 
-// Push a toda la iglesia (la Edge Function revisa que pueda publicar)
-export async function avisarAnuncio(id: string) {
+// Push a toda la iglesia (la Edge Function revisa que pueda publicar).
+// cambio: se edito y cambio el dia, la hora o el lugar ("Cambió el horario")
+export async function avisarAnuncio(id: string, cambio = false) {
   if (!supabase) return;
-  await llamarFuncion("avisar-anuncio", { anuncio_id: id });
+  await llamarFuncion("avisar-anuncio", {
+    anuncio_id: id,
+    ...(cambio ? { cambio: true } : {}),
+  });
 }
 
 // Pidio oracion: avisa al pastor y a los lideres (para aprobarla)
@@ -376,7 +380,7 @@ export async function restringirMiembro(
 // Push a la persona que asignaron en el cronograma (la Edge Function revisa
 // que quien llama pueda editar el cronograma)
 export async function avisarTurno(datos: {
-  tipo: "asignado" | "quitado";
+  tipo: "asignado" | "quitado" | "hora"; // hora: le cambiaron la hora
   iglesiaId: string;
   fecha: string;
   rol: string;

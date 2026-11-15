@@ -1,5 +1,7 @@
 // La app la llama justo despues de publicar un anuncio:
 //   supabase.functions.invoke("avisar-anuncio", { body: { anuncio_id } })
+// o despues de editarlo cambiando el dia, la hora o el lugar
+// ({ anuncio_id, cambio: true }): "🔄 Cambió el horario: Retiro"
 // Comprueba que quien llama puede publicar anuncios en esa iglesia y avisa a
 // todos los miembros (menos a quien lo publico)
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -9,7 +11,7 @@ Deno.serve(async (req) => {
   const previa = preflight(req); // navegador (web)
   if (previa) return previa;
   if (req.method !== "POST") return json({ error: "solo POST" }, 405);
-  const { anuncio_id } = await req.json().catch(() => ({}));
+  const { anuncio_id, cambio } = await req.json().catch(() => ({}));
   if (typeof anuncio_id !== "string") {
     return json({ error: "falta anuncio_id" }, 400);
   }
@@ -58,12 +60,25 @@ Deno.serve(async (req) => {
     "es-CL",
     { weekday: "short", day: "numeric", month: "short" },
   );
-  const titulo = esEvento
-    ? `🗓️ Nuevo evento: ${anuncio.titulo}`
-    : `📣 ${anuncio.titulo}`;
-  const cuerpo = esEvento
-    ? [cuando, anuncio.hora, iglesia]
-    : [anuncio.descripcion, iglesia];
+  // Editado: "🔄 Cambió el horario: Retiro" + "Ahora: sáb 22 nov · 19:30 ·
+  // Salón · Iglesia Central"
+  const titulo =
+    cambio === true
+      ? `🔄 Cambió el horario: ${anuncio.titulo}`
+      : esEvento
+        ? `🗓️ Nuevo evento: ${anuncio.titulo}`
+        : `📣 ${anuncio.titulo}`;
+  const cuerpo =
+    cambio === true
+      ? [
+          `Ahora: ${cuando}`,
+          anuncio.hora,
+          (anuncio.lugar as string | null)?.trim(),
+          iglesia,
+        ]
+      : esEvento
+        ? [cuando, anuncio.hora, iglesia]
+        : [anuncio.descripcion, iglesia];
 
   const resultado = await enviar(
     (tokens ?? []).map((t: { token: string }) => ({

@@ -363,16 +363,20 @@ export default function ChatSala({
               <Octicons name="megaphone" size={17} color={DARK_BG} />
             </Pressable>
           )}
-          <Pressable
-            onPress={() => setCompartir(true)}
-            style={({ pressed }) => [
-              styles.versiculo,
-              pressed && styles.presionado,
-            ]}
-            accessibilityLabel="Compartir un versículo"
-          >
-            <Octicons name="book" size={18} color={TEXT} />
-          </Pressable>
+          {/* el lider comparte versiculos desde el megafono (devocional o
+              para memorizar): no se repite el boton */}
+          {!lider && (
+            <Pressable
+              onPress={() => setCompartir(true)}
+              style={({ pressed }) => [
+                styles.versiculo,
+                pressed && styles.presionado,
+              ]}
+              accessibilityLabel="Compartir un versículo"
+            >
+              <Octicons name="book" size={18} color={TEXT} />
+            </Pressable>
+          )}
           <TextInput
             value={texto}
             onChangeText={setTexto}

@@ -1,6 +1,7 @@
 import {
   BORDER,
   DARK_BG,
+  FUENTE,
   MUTED,
   PRIMARY,
   SPACING,
@@ -107,6 +108,35 @@ export default function ModalAsignar({
   // alguien que no esta en la lista (ej: predicador invitado, hermano sin la app)
   const nuevo =
     !!texto && !personas.some((p) => sinTildes(p.nombre) === sinTildes(texto));
+  // Con alguien asignado, la hora nueva no se guarda al mover las flechas:
+  // se confirma (le llega "Cambió la hora de tu turno"). Lo que se esta
+  // moviendo vale solo para este turno abierto
+  const turnoAbierto = `${rol}|${fecha}|${actual ?? ""}|${hora ?? ""}`;
+  const [moviendo, setMoviendo] = useState<{ de: string; hora: string } | null>(
+    null,
+  );
+  const horaVista =
+    moviendo && moviendo.de === turnoAbierto ? moviendo.hora : hora;
+  const horaCambiada = !!actual && !!horaVista && horaVista !== hora;
+  const nombreRolHora = rol ? roles.de(rol).label : "";
+  const cambiarHora = (h: string) => {
+    if (actual) setMoviendo({ de: turnoAbierto, hora: h });
+    else onHora(h); // sin nadie: se usa al asignar
+  };
+  const confirmarHora = () => {
+    if (!horaVista) return;
+    confirmar(
+      `¿Cambiar la hora a las ${horaVista}?`,
+      `${actual} tendrá ${nombreRolHora} el ${fecha} a las ${horaVista}, en lugar de las ${hora}. Si tiene la app, le avisaremos.`,
+      "Cambiar",
+      () => {
+        onHora(horaVista);
+        setMoviendo(null);
+      },
+      false,
+    );
+  };
+
   // la asignada ahora: por su cuenta si se sabe; si no, por su nombre
   const esActual = (p: Persona) =>
     actualId && p.id ? p.id === actualId : !!actual && p.nombre === actual;
@@ -197,18 +227,34 @@ export default function ModalAsignar({
                   </View>
 
                   {/* Hora exacta del turno (ej: 18:09) */}
-                  {hora && (
+                  {horaVista && (
                     <View style={styles.horaFila}>
                       <View style={styles.flex}>
                         <Text style={styles.horaLabel}>HORA</Text>
                         <Text style={styles.detalle}>
-                          {hora === horaCulto
+                          {horaVista === horaCulto
                             ? "La del culto"
                             : `El culto es a las ${horaCulto ?? "—"}`}
                         </Text>
                       </View>
-                      <SelectorHora hora={hora} onCambiar={onHora} />
+                      <SelectorHora hora={horaVista} onCambiar={cambiarHora} />
                     </View>
+                  )}
+                  {/* hora movida de un turno con alguien: se confirma */}
+                  {horaCambiada && (
+                    <Pressable
+                      onPress={confirmarHora}
+                      style={({ pressed }) => [
+                        styles.guardarHora,
+                        pressed && styles.presionado,
+                      ]}
+                      accessibilityLabel={`Guardar la nueva hora: ${horaVista}`}
+                    >
+                      <Octicons name="clock" size={14} color={DARK_BG} />
+                      <Text style={styles.guardarHoraTexto}>
+                        Guardar nueva hora · {horaVista}
+                      </Text>
+                    </Pressable>
                   )}
 
                   <View style={styles.buscador}>
@@ -331,6 +377,21 @@ export default function ModalAsignar({
 }
 
 const styles = StyleSheet.create({
+  guardarHora: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: SPACING / 2,
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: TEXT,
+  },
+  guardarHoraTexto: {
+    fontFamily: FUENTE.semibold,
+    fontSize: 14,
+    color: DARK_BG,
+  },
   // borde que marca a quien esta elegido
   anillo: {
     padding: 2,
