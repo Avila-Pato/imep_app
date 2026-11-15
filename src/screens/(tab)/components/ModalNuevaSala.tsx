@@ -280,11 +280,40 @@ export default function ModalNuevaSala({
 
                   {paso === "tipo" ? (
                     <View style={styles.tipos}>
+                      {/* Otra: bien a la vista (puede crear el grupo que quiera) */}
+                      <Pressable
+                        onPress={() =>
+                          elegirTipo(TIPOS_SALA.find((t) => t.id === "otra")!)
+                        }
+                        style={({ pressed }) => [
+                          styles.otra,
+                          pressed && styles.presionado,
+                        ]}
+                        accessibilityLabel="Otro grupo: ponle el nombre que quieras"
+                      >
+                        <View style={styles.otraMas}>
+                          <Octicons name="plus" size={20} color={TEXT} />
+                        </View>
+                        <View style={styles.flex}>
+                          <Text style={styles.funcionTitulo}>Otro grupo</Text>
+                          <Text style={styles.meta}>
+                            ¿No está en la lista? Ponle el nombre que quieras
+                            (ej: Intercesión, Ujieres, Célula norte)
+                          </Text>
+                        </View>
+                        <Octicons
+                          name="chevron-right"
+                          size={14}
+                          color={MUTED}
+                        />
+                      </Pressable>
+
+                      <Text style={styles.separador}>O ELIGE UNO DE ESTOS</Text>
                       <Text style={styles.ayuda}>
-                        Elige el grupo y la sala queda lista. Después puedes
-                        cambiar lo que quieras.
+                        La sala queda lista. Después puedes cambiar lo que
+                        quieras.
                       </Text>
-                      {TIPOS_SALA.map((t) => (
+                      {TIPOS_SALA.filter((t) => t.id !== "otra").map((t) => (
                         <Pressable
                           key={t.id}
                           onPress={() => elegirTipo(t)}
@@ -325,6 +354,14 @@ export default function ModalNuevaSala({
                         </Pressable>
                       )}
 
+                      {/* Paso 1 */}
+                      <View style={styles.seccion}>
+                        <View style={styles.seccionNumero}>
+                          <Text style={styles.seccionNumeroTexto}>1</Text>
+                        </View>
+                        <Text style={styles.seccionTitulo}>El grupo</Text>
+                      </View>
+
                       {/* Vista previa (con la foto si tiene) */}
                       <View style={styles.previa}>
                         <IconoSala
@@ -359,6 +396,14 @@ export default function ModalNuevaSala({
                         placeholderTextColor={PLACEHOLDER}
                         style={styles.input}
                       />
+
+                      {/* Paso 2 */}
+                      <View style={styles.seccion}>
+                        <View style={styles.seccionNumero}>
+                          <Text style={styles.seccionNumeroTexto}>2</Text>
+                        </View>
+                        <Text style={styles.seccionTitulo}>Cómo se ve</Text>
+                      </View>
 
                       {/* Foto de la sala (opcional) */}
                       <Text style={styles.etiqueta}>FOTO (OPCIONAL)</Text>
@@ -412,85 +457,59 @@ export default function ModalNuevaSala({
                         </View>
                       </View>
 
-                      {/* Que tendra la sala */}
-                      <Text style={styles.etiqueta}>¿QUÉ TENDRÁ LA SALA?</Text>
-                      <View style={styles.funciones}>
-                        {FUNCIONES.map((f, i) => (
-                          <View
-                            key={f.id}
-                            style={[
-                              styles.funcion,
-                              i > 0 && styles.funcionLinea,
-                            ]}
-                          >
-                            <Octicons name={f.icono} size={16} color={TEXT} />
-                            <View style={styles.flex}>
-                              <Text style={styles.funcionTitulo}>
-                                {f.titulo}
-                              </Text>
-                              <Text style={styles.meta}>{f.texto}</Text>
-                            </View>
-                            <Switch
-                              value={funciones[f.id]}
-                              onValueChange={(v) =>
-                                setFunciones((x) => ({ ...x, [f.id]: v }))
-                              }
-                              trackColor={{ false: BORDER, true: PRIMARY }}
-                              thumbColor="#FFFFFF"
-                              accessibilityLabel={f.titulo}
-                            />
+                      {/* con foto no hace falta el icono (la foto lo reemplaza) */}
+                      {!foto && (
+                        <>
+                          <Text style={styles.etiqueta}>O UN ÍCONO</Text>
+                          <View style={styles.opciones}>
+                            {ICONOS.map((i) => (
+                              <Pressable
+                                key={i}
+                                onPress={() => setIcono(i)}
+                                style={[
+                                  styles.opcion,
+                                  i === icono && styles.opcionActiva,
+                                ]}
+                                accessibilityState={{ selected: i === icono }}
+                              >
+                                <Octicons
+                                  name={i}
+                                  size={18}
+                                  color={i === icono ? DARK_BG : TEXT}
+                                />
+                              </Pressable>
+                            ))}
                           </View>
+                        </>
+                      )}
+
+                      <Text style={styles.etiqueta}>COLOR</Text>
+                      <View style={styles.opciones}>
+                        {TONOS.map((t) => (
+                          <Pressable
+                            key={t}
+                            onPress={() => setTono(t)}
+                            style={[
+                              styles.color,
+                              { backgroundColor: t },
+                              t === tono && styles.colorActivo,
+                            ]}
+                            accessibilityState={{ selected: t === tono }}
+                          />
                         ))}
                       </View>
 
-                      {/* Ajustes del grupo */}
-                      <Text style={styles.etiqueta}>AJUSTES</Text>
-                      <View style={styles.funciones}>
-                        <View style={styles.funcion}>
-                          <Octicons name="megaphone" size={16} color={TEXT} />
-                          <View style={styles.flex}>
-                            <Text style={styles.funcionTitulo}>
-                              Solo el líder escribe
-                            </Text>
-                            <Text style={styles.meta}>
-                              El chat queda para avisos del líder y el pastor
-                              (ej: niños, avisos a los papás)
-                            </Text>
-                          </View>
-                          <Switch
-                            value={soloLider}
-                            onValueChange={setSoloLider}
-                            trackColor={{ false: BORDER, true: PRIMARY }}
-                            thumbColor="#FFFFFF"
-                            accessibilityLabel="Solo el líder escribe"
-                          />
+                      {/* Paso 3 */}
+                      <View style={styles.seccion}>
+                        <View style={styles.seccionNumero}>
+                          <Text style={styles.seccionNumeroTexto}>3</Text>
                         </View>
-                        <View style={[styles.funcion, styles.funcionLinea]}>
-                          <Octicons name="typography" size={16} color={TEXT} />
-                          <View style={styles.flex}>
-                            <Text style={styles.funcionTitulo}>
-                              Letra grande
-                            </Text>
-                            <Text style={styles.meta}>
-                              Los mensajes se ven más grandes (adultos mayores)
-                            </Text>
-                          </View>
-                          <Switch
-                            value={letraGrande}
-                            onValueChange={setLetraGrande}
-                            trackColor={{ false: BORDER, true: PRIMARY }}
-                            thumbColor="#FFFFFF"
-                            accessibilityLabel="Letra grande"
-                          />
-                        </View>
+                        <Text style={styles.seccionTitulo}>
+                          {pideLider ? "Líder de la sala" : "Líder (opcional)"}
+                        </Text>
                       </View>
 
                       {/* Quien guia la sala */}
-                      <Text style={styles.etiqueta}>
-                        {pideLider
-                          ? "LÍDER DE LA SALA"
-                          : "LÍDER DE LA SALA (OPCIONAL)"}
-                      </Text>
                       <Text style={styles.ayuda}>
                         Administra la sala: publica avisos, da la palabra de la
                         semana y aprueba las peticiones de oración. Tú siempre
@@ -571,46 +590,80 @@ export default function ModalNuevaSala({
                         style={styles.input}
                       />
 
-                      {/* con foto no hace falta el icono (la foto lo reemplaza) */}
-                      {!foto && (
-                        <>
-                          <Text style={styles.etiqueta}>ÍCONO</Text>
-                          <View style={styles.opciones}>
-                            {ICONOS.map((i) => (
-                              <Pressable
-                                key={i}
-                                onPress={() => setIcono(i)}
-                                style={[
-                                  styles.opcion,
-                                  i === icono && styles.opcionActiva,
-                                ]}
-                                accessibilityState={{ selected: i === icono }}
-                              >
-                                <Octicons
-                                  name={i}
-                                  size={18}
-                                  color={i === icono ? DARK_BG : TEXT}
-                                />
-                              </Pressable>
-                            ))}
-                          </View>
-                        </>
-                      )}
+                      {/* Paso 4 */}
+                      <View style={styles.seccion}>
+                        <View style={styles.seccionNumero}>
+                          <Text style={styles.seccionNumeroTexto}>4</Text>
+                        </View>
+                        <Text style={styles.seccionTitulo}>Qué tendrá</Text>
+                      </View>
 
-                      <Text style={styles.etiqueta}>COLOR</Text>
-                      <View style={styles.opciones}>
-                        {TONOS.map((t) => (
-                          <Pressable
-                            key={t}
-                            onPress={() => setTono(t)}
+                      {/* Que tendra la sala */}
+                      <View style={styles.funciones}>
+                        {FUNCIONES.map((f, i) => (
+                          <View
+                            key={f.id}
                             style={[
-                              styles.color,
-                              { backgroundColor: t },
-                              t === tono && styles.colorActivo,
+                              styles.funcion,
+                              i > 0 && styles.funcionLinea,
                             ]}
-                            accessibilityState={{ selected: t === tono }}
-                          />
+                          >
+                            <Octicons name={f.icono} size={16} color={TEXT} />
+                            <View style={styles.flex}>
+                              <Text style={styles.funcionTitulo}>
+                                {f.titulo}
+                              </Text>
+                              <Text style={styles.meta}>{f.texto}</Text>
+                            </View>
+                            <Switch
+                              value={funciones[f.id]}
+                              onValueChange={(v) =>
+                                setFunciones((x) => ({ ...x, [f.id]: v }))
+                              }
+                              trackColor={{ false: BORDER, true: PRIMARY }}
+                              thumbColor="#FFFFFF"
+                              accessibilityLabel={f.titulo}
+                            />
+                          </View>
                         ))}
+                        {/* Ajustes del grupo (en la misma tarjeta) */}
+                        <View style={[styles.funcion, styles.funcionLinea]}>
+                          <Octicons name="megaphone" size={16} color={TEXT} />
+                          <View style={styles.flex}>
+                            <Text style={styles.funcionTitulo}>
+                              Solo el líder escribe
+                            </Text>
+                            <Text style={styles.meta}>
+                              El chat queda para avisos del líder y el pastor
+                              (ej: niños, avisos a los papás)
+                            </Text>
+                          </View>
+                          <Switch
+                            value={soloLider}
+                            onValueChange={setSoloLider}
+                            trackColor={{ false: BORDER, true: PRIMARY }}
+                            thumbColor="#FFFFFF"
+                            accessibilityLabel="Solo el líder escribe"
+                          />
+                        </View>
+                        <View style={[styles.funcion, styles.funcionLinea]}>
+                          <Octicons name="typography" size={16} color={TEXT} />
+                          <View style={styles.flex}>
+                            <Text style={styles.funcionTitulo}>
+                              Letra grande
+                            </Text>
+                            <Text style={styles.meta}>
+                              Los mensajes se ven más grandes (adultos mayores)
+                            </Text>
+                          </View>
+                          <Switch
+                            value={letraGrande}
+                            onValueChange={setLetraGrande}
+                            trackColor={{ false: BORDER, true: PRIMARY }}
+                            thumbColor="#FFFFFF"
+                            accessibilityLabel="Letra grande"
+                          />
+                        </View>
                       </View>
 
                       {falta && !listo && (
@@ -724,6 +777,61 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: BORDER,
   },
+  otra: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING * 1.2,
+    padding: SPACING * 1.4,
+    borderRadius: 16,
+    backgroundColor: DARK_BG,
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    borderColor: MUTED,
+  },
+  otraMas: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: SURFACE,
+    borderWidth: 1,
+    borderColor: BORDER,
+  },
+  separador: {
+    fontFamily: FUENTE.semibold,
+    fontSize: 11,
+    letterSpacing: 1.4,
+    color: MUTED,
+    marginTop: SPACING,
+  },
+  seccion: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING,
+    marginTop: SPACING * 1.6,
+    paddingTop: SPACING * 1.4,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: BORDER,
+  },
+  seccionNumero: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: TEXT,
+  },
+  seccionNumeroTexto: {
+    fontFamily: FUENTE.semibold,
+    fontSize: 12,
+    color: DARK_BG,
+  },
+  seccionTitulo: {
+    fontFamily: FUENTE.semibold,
+    fontSize: 16,
+    color: TEXT,
+  },
   cambiarTipo: {
     flexDirection: "row",
     alignItems: "center",
@@ -780,7 +888,9 @@ const styles = StyleSheet.create({
     color: TEXT,
   },
   meta: {
+    fontFamily: FUENTE.regular,
     fontSize: 12,
+    lineHeight: 16,
     color: MUTED,
     marginTop: 2,
   },
@@ -792,6 +902,7 @@ const styles = StyleSheet.create({
     marginTop: SPACING / 2,
   },
   input: {
+    fontFamily: FUENTE.regular,
     height: 46,
     paddingHorizontal: SPACING * 1.4,
     borderRadius: 14,
@@ -822,6 +933,7 @@ const styles = StyleSheet.create({
     color: TEXT,
   },
   falta: {
+    fontFamily: FUENTE.medium,
     fontSize: 13,
     color: PRIMARY,
     textAlign: "center",
@@ -834,11 +946,12 @@ const styles = StyleSheet.create({
     height: 44,
   },
   borrarTexto: {
+    fontFamily: FUENTE.semibold,
     fontSize: 14,
-    fontWeight: "600",
     color: PRIMARY,
   },
   ayuda: {
+    fontFamily: FUENTE.regular,
     fontSize: 12,
     lineHeight: 17,
     color: MUTED,
@@ -859,6 +972,7 @@ const styles = StyleSheet.create({
     borderColor: TEXT,
   },
   personaTexto: {
+    fontFamily: FUENTE.medium,
     fontSize: 13,
     color: MUTED,
   },
@@ -903,8 +1017,8 @@ const styles = StyleSheet.create({
     opacity: 0.3,
   },
   botonTexto: {
+    fontFamily: FUENTE.semibold,
     fontSize: 16,
-    fontWeight: "600",
     color: DARK_BG,
   },
 });

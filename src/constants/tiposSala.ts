@@ -23,7 +23,7 @@ export const TIPOS_SALA: TipoDeSala[] = [
   {
     id: "ninos",
     titulo: "Niños",
-    explica: "Solo el líder escribe: avisos para los papás",
+    explica: "Solo escribe el líder: avisos para los papás",
     nombre: "Niños",
     descripcion: "Avisos y actividades de los niños",
     icono: "smiley",
@@ -34,7 +34,7 @@ export const TIPOS_SALA: TipoDeSala[] = [
   {
     id: "preadolescentes",
     titulo: "Preadolescentes",
-    explica: "Chat con su líder, oración y palabra",
+    explica: "Chat con su líder y versículos para memorizar jugando",
     nombre: "Preadolescentes",
     descripcion: "Grupo de preadolescentes",
     icono: "rocket",
@@ -44,7 +44,7 @@ export const TIPOS_SALA: TipoDeSala[] = [
   {
     id: "jovenes",
     titulo: "Jóvenes",
-    explica: "Todo activado: chat, oración y palabra",
+    explica: "Chat, encuentros y la palabra de la semana",
     nombre: "Jóvenes",
     descripcion: "Grupo de jóvenes",
     icono: "flame",
@@ -54,7 +54,7 @@ export const TIPOS_SALA: TipoDeSala[] = [
   {
     id: "mujeres",
     titulo: "Mujeres",
-    explica: "Todo activado: chat, oración y palabra",
+    explica: "Encuentros, oración entre ustedes y devocionales",
     nombre: "Mujeres",
     descripcion: "Grupo de mujeres",
     icono: "heart",
@@ -64,7 +64,7 @@ export const TIPOS_SALA: TipoDeSala[] = [
   {
     id: "varones",
     titulo: "Varones",
-    explica: "Todo activado: chat, oración y palabra",
+    explica: "Oración, palabra de la semana y encuentros",
     nombre: "Varones",
     descripcion: "Grupo de varones",
     icono: "shield",
@@ -74,7 +74,7 @@ export const TIPOS_SALA: TipoDeSala[] = [
   {
     id: "matrimonios",
     titulo: "Matrimonios",
-    explica: "Todo activado: chat, oración y palabra",
+    explica: "Encuentros de parejas, oración y devocionales",
     nombre: "Matrimonios",
     descripcion: "Grupo de matrimonios",
     icono: "people",
@@ -84,7 +84,7 @@ export const TIPOS_SALA: TipoDeSala[] = [
   {
     id: "mayores",
     titulo: "Adultos mayores",
-    explica: "Todo activado, con letra más grande",
+    explica: "Letra más grande, oración y devocionales",
     nombre: "Adultos mayores",
     descripcion: "Grupo de adultos mayores",
     icono: "sun",
@@ -95,7 +95,7 @@ export const TIPOS_SALA: TipoDeSala[] = [
   {
     id: "alabanza",
     titulo: "Alabanza / ministerio",
-    explica: "Chat y palabra, sin muro de oración",
+    explica: "Avisos de ensayos y chat del equipo (sin muro de oración)",
     nombre: "Alabanza",
     descripcion: "Equipo de alabanza",
     icono: "unmute",
@@ -105,7 +105,7 @@ export const TIPOS_SALA: TipoDeSala[] = [
   {
     id: "otra",
     titulo: "Otra",
-    explica: "La armas tú desde cero",
+    explica: "La armas tú: nombre, foto y lo que tendrá",
     nombre: "",
     descripcion: "",
     icono: "people",

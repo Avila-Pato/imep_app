@@ -278,6 +278,8 @@ export const MAPA_CLARO_ZOOM = 19;
 
 // Fuentes (Inter, cargada en src/app/_layout.tsx)
 export const FUENTE = {
+  // la letra de la app (no la del telefono: algunos traen letras "a mano")
+  regular: "Inter_400Regular",
   medium: "Inter_500Medium",
   semibold: "Inter_600SemiBold",
   mano: "Caveat_600SemiBold", // estilo escrito a mano
