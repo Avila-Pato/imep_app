@@ -108,11 +108,14 @@ export default function ModalNuevaSala({
   onCerrar,
   sala,
   onBorrada,
+  comoLider,
 }: {
   visible: boolean;
   onCerrar: () => void;
   sala?: Grupo;
   onBorrada?: () => void;
+  // la edita su lider (no el pastor): no cambia el lider ni la borra
+  comoLider?: boolean;
 }) {
   const [nombre, setNombre] = useState(sala?.label ?? "");
   const [descripcion, setDescripcion] = useState(sala?.descripcion ?? "");
@@ -161,7 +164,7 @@ export default function ModalNuevaSala({
     if (!r.canceled && r.assets[0]) setFoto(r.assets[0].uri);
   };
   // la de toda la iglesia no se puede borrar
-  const sePuedeBorrar = !!sala && sala.id !== "general";
+  const sePuedeBorrar = !!sala && sala.id !== "general" && !comoLider;
   const [otro, setOtro] = useState("");
   const { nombre: miNombre, invitados } = useEstudios();
   const hermanos = useMiembros();
@@ -457,7 +460,7 @@ export default function ModalNuevaSala({
                         </View>
                       </View>
 
-                      {/* con foto no hace falta el icono (la foto lo reemplaza) */}
+                      {/* con foto no hace falta el icono ni su color (la foto los tapa) */}
                       {!foto && (
                         <>
                           <Text style={styles.etiqueta}>O UN ÍCONO</Text>
@@ -480,120 +483,129 @@ export default function ModalNuevaSala({
                               </Pressable>
                             ))}
                           </View>
+
+                          <Text style={styles.etiqueta}>COLOR DEL ÍCONO</Text>
+                          <View style={styles.opciones}>
+                            {TONOS.map((t) => (
+                              <Pressable
+                                key={t}
+                                onPress={() => setTono(t)}
+                                style={[
+                                  styles.color,
+                                  { backgroundColor: t },
+                                  t === tono && styles.colorActivo,
+                                ]}
+                                accessibilityState={{ selected: t === tono }}
+                              />
+                            ))}
+                          </View>
                         </>
                       )}
 
-                      <Text style={styles.etiqueta}>COLOR</Text>
-                      <View style={styles.opciones}>
-                        {TONOS.map((t) => (
-                          <Pressable
-                            key={t}
-                            onPress={() => setTono(t)}
-                            style={[
-                              styles.color,
-                              { backgroundColor: t },
-                              t === tono && styles.colorActivo,
-                            ]}
-                            accessibilityState={{ selected: t === tono }}
-                          />
-                        ))}
-                      </View>
-
-                      {/* Paso 3 */}
-                      <View style={styles.seccion}>
-                        <View style={styles.seccionNumero}>
-                          <Text style={styles.seccionNumeroTexto}>3</Text>
-                        </View>
-                        <Text style={styles.seccionTitulo}>
-                          {pideLider ? "Líder de la sala" : "Líder (opcional)"}
-                        </Text>
-                      </View>
-
-                      {/* Quien guia la sala */}
-                      <Text style={styles.ayuda}>
-                        Administra la sala: publica avisos, da la palabra de la
-                        semana y aprueba las peticiones de oración. Tú siempre
-                        puedes hacerlo también. Después, el líder puede elegir
-                        ayudantes desde Miembros.
-                      </Text>
-                      <View style={styles.opciones}>
-                        {pideLider && (
-                          <Pressable
-                            onPress={() => {
-                              setLider(null);
-                              setDespues(true);
-                            }}
-                            style={[
-                              styles.persona,
-                              despues && styles.personaActiva,
-                            ]}
-                            accessibilityState={{ selected: despues }}
-                          >
-                            <Octicons
-                              name="clock"
-                              size={12}
-                              color={despues ? DARK_BG : MUTED}
-                            />
-                            <Text
-                              style={[
-                                styles.personaTexto,
-                                despues && styles.personaTextoActiva,
-                              ]}
-                            >
-                              Lo elijo después
+                      {/* Paso 3 (el lider no se cambia a si mismo) */}
+                      {!comoLider && (
+                        <>
+                          {/* Paso 3 */}
+                          <View style={styles.seccion}>
+                            <View style={styles.seccionNumero}>
+                              <Text style={styles.seccionNumeroTexto}>3</Text>
+                            </View>
+                            <Text style={styles.seccionTitulo}>
+                              {pideLider
+                                ? "Líder de la sala"
+                                : "Líder (opcional)"}
                             </Text>
-                          </Pressable>
-                        )}
-                        {personas.map((n) => {
-                          const activo = n === lider;
-                          return (
-                            <Pressable
-                              key={n}
-                              onPress={() => elegirLider(activo ? null : n)}
-                              style={[
-                                styles.persona,
-                                activo && styles.personaActiva,
-                              ]}
-                              accessibilityState={{ selected: activo }}
-                            >
-                              {activo && (
-                                <Octicons
-                                  name="check"
-                                  size={12}
-                                  color={DARK_BG}
-                                />
-                              )}
-                              <Text
+                          </View>
+
+                          {/* Quien guia la sala */}
+                          <Text style={styles.ayuda}>
+                            Administra la sala: publica avisos, da la palabra de
+                            la semana y aprueba las peticiones de oración. Tú
+                            siempre puedes hacerlo también. Después, el líder
+                            puede elegir ayudantes desde Miembros.
+                          </Text>
+                          <View style={styles.opciones}>
+                            {pideLider && (
+                              <Pressable
+                                onPress={() => {
+                                  setLider(null);
+                                  setDespues(true);
+                                }}
                                 style={[
-                                  styles.personaTexto,
-                                  activo && styles.personaTextoActiva,
+                                  styles.persona,
+                                  despues && styles.personaActiva,
                                 ]}
+                                accessibilityState={{ selected: despues }}
                               >
-                                {n}
-                              </Text>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                      <TextInput
-                        value={otro}
-                        onChangeText={setOtro}
-                        onSubmitEditing={() => {
-                          const limpio = otro.trim().replace(/\s+/g, " ");
-                          if (limpio) elegirLider(limpio);
-                          setOtro("");
-                        }}
-                        placeholder="U escribe su nombre"
-                        placeholderTextColor={PLACEHOLDER}
-                        autoCapitalize="words"
-                        returnKeyType="done"
-                        style={styles.input}
-                      />
+                                <Octicons
+                                  name="clock"
+                                  size={12}
+                                  color={despues ? DARK_BG : MUTED}
+                                />
+                                <Text
+                                  style={[
+                                    styles.personaTexto,
+                                    despues && styles.personaTextoActiva,
+                                  ]}
+                                >
+                                  Lo elijo después
+                                </Text>
+                              </Pressable>
+                            )}
+                            {personas.map((n) => {
+                              const activo = n === lider;
+                              return (
+                                <Pressable
+                                  key={n}
+                                  onPress={() => elegirLider(activo ? null : n)}
+                                  style={[
+                                    styles.persona,
+                                    activo && styles.personaActiva,
+                                  ]}
+                                  accessibilityState={{ selected: activo }}
+                                >
+                                  {activo && (
+                                    <Octicons
+                                      name="check"
+                                      size={12}
+                                      color={DARK_BG}
+                                    />
+                                  )}
+                                  <Text
+                                    style={[
+                                      styles.personaTexto,
+                                      activo && styles.personaTextoActiva,
+                                    ]}
+                                  >
+                                    {n}
+                                  </Text>
+                                </Pressable>
+                              );
+                            })}
+                          </View>
+                          <TextInput
+                            value={otro}
+                            onChangeText={setOtro}
+                            onSubmitEditing={() => {
+                              const limpio = otro.trim().replace(/\s+/g, " ");
+                              if (limpio) elegirLider(limpio);
+                              setOtro("");
+                            }}
+                            placeholder="U escribe su nombre"
+                            placeholderTextColor={PLACEHOLDER}
+                            autoCapitalize="words"
+                            returnKeyType="done"
+                            style={styles.input}
+                          />
+                        </>
+                      )}
 
                       {/* Paso 4 */}
                       <View style={styles.seccion}>
                         <View style={styles.seccionNumero}>
-                          <Text style={styles.seccionNumeroTexto}>4</Text>
+                          <Text style={styles.seccionNumeroTexto}>
+                            {comoLider ? 3 : 4}
+                          </Text>
                         </View>
                         <Text style={styles.seccionTitulo}>Qué tendrá</Text>
                       </View>

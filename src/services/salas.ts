@@ -29,7 +29,7 @@ export async function subirSala(iglesiaId: string, g: Grupo) {
     g.foto && !g.foto.startsWith("https://")
       ? await subirImagen(g.foto)
       : g.foto;
-  const { error } = await supabase.from("salas").upsert({
+  const fila = {
     iglesia_id: iglesiaId,
     id: g.id,
     label: g.label,
@@ -43,8 +43,28 @@ export async function subirSala(iglesiaId: string, g: Grupo) {
     solo_lider: !!g.soloLider,
     letra_grande: !!g.letraGrande,
     ayudantes: g.ayudantes ?? [],
-  });
-  if (error) throw error;
+  };
+  const { error } = await supabase.from("salas").upsert(fila);
+  // el lider de la sala no puede editarla entera (no es administrador): va
+  // por la funcion que solo cambia lo suyo (no el lider, no borrar)
+  if (error?.code === "42501") {
+    const { error: e2 } = await supabase.rpc("editar_mi_sala", {
+      p_iglesia: iglesiaId,
+      p_sala: g.id,
+      p_datos: {
+        label: fila.label,
+        descripcion: fila.descripcion,
+        icono: fila.icono,
+        tono: fila.tono,
+        funciones: fila.funciones,
+        tipo: fila.tipo,
+        foto: fila.foto ?? "",
+        solo_lider: fila.solo_lider,
+        letra_grande: fila.letra_grande,
+      },
+    });
+    if (e2) throw e2;
+  } else if (error) throw error;
   return foto !== g.foto ? foto : undefined;
 }
 

@@ -39,5 +39,9 @@ export const sigueGuardada = (p: Publicacion, rev: Revisiones) =>
 
 // Salas que puede ver: la iglesia (de todos) y su propio grupo.
 // Las demas quedan bloqueadas: sin entrar, sin avisos y sin sus peticiones.
-export const puedeVerSala = (grupo: GrupoId, miGrupo?: GrupoId) =>
-  grupo === "general" || grupo === miGrupo;
+// guio: las salas donde es lider o ayudante (entra sin la invitacion)
+export const puedeVerSala = (
+  grupo: GrupoId,
+  miGrupo?: GrupoId,
+  guio: GrupoId[] = [],
+) => grupo === "general" || grupo === miGrupo || guio.includes(grupo);

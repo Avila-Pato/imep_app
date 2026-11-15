@@ -1,6 +1,7 @@
 import AvatarPersona from "@/components/AvatarPersona";
 import {
   alternarAyudante,
+  guiaSalaAhora,
   miembrosActuales,
   useAvatarDe,
   useEsLiderPrincipal,
@@ -30,7 +31,14 @@ import PerfilMiembro from "./PerfilMiembro";
 // quienes entraron con la invitacion de esa sala. Esta persona siempre aparece
 export function miembrosDe(grupo: GrupoId): Miembro[] {
   return miembrosActuales()
-    .filter((m) => grupo === "general" || m.sala === grupo || m.id === "yo")
+    .filter(
+      (m) =>
+        grupo === "general" ||
+        m.sala === grupo ||
+        m.id === "yo" ||
+        // el lider y sus ayudantes estan aunque no usaron la invitacion
+        guiaSalaAhora(grupo, m.nombre),
+    )
     .map((m) => ({
       nombre: m.nombre,
       ...(m.rol === "pastor" ? { rol: "Pastor", esPastor: true } : {}),

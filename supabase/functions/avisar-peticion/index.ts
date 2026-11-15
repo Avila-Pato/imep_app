@@ -1,9 +1,11 @@
 // La app la llama en dos momentos:
 // 1) justo despues de pedir oracion: { peticion_id }
 //    Comprueba que la peticion es de quien llama y que sigue pendiente, y
-//    avisa a quienes la aprueban (pastor y lideres)
+//    avisa a quienes la aprueban (pastor, lideres con cargo y el lider de
+//    esa sala con sus ayudantes)
 // 2) cuando el pastor la aprueba: { peticion_id, aprobada: true }
-//    Comprueba que quien llama puede aprobar y avisa a quien la pidio
+//    Comprueba que quien llama puede aprobar (permiso o lider de la sala) y
+//    avisa a quien la pidio
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { admin, enviar, json, preflight } from "../_shared/push.ts";
 
@@ -29,12 +31,16 @@ Deno.serve(async (req) => {
 
   const { data: p } = await usuario
     .from("peticiones")
-    .select("id, iglesia_id, autor_id, autor, texto, estado, iglesias(nombre)")
+    .select(
+      "id, iglesia_id, sala, autor_id, autor, texto, estado, iglesias(nombre)",
+    )
     .eq("id", peticion_id)
     .maybeSingle();
   if (!p) return json({ error: "peticion no encontrada" }, 404);
   const iglesia =
     (p.iglesias as unknown as { nombre: string } | null)?.nombre ?? "";
+  // tocar el aviso abre la oracion de esa sala
+  const url = `/sala/${p.sala ?? "general"}?vista=oracion`;
 
   // 2) aprobada: aviso a quien la pidio (no si la pidio el mismo pastor)
   if (aprobada === true) {
@@ -42,7 +48,13 @@ Deno.serve(async (req) => {
       p_iglesia: p.iglesia_id,
       p_permiso: "salas",
     });
-    if (!puede) return json({ error: "sin permiso" }, 403);
+    const { data: guia } = puede
+      ? { data: true }
+      : await usuario.rpc("guia_la_sala", {
+          p_iglesia: p.iglesia_id,
+          p_sala: p.sala ?? "general",
+        });
+    if (!puede && !guia) return json({ error: "sin permiso" }, 403);
     if (p.estado !== "aprobada" || p.autor_id === yo.user.id) {
       return json({ enviados: 0 });
     }
@@ -67,10 +79,7 @@ Deno.serve(async (req) => {
           ]
             .filter(Boolean)
             .join(" · "),
-          data: {
-            url: "/sala/general?vista=oracion",
-            iglesia_id: p.iglesia_id,
-          },
+          data: { url, iglesia_id: p.iglesia_id },
         })),
     );
     return json(resultado);
@@ -83,6 +92,7 @@ Deno.serve(async (req) => {
   const { data: tokens, error } = await admin().rpc("tokens_que_revisan", {
     p_iglesia: p.iglesia_id,
     p_excluir: yo.user.id,
+    p_sala: p.sala ?? "general",
   });
   if (error) return json({ error: error.message }, 500);
 
@@ -93,7 +103,7 @@ Deno.serve(async (req) => {
       body: [p.texto.slice(0, 120), iglesia, "Toca para aprobarla o rechazarla"]
         .filter(Boolean)
         .join(" · "),
-      data: { url: "/sala/general?vista=oracion", iglesia_id: p.iglesia_id },
+      data: { url, iglesia_id: p.iglesia_id },
     })),
   );
   return json(resultado);

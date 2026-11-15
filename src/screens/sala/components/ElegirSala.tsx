@@ -16,6 +16,7 @@ import {
   useEstudios,
   useGrupos,
   useIglesia,
+  useSalasQueGuio,
 } from "@/store/estudios";
 import { Grupo } from "@/types/typesComunidad";
 import { puedeVerSala } from "@/utils/peticiones";
@@ -34,11 +35,12 @@ export default function ElegirSala({
 }) {
   const { grupo: miGrupo } = useEstudios();
   const esPastor = useEsPastor();
+  const guio = useSalasQueGuio();
   const iglesia = useIglesia(); // la sala general lleva su nombre
   // las salas donde puede escribir (con el chat abierto)
   const salas = useGrupos().filter(
     (g) =>
-      (esPastor || puedeVerSala(g.id, miGrupo)) && g.funciones?.chat !== false,
+      (esPastor || puedeVerSala(g.id, miGrupo, guio)) && g.funciones?.chat !== false,
   );
 
   return (

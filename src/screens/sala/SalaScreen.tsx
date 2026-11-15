@@ -14,7 +14,9 @@ import {
   useEsPastor,
   useEstudios,
   useEsLider,
+  useEsLiderPrincipal,
   useGrupos,
+  useSalasQueGuio,
   usePuede,
   useIglesia,
 } from "@/store/estudios";
@@ -73,6 +75,7 @@ export default function SalaScreen() {
   const lider = useEsLider(grupo.id);
   const vista = vistas.some((v) => v.id === elegida) ? elegida : vistas[0].id;
   const { grupo: miGrupo, iglesia } = useEstudios();
+  const guio = useSalasQueGuio(); // lider o ayudante: entra sin invitacion
 
   // Al entrar y al salir, la sala queda como leida
   useEffect(() => {
@@ -82,14 +85,18 @@ export default function SalaScreen() {
 
   const cantidad = miembrosDe(grupo.id).length;
   const puedeAdministrar = usePuede("roles");
-  const puedeEditar = esPastor || puedeAdministrar;
+  // el lider de la sala tambien la administra (no la de toda la iglesia)
+  const liderPrincipal = useEsLiderPrincipal(grupo.id);
+  const editaComoLider =
+    !esPastor && !puedeAdministrar && liderPrincipal && grupo.id !== "general";
+  const puedeEditar = esPastor || puedeAdministrar || editaComoLider;
   const [editando, setEditando] = useState(false);
   const escribiendo = useTecladoAbierto();
   // el teclado se mide desde arriba de la pantalla: se suma la barra de estado
   const { top } = useSafeAreaInsets();
 
   // Sin iglesia o sala de otro grupo: bloqueada, vuelve a Comunidad
-  if (!esPastor && (!iglesia || !puedeVerSala(grupo.id, miGrupo))) {
+  if (!esPastor && (!iglesia || !puedeVerSala(grupo.id, miGrupo, guio))) {
     return <Redirect href={"/comunidad" as Href} />;
   }
 
@@ -124,7 +131,7 @@ export default function SalaScreen() {
               : grupo.label}
           </Text>
           <Text style={styles.sub}>
-            {cantidad} miembros ·{" "}
+            {cantidad} {cantidad === 1 ? "miembro" : "miembros"} ·{" "}
             {grupo.lider ? `Líder: ${grupo.lider}` : grupo.descripcion}
           </Text>
         </Pressable>
@@ -148,12 +155,17 @@ export default function SalaScreen() {
       {puedeEditar && grupo.id !== "general" && !grupo.lider && (
         <Pressable
           onPress={() => setEditando(true)}
-          style={({ pressed }) => [styles.sinLider, pressed && styles.presionado]}
+          style={({ pressed }) => [
+            styles.sinLider,
+            pressed && styles.presionado,
+          ]}
           accessibilityLabel="Elegir el líder de la sala"
         >
           <Octicons name="person-add" size={16} color={PRIMARY} />
           <View style={styles.flex}>
-            <Text style={styles.sinLiderTitulo}>Esta sala aún no tiene líder</Text>
+            <Text style={styles.sinLiderTitulo}>
+              Esta sala aún no tiene líder
+            </Text>
             <Text style={styles.sub}>
               Mientras tanto la administras tú. Toca para elegirlo.
             </Text>
@@ -197,6 +209,7 @@ export default function SalaScreen() {
         <ModalNuevaSala
           visible
           sala={grupo}
+          comoLider={editaComoLider}
           onCerrar={() => setEditando(false)}
           onBorrada={() => router.replace("/comunidad" as Href)}
         />

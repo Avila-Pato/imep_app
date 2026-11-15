@@ -15,6 +15,7 @@ import {
   useEsPastor,
   useEstudios,
   useGrupos,
+  useSalasQueGuio,
   usePuede,
   useNombreIglesiaSiVarias,
 } from "@/store/estudios";
@@ -38,6 +39,9 @@ const Badge = ({ n }: { n: number }) =>
   ) : null;
 
 // Sala con acceso: tarjeta grande que abre el chat
+// "1 miembro" | "5 miembros"
+const cuantos = (n: number) => `${n} ${n === 1 ? "miembro" : "miembros"}`;
+
 function SalaAbierta({
   titulo,
   meta,
@@ -138,7 +142,21 @@ export default function IglesiaView() {
   });
   const iglesia = salas.find((s) => s.id === "general") ?? salas[0];
   const mia = salas.find((s) => s.id === miGrupo && s.id !== iglesia.id);
-  const otras = salas.filter((s) => s.id !== iglesia.id && s.id !== mia?.id);
+  // las que guia (lider o ayudante): entra sin invitacion. El pastor ya
+  // entra a todas desde la lista de abajo
+  const guio = useSalasQueGuio();
+  const guiadas = esPastor
+    ? []
+    : salas.filter(
+        (s) => guio.includes(s.id) && s.id !== iglesia.id && s.id !== mia?.id,
+      );
+  const nombreYo = yo.trim().toLowerCase();
+  const otras = salas.filter(
+    (s) =>
+      s.id !== iglesia.id &&
+      s.id !== mia?.id &&
+      !guiadas.some((g) => g.id === s.id),
+  );
   const abrir = (id: string) => router.push(`/sala/${id}` as Href);
 
   // Conversaciones privadas donde estoy (la mas reciente primero)
@@ -212,101 +230,123 @@ export default function IglesiaView() {
         </Pressable>
       )}
 
-      {/* Salas a las que tiene acceso */}
+      {/* La iglesia (toda la congregacion) */}
       <View style={styles.bloque}>
-        <Text style={styles.seccion}>TUS SALAS</Text>
+        <Text style={styles.seccion}>TU IGLESIA</Text>
         <SalaAbierta
           // el nombre de su iglesia (si aun no se une: "Mi iglesia")
           titulo={miIglesia?.sede ?? "Mi iglesia"}
           meta={
             sinIglesia
               ? "Aún no te has unido a una iglesia"
-              : `${iglesia.descripcion} · ${miembrosDe(iglesia.id).length} miembros`
+              : `${iglesia.descripcion} · ${cuantos(miembrosDe(iglesia.id).length)}`
           }
           sala={iglesia}
           claro={TEXT}
           bloqueada={sinIglesia}
           onPress={() => abrir(iglesia.id)}
         />
-        {mia && !sinIglesia ? (
-          <SalaAbierta
-            titulo={mia.label}
-            meta={`Tu grupo · ${miembrosDe(mia.id).length} miembros`}
-            sala={mia}
-            claro={mia.tono ?? TEXT}
-            onPress={() => abrir(mia.id)}
-          />
-        ) : administra && !sinIglesia ? null : (
-          // Sin grupo: entra con el enlace que le envia su lider
-          <View style={styles.invitacion}>
-            <View style={styles.invitacionFila}>
-              <View style={styles.iconoInvitacion}>
-                <Octicons name="link" size={16} color={TEXT} />
-              </View>
-              <View style={styles.flex}>
-                <Text style={styles.invitacionTitulo}>
-                  {sinIglesia ? "Únete a tu iglesia" : "Tu sala de grupo"}
-                </Text>
-                <Text style={styles.meta}>
-                  {sinIglesia
-                    ? "Tu pastor te enviará un enlace o código para entrar a tu iglesia y a tu sala."
-                    : "Tu líder te enviará un enlace para entrar a la sala de tu grupo."}
-                </Text>
-              </View>
-            </View>
+      </View>
 
-            {invitando ? (
-              <View style={styles.invitacionForm}>
-                <TextInput
-                  value={enlace}
-                  onChangeText={(t) => {
-                    setEnlace(t);
-                    setError(false);
-                  }}
-                  onSubmitEditing={usarInvitacion}
-                  placeholder="Pega el enlace o código"
-                  placeholderTextColor={MUTED}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  autoFocus
-                  style={[styles.input, error && styles.inputError]}
-                />
-                {error && (
-                  <Text style={styles.error}>
-                    Ese enlace no es válido. Pídele uno nuevo a tu{" "}
-                    {sinIglesia ? "pastor" : "líder"}.
+      {/* Sus salas de grupo (las que guia y la suya), o como entrar a una */}
+      {!(!sinIglesia && !mia && guiadas.length === 0 && administra) && (
+        <View style={styles.bloque}>
+          {!sinIglesia && <Text style={styles.seccion}>TUS SALAS</Text>}
+          {!sinIglesia &&
+            guiadas.map((g) => (
+              <SalaAbierta
+                key={g.id}
+                titulo={g.label}
+                meta={`${
+                  g.lider?.trim().toLowerCase() === nombreYo
+                    ? "Eres el líder"
+                    : "Ayudas a administrarla"
+                } · ${cuantos(miembrosDe(g.id).length)}`}
+                sala={g}
+                claro={g.tono ?? TEXT}
+                onPress={() => abrir(g.id)}
+              />
+            ))}
+          {mia && !sinIglesia ? (
+            <SalaAbierta
+              titulo={mia.label}
+              meta={`Tu grupo · ${cuantos(miembrosDe(mia.id).length)}`}
+              sala={mia}
+              claro={mia.tono ?? TEXT}
+              onPress={() => abrir(mia.id)}
+            />
+          ) : (administra || guiadas.length > 0) && !sinIglesia ? null : (
+            // Sin grupo: entra con el enlace que le envia su lider
+            <View style={styles.invitacion}>
+              <View style={styles.invitacionFila}>
+                <View style={styles.iconoInvitacion}>
+                  <Octicons name="link" size={16} color={TEXT} />
+                </View>
+                <View style={styles.flex}>
+                  <Text style={styles.invitacionTitulo}>
+                    {sinIglesia ? "Únete a tu iglesia" : "Tu sala de grupo"}
                   </Text>
-                )}
+                  <Text style={styles.meta}>
+                    {sinIglesia
+                      ? "Tu pastor te enviará un enlace o código para entrar a tu iglesia y a tu sala."
+                      : "Tu líder te enviará un enlace para entrar a la sala de tu grupo."}
+                  </Text>
+                </View>
+              </View>
+
+              {invitando ? (
+                <View style={styles.invitacionForm}>
+                  <TextInput
+                    value={enlace}
+                    onChangeText={(t) => {
+                      setEnlace(t);
+                      setError(false);
+                    }}
+                    onSubmitEditing={usarInvitacion}
+                    placeholder="Pega el enlace o código"
+                    placeholderTextColor={MUTED}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoFocus
+                    style={[styles.input, error && styles.inputError]}
+                  />
+                  {error && (
+                    <Text style={styles.error}>
+                      Ese enlace no es válido. Pídele uno nuevo a tu{" "}
+                      {sinIglesia ? "pastor" : "líder"}.
+                    </Text>
+                  )}
+                  <Pressable
+                    onPress={usarInvitacion}
+                    disabled={!enlace.trim()}
+                    style={({ pressed }) => [
+                      styles.boton,
+                      !enlace.trim() && styles.botonApagado,
+                      pressed && styles.presionado,
+                    ]}
+                  >
+                    <Text style={styles.botonTexto}>
+                      {sinIglesia ? "Unirme a mi iglesia" : "Entrar a la sala"}
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : (
                 <Pressable
-                  onPress={usarInvitacion}
-                  disabled={!enlace.trim()}
+                  onPress={() => setInvitando(true)}
                   style={({ pressed }) => [
-                    styles.boton,
-                    !enlace.trim() && styles.botonApagado,
+                    styles.botonSecundario,
                     pressed && styles.presionado,
                   ]}
                 >
-                  <Text style={styles.botonTexto}>
-                    {sinIglesia ? "Unirme a mi iglesia" : "Entrar a la sala"}
+                  <Text style={styles.botonSecundarioTexto}>
+                    Tengo una invitación
                   </Text>
                 </Pressable>
-              </View>
-            ) : (
-              <Pressable
-                onPress={() => setInvitando(true)}
-                style={({ pressed }) => [
-                  styles.botonSecundario,
-                  pressed && styles.presionado,
-                ]}
-              >
-                <Text style={styles.botonSecundarioTexto}>
-                  Tengo una invitación
-                </Text>
-              </Pressable>
-            )}
-          </View>
-        )}
-      </View>
+              )}
+            </View>
+          )}
+        </View>
+      )}
 
       {/* Chats privados con el lider (o con los hermanos, si eres lider) */}
       {privados.length > 0 && (

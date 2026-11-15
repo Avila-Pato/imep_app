@@ -11,7 +11,12 @@ import {
   TEXT,
   primarioAlfa,
 } from "@/constants/constans";
-import { alternarOrando, useEstudios, useGrupos } from "@/store/estudios";
+import {
+  alternarOrando,
+  useEstudios,
+  useGrupos,
+  useSalasQueGuio,
+} from "@/store/estudios";
 import { GrupoId, Publicacion } from "@/types/typesComunidad";
 import {
   enMuro,
@@ -46,13 +51,14 @@ type Props = {
 export default function MuroOracion({ grupo }: Props) {
   const { publicaciones, orando, revisiones, grupo: miGrupo } = useEstudios();
   const grupos = useGrupos(); // incluye las salas que creo el pastor
+  const guio = useSalasQueGuio();
   const [abiertaId, setAbiertaId] = useState<string | null>(null);
   const [pidiendo, setPidiendo] = useState(false);
 
   // las publicaciones antiguas sin sala cuentan como "Iglesia"
   const todas = [...publicaciones].filter(
     (p) =>
-      puedeVerSala(p.grupo ?? "general", miGrupo) &&
+      puedeVerSala(p.grupo ?? "general", miGrupo, guio) &&
       // las de toda la iglesia se ven en todas las salas
       (!grupo ||
         (p.grupo ?? "general") === grupo ||

@@ -33,6 +33,7 @@ import {
   avisarMensaje,
   avisarPeticion,
   avisarPeticionAprobada,
+  avisarSala,
   avisarTurno,
   bajarAnuncios,
   bajarMiembros,
@@ -528,6 +529,26 @@ export function useEsLiderPrincipal(grupo: GrupoId) {
   );
 }
 
+// El lider y los ayudantes entran a su sala sin la invitacion (el pastor
+// ya los eligio). Por su nombre, como los guarda la sala
+const guiaLaSala = (g: Grupo, nombre: string) =>
+  (!!g.lider && igual(g.lider, nombre)) ||
+  mismoNombre(g.ayudantes ?? [], nombre);
+
+// Las salas que guia esta persona (para entrar y verlas en "Tus salas")
+export function useSalasQueGuio(): GrupoId[] {
+  const yo = useStore((s) => s.nombre ?? USUARIO.nombre);
+  return useGrupos()
+    .filter((g) => g.id !== "general" && guiaLaSala(g, yo))
+    .map((g) => g.id);
+}
+
+// ¿Esta persona (por su nombre) guia esa sala? Sin hook (listas de miembros)
+export function guiaSalaAhora(grupo: GrupoId, nombre: string) {
+  const sala = useStore.getState().salas.find((g) => g.id === grupo);
+  return !!sala && guiaLaSala(sala, nombre);
+}
+
 // Da o quita a alguien como ayudante de la sala. Se ve al instante y se
 // guarda en el servidor (si falla, vuelve a lo de alla)
 export function alternarAyudante(grupo: GrupoId, nombre: string) {
@@ -541,11 +562,14 @@ export function alternarAyudante(grupo: GrupoId, nombre: string) {
   editarSalaLocal(grupo, { ayudantes });
   const iglesiaId = s.iglesia?.id;
   if (!esUuid(iglesiaId)) return;
+  const quitado = ayudantes.length < actuales.length;
   enFondo(
-    cambiarAyudantesRemoto(iglesiaId, grupo, ayudantes).catch((e) => {
-      sincronizarSalas();
-      throw e;
-    }),
+    cambiarAyudantesRemoto(iglesiaId, grupo, ayudantes)
+      .then(() => avisarCargoSala(grupo, nombre, "ayudante", quitado))
+      .catch((e) => {
+        sincronizarSalas();
+        throw e;
+      }),
   );
 }
 
@@ -1143,6 +1167,10 @@ export function useTotalSalas(): number {
 
 // El pastor cambia una sala ya creada (nombre, lider, que tiene...)
 export function editarSala(id: GrupoId, cambios: Partial<Omit<Grupo, "id">>) {
+  const s0 = useStore.getState();
+  const antes = (
+    s0.salas.find((g) => g.id === id) ?? { ...s0.salasEditadas[id] }
+  ).lider;
   cambiar((s) =>
     s.salas.some((g) => g.id === id)
       ? {
@@ -1155,11 +1183,35 @@ export function editarSala(id: GrupoId, cambios: Partial<Omit<Grupo, "id">>) {
           },
         },
   );
-  subirSalaActual(id);
+  // cambio el lider: se le avisa al nuevo (y al que deja de serlo), despues
+  // de guardar (el servidor revisa que la sala ya lo diga)
+  const nuevo = "lider" in cambios ? cambios.lider : antes;
+  const cambio = !igual(antes ?? "", nuevo ?? "");
+  subirSalaActual(id, () =>
+    cambio
+      ? Promise.all([
+          nuevo && avisarCargoSala(id, nuevo, "lider"),
+          antes && avisarCargoSala(id, antes, "lider", true),
+        ])
+      : undefined,
+  );
+}
+
+// Aviso a la persona que nombraron (o quitaron) en la sala
+function avisarCargoSala(
+  sala: GrupoId,
+  persona: string,
+  cargo: "lider" | "ayudante",
+  quitado?: boolean,
+) {
+  const iglesiaId = useStore.getState().iglesia?.id;
+  if (!esUuid(iglesiaId)) return;
+  return avisarSala({ iglesiaId, sala, persona, cargo, quitado });
 }
 
 // Sube la sala (como quedo) a la iglesia activa: asi la ven los hermanos
-function subirSalaActual(id: GrupoId) {
+// despues: lo que se hace cuando ya quedo arriba (ej: avisar al nuevo lider)
+function subirSalaActual(id: GrupoId, despues?: () => unknown) {
   const s = useStore.getState();
   const iglesiaId = s.iglesia?.id;
   if (!esUuid(iglesiaId)) return;
@@ -1169,9 +1221,10 @@ function subirSalaActual(id: GrupoId) {
     : s.salas.find((g) => g.id === id);
   if (!sala) return;
   enFondo(
-    subirSala(iglesiaId, sala).then((foto) => {
+    subirSala(iglesiaId, sala).then(async (foto) => {
       // la foto ya esta arriba: el telefono usa ese enlace
       if (foto) editarSalaLocal(id, { foto });
+      await despues?.();
     }),
   );
 }
@@ -1253,7 +1306,11 @@ export function crearSala(sala: Omit<Grupo, "id">) {
     nueva = id;
     return { salas: [...s.salas, { ...sala, id }] };
   });
-  if (nueva) subirSalaActual(nueva);
+  const id = nueva;
+  if (!id) return;
+  subirSalaActual(id, () =>
+    sala.lider ? avisarCargoSala(id, sala.lider, "lider") : undefined,
+  );
 }
 
 // El pastor da o quita un rol a un hermano (puede tener varios)
@@ -1524,8 +1581,7 @@ export function responder(mensajeId: string, valor: ValorRespuesta) {
   const m = s.mensajes.find((x) => x.id === mensajeId);
   if (!m || !esUuid(iglesiaId)) return;
   const yo = s.nombre?.trim() || USUARIO.nombre;
-  const nueva =
-    m.miRespuesta === valor && valor !== "aprendido" ? null : valor;
+  const nueva = m.miRespuesta === valor && valor !== "aprendido" ? null : valor;
   if (nueva === m.miRespuesta) return;
   const otras = (m.respuestas ?? []).filter((r) => r.nombre !== yo);
   cambiar((x) => ({
@@ -1533,7 +1589,9 @@ export function responder(mensajeId: string, valor: ValorRespuesta) {
       y.id === mensajeId
         ? {
             ...y,
-            respuestas: nueva ? [...otras, { nombre: yo, valor: nueva }] : otras,
+            respuestas: nueva
+              ? [...otras, { nombre: yo, valor: nueva }]
+              : otras,
             miRespuesta: nueva ?? undefined,
           }
         : y,

@@ -165,6 +165,25 @@ export async function avisarMensaje(id: string) {
   await llamarFuncion("avisar-mensaje", { mensaje_id: id });
 }
 
+// Nombraron (o quitaron) a alguien como lider o ayudante de una sala: le
+// avisa a esa persona (la Edge Function revisa que la sala ya lo diga)
+export async function avisarSala(datos: {
+  iglesiaId: string;
+  sala: string;
+  persona: string;
+  cargo: "lider" | "ayudante";
+  quitado?: boolean;
+}) {
+  if (!supabase || !esUuid(datos.iglesiaId)) return;
+  await llamarFuncion("avisar-sala", {
+    iglesia_id: datos.iglesiaId,
+    sala: datos.sala,
+    persona: datos.persona,
+    cargo: datos.cargo,
+    quitado: !!datos.quitado,
+  });
+}
+
 // ───────────── Turnos ─────────────
 
 // Reemplaza los turnos de un dia (asi tambien se borran los que se quitaron)
