@@ -172,6 +172,7 @@ export default function RootLayout() {
               Van al final: si quedan primero, Expo Router las usa como
               pantalla inicial cuando "/" esta protegida (antes del onboarding) */}
           <Stack.Screen name="privacidad" />
+          <Stack.Screen name="eliminar-cuenta" />
           <Stack.Screen name="ayuda" />
           {/* enlace de invitacion: abre antes del onboarding (guarda el
               codigo) y en la web muestra como descargar la app */}

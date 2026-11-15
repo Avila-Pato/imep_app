@@ -23,6 +23,7 @@ import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import PanelAdmin from "@/screens/perfil/PanelAdmin";
 import {
+  eliminarCuenta,
   reiniciarTodo,
   useIglesias,
   useEsPastor,
@@ -102,6 +103,45 @@ ${texto}`)
   Alert.alert(titulo, texto, [
     { text: "Cancelar", style: "cancel" },
     { text: boton, style: "destructive", onPress: reiniciar },
+  ]);
+};
+
+// Eliminar la cuenta (Google Play lo exige): avisa que es para siempre y,
+// si es pastor, que tambien se borra su iglesia
+const confirmarEliminar = (esPastor: boolean, iglesias: string[]) => {
+  const titulo = "¿Eliminar tu cuenta?";
+  const iglesia = esPastor
+    ? `
+
+Como eres pastor, también se eliminará ${
+        iglesias.length > 1 ? "tus iglesias" : "tu iglesia"
+      }${iglesias.length ? ` (${iglesias.join(", ")})` : ""} con todo lo de ella, y los hermanos perderán el acceso.`
+    : "";
+  const texto = `Se borrarán para siempre tu cuenta, tu perfil, tus mensajes, notas de voz, peticiones y fotos.${iglesia}
+
+Esto no se puede deshacer.`;
+
+  const eliminar = () =>
+    eliminarCuenta().catch((e) => {
+      console.warn("[supabase]", e?.message ?? e);
+      const error =
+        "No se pudo eliminar tu cuenta. Revisa tu conexión e inténtalo de nuevo. No se borró nada.";
+      if (Platform.OS === "web") window.alert(error);
+      else Alert.alert("No se pudo eliminar", error);
+    });
+
+  if (Platform.OS === "web") {
+    if (
+      window.confirm(`${titulo}
+
+${texto}`)
+    )
+      eliminar();
+    return;
+  }
+  Alert.alert(titulo, texto, [
+    { text: "Cancelar", style: "cancel" },
+    { text: "Eliminar cuenta", style: "destructive", onPress: eliminar },
   ]);
 };
 
@@ -434,7 +474,13 @@ export default function PerfilScreen() {
                                   : op.id === "reiniciar"
                                     ? () =>
                                         confirmarReinicio(esPastor, misIglesias)
-                                    : undefined
+                                    : op.id === "eliminar"
+                                      ? () =>
+                                          confirmarEliminar(
+                                            esPastor,
+                                            misIglesias,
+                                          )
+                                      : undefined
                     }
                     style={({ pressed }) => [
                       styles.opcion,

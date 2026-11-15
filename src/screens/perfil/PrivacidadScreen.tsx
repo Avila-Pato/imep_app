@@ -6,106 +6,144 @@ import PaginaInfo, {
   Punto,
 } from "./PaginaInfo";
 
-// Politica de privacidad: que datos usa la app, donde se guardan y con
-// quien se conecta. Refleja la version actual (todo en el telefono)
+// Politica de privacidad: que datos usa la app, donde se guardan, con quien
+// se conecta y como borrarlos. Tambien es la pagina publica de Google Play
+// (congrega.expo.app/privacidad): tiene que decir lo que la app hace HOY
 export default function PrivacidadScreen() {
   return (
     <PaginaInfo
       titulo="Privacidad"
       etiqueta="POLÍTICA DE PRIVACIDAD · NOVIEMBRE 2026"
-      bajada="Tu fe y tu información son personales. Aquí te contamos, con palabras simples, qué datos usa la app, dónde se guardan y cómo puedes borrarlos."
+      bajada="Tu fe y tu información son personales. Aquí te contamos, con palabras simples, qué datos usa Congrega, dónde se guardan, quién los ve y cómo puedes borrarlos."
     >
       <Apartado titulo="En resumen">
         <Punto>
-          En esta versión, todo lo que haces en la app se guarda{" "}
-          <Text style={estilosInfo.negrita}>solo en tu teléfono</Text>.
+          Lo que compartes con tu iglesia se guarda en nuestro servidor para que
+          les llegue a los demás.{" "}
+          <Text style={estilosInfo.negrita}>
+            Solo lo ven los miembros de tu iglesia.
+          </Text>
         </Punto>
+        <Punto>Lo devocional y personal se guarda solo en tu teléfono.</Punto>
         <Punto>No vendemos ni compartimos tus datos con terceros.</Punto>
         <Punto>No usamos publicidad ni rastreadores.</Punto>
-        <Punto>Puedes borrar toda tu información cuando quieras.</Punto>
+        <Punto>
+          Puedes eliminar tu cuenta y tus datos cuando quieras, desde la app.
+        </Punto>
       </Apartado>
 
-      <Apartado titulo="Qué información guarda la app">
+      <Apartado titulo="Qué guardamos en el servidor">
+        <Parrafo>
+          Para que tu iglesia funcione en todos los teléfonos, guardamos:
+        </Parrafo>
+        <Punto titulo="Tu cuenta:">
+          un identificador anónimo y, si la guardas con Google, tu correo y tu
+          nombre de Google.
+        </Punto>
         <Punto titulo="Tu perfil:">
-          nombre, avatar o foto, imagen de portada, colores y tipo de letra.
+          el nombre que eliges y tu foto o avatar.
         </Punto>
         <Punto titulo="Tu iglesia:">
-          la iglesia y las salas a las que te uniste, y tu rol o cargo.
+          la iglesia y la sala a las que te uniste, y tu rol o cargo.
         </Punto>
-        <Punto titulo="Tu vida devocional:">
-          versículos guardados, «me gusta», resaltados, oraciones y estudios.
+        <Punto titulo="Lo que publicas:">
+          mensajes y notas de voz de las salas y los chats privados, peticiones
+          de oración, reacciones y respuestas a los encuentros.
         </Punto>
-        <Punto titulo="Tu comunidad:">
-          mensajes de las salas, peticiones de oración y tu Palabra de la
-          semana.
+        <Punto titulo="Organización (pastor y líderes):">
+          anuncios, cronograma y turnos, salas, predicaciones, códigos de
+          invitación y la ubicación y horarios de la iglesia.
         </Punto>
-        <Punto titulo="Organización:">
-          turnos del cronograma, anuncios y predicaciones que se publican.
+        <Punto titulo="Avisos:">
+          un código de tu teléfono para enviarte notificaciones y cuáles quieres
+          recibir.
         </Punto>
       </Apartado>
 
-      <Apartado titulo="Dónde se guarda">
+      <Apartado titulo="Qué queda solo en tu teléfono">
         <Parrafo>
-          Todo se almacena de forma local en tu dispositivo. No tenemos
-          servidores propios que reciban tu información. Si desinstalas la app,
-          estos datos se eliminan junto con ella.
+          Tus versículos guardados, «me gusta» y resaltados, tus estudios y
+          notas, tus preferencias de lectura (versión, letra, tamaño) y los
+          capítulos de la Biblia que ya leíste. Si desinstalas la app, se borran
+          con ella.
         </Parrafo>
       </Apartado>
 
-      <Apartado titulo="Servicios externos">
+      <Apartado titulo="Quién ve tu información">
         <Parrafo>
-          Para algunas funciones la app se conecta a servicios públicos. Solo se
-          envía lo necesario para que funcionen, nunca tu nombre ni tus
-          mensajes:
+          Solo los miembros de tu iglesia, que entran con un código de
+          invitación. Lo que escribes en una sala lo ven los de esa sala. Las
+          peticiones de oración las revisa el líder antes de mostrarse en el
+          muro. Los chats privados son solo entre tú y la otra persona. El
+          pastor ve la lista de miembros de su iglesia.
         </Parrafo>
+      </Apartado>
+
+      <Apartado titulo="Servicios que usamos">
+        <Parrafo>
+          Solo se envía lo necesario para que cada función trabaje:
+        </Parrafo>
+        <Punto titulo="Supabase:">
+          nuestro servidor y base de datos (guarda lo de tu iglesia, con
+          conexión cifrada).
+        </Punto>
+        <Punto titulo="Google:">
+          para iniciar sesión con tu cuenta de Google (si lo eliges), el mapa de
+          tu iglesia y la búsqueda de direcciones al registrarla.
+        </Punto>
+        <Punto titulo="Expo:">
+          para entregar las notificaciones a tu teléfono.
+        </Punto>
         <Punto titulo="Bolls.life:">
           entrega el texto de la Biblia (se envía el libro y capítulo que lees).
         </Punto>
-        <Punto titulo="Esri (ArcGIS):">
-          dibuja el mapa de tu iglesia (se envía la zona del mapa).
-        </Punto>
-        <Punto titulo="OpenStreetMap (Nominatim):">
-          ubica la dirección cuando el pastor registra la iglesia.
+        <Punto titulo="OpenStreetMap y Esri:">
+          mapa y direcciones en la versión web.
         </Punto>
         <Punto titulo="DiceBear:">
-          dibuja los avatares ilustrados (se envía solo el estilo y el nombre
-          del dibujo, no el tuyo).
-        </Punto>
-        <Punto titulo="Google Maps o Apple Maps:">
-          se abren solo si tocas «Cómo llegar».
+          dibuja los avatares ilustrados (no se envía tu nombre).
         </Punto>
       </Apartado>
 
       <Apartado titulo="Permisos del teléfono">
         <Punto titulo="Fotos:">
-          para elegir tu foto de perfil, la portada o la imagen de un anuncio.
+          para tu foto de perfil, la portada o la imagen de un anuncio o sala.
           Solo se usa la imagen que eliges.
         </Punto>
+        <Punto titulo="Micrófono:">
+          solo mientras grabas una nota de voz en el chat.
+        </Punto>
+        <Punto titulo="Ubicación:">
+          solo si el pastor toca «Usar mi ubicación actual» al registrar la
+          iglesia. Se guarda la ubicación de la iglesia, no la tuya ni tu
+          recorrido.
+        </Punto>
         <Punto titulo="Notificaciones:">
-          para recordarte cultos, tus turnos, anuncios y tu Palabra de la
-          semana. Puedes ajustarlas en Perfil › Notificaciones.
+          cultos, turnos, anuncios y avisos de tu sala. Ajústalas en Perfil ›
+          Notificaciones.
         </Punto>
         <Parrafo>
-          Puedes quitar estos permisos en cualquier momento desde los ajustes de
-          tu teléfono.
+          Puedes quitar estos permisos cuando quieras desde los ajustes de tu
+          teléfono.
         </Parrafo>
       </Apartado>
 
-      <Apartado titulo="Lo que ve tu iglesia">
+      <Apartado titulo="Cómo eliminar tu cuenta y tus datos">
         <Parrafo>
-          Lo que publicas en una sala (mensajes, peticiones de oración, tu
-          Palabra de la semana) está pensado para los miembros de esa sala. Las
-          peticiones de oración las revisa el líder antes de mostrarse en el
-          muro. Los chats privados son solo entre tú y la otra persona.
+          Entra a{" "}
+          <Text style={estilosInfo.negrita}>Perfil › Eliminar mi cuenta</Text>.
+          Se borran tu cuenta, tu perfil, tus mensajes, notas de voz, peticiones
+          y fotos. Si eres pastor, también tu iglesia con todo lo de ella. Se
+          hace al momento y no se puede deshacer.
         </Parrafo>
-      </Apartado>
-
-      <Apartado titulo="Tus derechos y cómo borrar tus datos">
         <Parrafo>
-          Puedes ver y editar tu información desde tu Perfil. Para borrar todo
-          lo guardado en este teléfono, entra a{" "}
-          <Text style={estilosInfo.negrita}>Perfil › Reiniciar app</Text>. Esta
-          acción no se puede deshacer.
+          Si ya no tienes la app, sigue los pasos en
+          congrega.expo.app/eliminar-cuenta.
+        </Parrafo>
+        <Parrafo>
+          <Text style={estilosInfo.negrita}>Perfil › Reiniciar app</Text> solo
+          te saca de tu iglesia y borra lo de este teléfono, sin eliminar tu
+          cuenta.
         </Parrafo>
       </Apartado>
 
@@ -118,16 +156,16 @@ export default function PrivacidadScreen() {
 
       <Apartado titulo="Cambios a esta política">
         <Parrafo>
-          Cuando la app sume funciones nuevas (por ejemplo, cuentas en línea o
-          avisos entre teléfonos), actualizaremos esta página y te avisaremos
-          dentro de la app.
+          Si la app cambia lo que hace con tu información, actualizaremos esta
+          página y te avisaremos dentro de la app.
         </Parrafo>
       </Apartado>
 
       <Apartado titulo="Contacto">
         <Parrafo>
-          Si tienes dudas sobre tu información, habla con el pastor o el
-          administrador de tu iglesia.
+          Si tienes dudas sobre tu información, habla con el pastor de tu
+          iglesia o escríbenos al correo de contacto que aparece en la ficha de
+          Congrega en Google Play.
         </Parrafo>
       </Apartado>
     </PaginaInfo>

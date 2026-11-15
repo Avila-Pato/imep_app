@@ -58,3 +58,14 @@ export async function salirGoogleNativo() {
     await import("@react-native-google-signin/google-signin");
   await GoogleSignin.signOut().catch(() => null);
 }
+
+// Al eliminar la cuenta: ademas de salir, le quita a Congrega el permiso en
+// la cuenta de Google (desaparece de "Apps conectadas" de esa persona). La
+// cuenta de Google NO se toca
+export async function revocarGoogleNativo() {
+  if (!hayModulo()) return;
+  const { GoogleSignin } =
+    await import("@react-native-google-signin/google-signin");
+  await GoogleSignin.revokeAccess().catch(() => null);
+  await GoogleSignin.signOut().catch(() => null);
+}

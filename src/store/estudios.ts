@@ -25,7 +25,10 @@ import { Rol, RolId, Turno } from "@/types/typesCronogramas";
 import { Iglesia } from "@/types/typesHome";
 import { Predicacion } from "@/types/typesOraciones";
 import { subirPerfil } from "@/services/perfil";
-import { borrarDelServidor } from "@/services/reinicio";
+import {
+  borrarDelServidor,
+  eliminarCuentaDelServidor,
+} from "@/services/reinicio";
 import { registrarDispositivo } from "@/services/push";
 import { horaTurno, usarHorarios } from "@/utils/cultos";
 import {
@@ -67,6 +70,7 @@ import {
   subirMensaje,
   subirPrivado,
 } from "@/services/chat";
+import { pedirResena } from "@/services/resena";
 import {
   bajarSalas,
   borrarSalaRemota,
@@ -126,6 +130,7 @@ type Estado = {
   portada?: string; // imagen de fondo arriba del perfil (galeria)
   fuenteBiblia?: FuenteBiblia; // letra para leer la Biblia
   codigoVisto?: boolean; // pastor: ya le mostramos donde esta su codigo
+  resena?: Resena; // cuando pedirle estrellas en la tienda
   motivos?: string[]; // que la trae a la app (onboarding)
   rol?: RolIglesia; // quien es en la iglesia (el pastor administra)
   cargos: Record<string, CargoId[]>; // nombre -> roles que le dio el pastor
@@ -284,6 +289,7 @@ const useStore = create<Estado>()(
         portada: estado.portada ?? previo.portada,
         fuenteBiblia: estado.fuenteBiblia ?? previo.fuenteBiblia,
         codigoVisto: estado.codigoVisto ?? previo.codigoVisto,
+        resena: estado.resena ?? previo.resena,
         motivos: estado.motivos ?? previo.motivos,
         rol: estado.rol ?? previo.rol,
         cargos: { ...(previo.cargos ?? {}), ...estado.cargos },
@@ -358,6 +364,12 @@ export function reiniciarApp() {
 // telefono, para no dejar datos a medias) y luego deja la app como nueva
 export async function reiniciarTodo() {
   await borrarDelServidor();
+  reiniciarApp();
+}
+
+// Elimina la cuenta y sus datos (servidor y telefono). Lo exige Google Play
+export async function eliminarCuenta() {
+  await eliminarCuentaDelServidor();
   reiniciarApp();
 }
 
@@ -474,6 +486,42 @@ export const FUENTES_BIBLIA: Record<
     fuerte: "Merriweather_700Bold",
   },
 };
+// ───────────── Reseña en la tienda ─────────────
+// Se le piden estrellas solo despues de un buen momento (termino el juego de
+// memorizar, dijo "Voy", oro por alguien, guardo un versiculo), cuando ya
+// lleva unos dias usando la app y nunca seguido
+type Resena = {
+  desde: string; // ISO: primer buen momento (cuenta los dias de uso)
+  momentos: number; // buenos momentos desde la ultima vez
+  pedida?: string; // ISO: la ultima vez que se pidio
+  veces: number; // cuantas veces se pidio (en total)
+};
+const DIA_MS = 24 * 60 * 60 * 1000;
+const RESENA = { dias: 3, momentos: 3, cadaDias: 60, maximo: 3 };
+
+export function buenMomento() {
+  const ahora = new Date();
+  const r: Resena = useStore.getState().resena ?? {
+    desde: ahora.toISOString(),
+    momentos: 0,
+    veces: 0,
+  };
+  const momentos = r.momentos + 1;
+  const toca =
+    r.veces < RESENA.maximo &&
+    momentos >= RESENA.momentos &&
+    ahora.getTime() - Date.parse(r.desde) >= RESENA.dias * DIA_MS &&
+    (!r.pedida ||
+      ahora.getTime() - Date.parse(r.pedida) >= RESENA.cadaDias * DIA_MS);
+  cambiar({
+    resena: toca
+      ? { ...r, momentos: 0, pedida: ahora.toISOString(), veces: r.veces + 1 }
+      : { ...r, momentos },
+  });
+  // un momento despues: que primero vea lo que hizo (el ✓, la celebracion)
+  if (toca) setTimeout(() => pedirResena(), 1500);
+}
+
 // El pastor ya vio donde esta su codigo de invitacion (se muestra una vez)
 export function marcarCodigoVisto() {
   cambiar({ codigoVisto: true });
@@ -1559,6 +1607,7 @@ export function borrarPeticion(id: string) {
 // "Estoy orando": se marca al instante y el servidor devuelve cuantos son
 export function alternarOrando(id: string) {
   const ahora = !useStore.getState().orando.includes(id);
+  if (ahora) buenMomento();
   cambiar((s) => ({
     orando: ahora ? [...s.orando, id] : s.orando.filter((x) => x !== id),
   }));
@@ -1668,6 +1717,8 @@ export function responder(mensajeId: string, valor: ValorRespuesta) {
   const nueva = m.miRespuesta === valor && valor !== "aprendido" ? null : valor;
   if (nueva === m.miRespuesta) return;
   const otras = (m.respuestas ?? []).filter((r) => r.nombre !== yo);
+  // va a un encuentro o aprendio un versiculo: buen momento
+  if (nueva === "voy" || nueva === "aprendido") buenMomento();
   cambiar((x) => ({
     mensajes: x.mensajes.map((y) =>
       y.id === mensajeId
@@ -2319,6 +2370,7 @@ export function borrarVersiculo(id: string) {
 }
 
 export function guardarVersiculo(v: VersiculoGuardado) {
+  buenMomento();
   cambiar((s) => ({
     versiculos: [v, ...s.versiculos.filter((x) => x.id !== v.id)],
   }));

@@ -6,3 +6,5 @@ export async function googleNativo(): Promise<RespuestaNativa> {
 }
 
 export async function salirGoogleNativo() {}
+
+export async function revocarGoogleNativo() {}

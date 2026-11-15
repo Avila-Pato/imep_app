@@ -1,4 +1,4 @@
-import { salirGoogleNativo } from "./googleNativo";
+import { revocarGoogleNativo, salirGoogleNativo } from "./googleNativo";
 import { supabase } from "@/lib/supabase";
 
 // "Reiniciar la app" tambien borra lo del servidor (si no, al abrir la app
@@ -8,6 +8,22 @@ import { supabase } from "@/lib/supabase";
 //   e invitaciones
 // - hermano: sale de las iglesias a las que se unio (no borra nada de ellas)
 // En ambos casos: quita este telefono de los avisos push y cierra la sesion
+// "Eliminar mi cuenta": la Edge Function borra sus archivos, sus iglesias
+// (si es pastor) y la cuenta (todo lo demas cae en cascada). Despues cierra
+// la sesion en este telefono. Sin cuenta en el servidor no hay nada que borrar
+export async function eliminarCuentaDelServidor() {
+  if (!supabase) return;
+  const { data } = await supabase.auth.getSession();
+  if (!data.session) return;
+  const { error } = await supabase.functions.invoke("borrar-cuenta", {
+    body: {},
+  });
+  if (error) throw error;
+  // la cuenta ya no existe: cerrar sesion puede fallar, no importa
+  await supabase.auth.signOut({ scope: "local" }).catch(() => {});
+  await revocarGoogleNativo();
+}
+
 export async function borrarDelServidor() {
   if (!supabase) return;
   const { data } = await supabase.auth.getSession();

@@ -262,6 +262,12 @@ export const MENU_PERFIL: { titulo: string; opciones: OpcionMenu[] }[] = [
       { id: "privacidad", label: "Privacidad", icon: "lock" },
       { id: "ayuda", label: "Ayuda", icon: "question" },
       { id: "reiniciar", label: "Reiniciar app", icon: "sync", peligro: true },
+      {
+        id: "eliminar",
+        label: "Eliminar mi cuenta",
+        icon: "trash",
+        peligro: true,
+      },
     ],
   },
 ];

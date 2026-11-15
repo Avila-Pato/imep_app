@@ -38,7 +38,8 @@
             "DEFAULT"
           ]
         }
-      ]
+      ],
+      "playStoreUrl": "https://play.google.com/store/apps/details?id=com.avilapato.congrega"
     },
     "web": {
       "output": "static",
@@ -91,6 +92,12 @@
       "eas": {
         "projectId": "63d1fb33-6dd5-47fd-9054-999c2a3e38ff"
       }
+    },
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/63d1fb33-6dd5-47fd-9054-999c2a3e38ff"
     }
   }
 }
