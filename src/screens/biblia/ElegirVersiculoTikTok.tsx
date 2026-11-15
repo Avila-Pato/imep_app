@@ -1,3 +1,4 @@
+import { EsqueletoVersiculo } from "@/components/Esqueleto";
 import ConBordes from "@/components/ConBordes";
 import {
   BORDER,
@@ -16,7 +17,6 @@ import { useEstudios, useFuenteBiblia } from "@/store/estudios";
 import Octicons from "@expo/vector-icons/Octicons";
 import { useState } from "react";
 import {
-  ActivityIndicator,
   FlatList,
   Modal,
   Pressable,
@@ -98,7 +98,7 @@ export default function ElegirVersiculoTikTok({
             >
               {cargando && (
                 <View style={styles.centro}>
-                  <ActivityIndicator color={MUTED} />
+                  <EsqueletoVersiculo />
                 </View>
               )}
               {error && (

@@ -58,7 +58,8 @@ import ModalAsignar from "./ModalAsignar";
 import ModalHorarios from "./ModalHorarios";
 import ModalNuevaCasilla from "./ModalNuevaCasilla";
 
-const RESORTE = { damping: 22, stiffness: 220 };
+// al soltar la hoja (arrastrarla): llega sin pasarse ni rebotar
+const RESORTE = { damping: 22, stiffness: 220, overshootClamping: true };
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const toKey = (y: number, m: number, d: number) =>
@@ -633,12 +634,11 @@ export default function CronogramaView() {
                 <Pressable
                   onPress={() => {
                     // al editar, la hoja sube hasta arriba (mas espacio para
-                    // las casillas); al terminar ("Listo") vuelve abajo
+                    // las casillas); al terminar ("Listo") vuelve abajo.
+                    // Al instante: sin animacion (el rebote molestaba)
                     const nuevo = !editando;
                     setEditando(nuevo);
-                    top.set(
-                      withSpring(nuevo ? arriba.get() : abajo.get(), RESORTE),
-                    );
+                    top.set(nuevo ? arriba.get() : abajo.get());
                   }}
                   hitSlop={8}
                   style={[styles.editar, enEdicion && styles.editarActivo]}

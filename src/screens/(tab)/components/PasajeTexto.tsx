@@ -1,6 +1,7 @@
+import { EsqueletoTexto } from "@/components/Esqueleto";
 import { MUTED, SERIF, SPACING, TEXT } from "@/constants/constans";
 import { Verso } from "@/services/biblia";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 type Props = {
   cita: string;
@@ -15,7 +16,7 @@ const LARGO_CITA = 280;
 export default function PasajeTexto({ cita, versos, cargando, error }: Props) {
   const referencia = `${cita.trim().toUpperCase()} · RVR1960`;
 
-  if (cargando) return <ActivityIndicator color={MUTED} />;
+  if (cargando) return <EsqueletoTexto lineas={3} />;
   if (error) return <Text style={styles.error}>{error}</Text>;
   if (!versos?.length) return null;
 

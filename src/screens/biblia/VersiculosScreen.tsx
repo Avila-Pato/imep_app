@@ -1,3 +1,4 @@
+import { EsqueletoVersiculo } from "@/components/Esqueleto";
 import {
   BORDER,
   CAPITULOS_BIBLIA,
@@ -33,7 +34,6 @@ import Octicons from "@expo/vector-icons/Octicons";
 import { Href, router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   FlatList,
   GestureResponderEvent,
   Platform,
@@ -251,7 +251,7 @@ export default function VersiculosScreen() {
       >
         {cargandoLista && (
           <View style={styles.centro}>
-            <ActivityIndicator color={MUTED} />
+            <EsqueletoVersiculo />
           </View>
         )}
         {errorLista && (

@@ -7,6 +7,7 @@ export function confirmar(
   texto: string,
   boton: string,
   accion: () => void,
+  destructivo = true, // en rojo (borrar, quitar); false = una accion normal
 ) {
   if (Platform.OS === "web") {
     if (window.confirm(`${titulo}\n\n${texto}`)) accion();
@@ -14,6 +15,10 @@ export function confirmar(
   }
   Alert.alert(titulo, texto, [
     { text: "Cancelar", style: "cancel" },
-    { text: boton, style: "destructive", onPress: accion },
+    {
+      text: boton,
+      style: destructivo ? "destructive" : "default",
+      onPress: accion,
+    },
   ]);
 }

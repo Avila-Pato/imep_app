@@ -1,3 +1,4 @@
+import { EsqueletoCapitulo } from "@/components/Esqueleto";
 import {
   BORDER,
   CAPITULOS_BIBLIA,
@@ -33,7 +34,6 @@ import {
   useState,
 } from "react";
 import {
-  ActivityIndicator,
   BackHandler,
   Pressable,
   StyleSheet,
@@ -490,7 +490,7 @@ function Lectura({
 
           {cargando && (
             <View style={styles.estado}>
-              <ActivityIndicator color={MUTED} />
+              <EsqueletoCapitulo />
             </View>
           )}
           {error && <Text style={styles.vacio}>{error}</Text>}
@@ -678,7 +678,7 @@ const styles = StyleSheet.create({
 
   // Lectura
   estado: {
-    paddingVertical: SPACING * 3,
+    paddingVertical: SPACING * 2,
   },
   // Indice
   indiceSeccion: {

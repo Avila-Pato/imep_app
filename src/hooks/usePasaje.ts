@@ -1,4 +1,10 @@
-import { obtenerPasaje, parseCita, Verso } from "@/services/biblia";
+import {
+  obtenerPasaje,
+  parseCita,
+  pasajeEnMemoria,
+  pasajeGuardado,
+  Verso,
+} from "@/services/biblia";
 import { useVersion } from "@/store/estudios";
 import { useEffect, useState } from "react";
 
@@ -20,16 +26,25 @@ export function usePasaje(cita: string) {
     const r = parseCita(cita);
     if (!r) return;
 
+    // ya en memoria: se muestra directo (abajo), no hay nada que pedir
+    if (pasajeEnMemoria(r, version)) return;
+
     const ctrl = new AbortController();
-    // pequeña espera para no pedir en cada letra mientras se escribe
-    const espera = setTimeout(() => {
-      obtenerPasaje(r, ctrl.signal, version)
-        .then((versos) => setResultado({ clave, versos }))
-        .catch(() => {
-          if (!ctrl.signal.aborted)
-            setResultado({ clave, error: "No se pudo cargar el pasaje" });
-        });
-    }, 500);
+    // guardado en el telefono: al instante, sin esperar ni internet
+    let espera: ReturnType<typeof setTimeout> | undefined;
+    pasajeGuardado(r, version).then((guardado) => {
+      if (ctrl.signal.aborted) return;
+      if (guardado) return setResultado({ clave, versos: guardado });
+      // pequeña espera para no pedir en cada letra mientras se escribe
+      espera = setTimeout(() => {
+        obtenerPasaje(r, ctrl.signal, version)
+          .then((versos) => setResultado({ clave, versos }))
+          .catch(() => {
+            if (!ctrl.signal.aborted)
+              setResultado({ clave, error: "No se pudo cargar el pasaje" });
+          });
+      }, 500);
+    });
 
     return () => {
       // limpia el timeout
@@ -38,6 +53,16 @@ export function usePasaje(cita: string) {
     };
   }, [cita, version, clave]);
 
+  // ya leido en esta sesion: sin esperar nada
+  const enMemoria = ref ? pasajeEnMemoria(ref, version) : null;
+  if (enMemoria) {
+    return {
+      valida: true,
+      cargando: false,
+      versos: enMemoria,
+      error: undefined,
+    };
+  }
   // vigente si la cita (y la version) del resultado son las actuales
   const vigente = ref !== null && resultado.clave === clave;
   return {

@@ -21,6 +21,7 @@ import { RolId } from "@/types/typesCronogramas";
 import SelectorHora from "./SelectorHora";
 import Octicons from "@expo/vector-icons/Octicons";
 import { useState } from "react";
+import { confirmar } from "@/utils/confirmar";
 import {
   KeyboardAvoidingView,
   Modal,
@@ -81,10 +82,33 @@ export default function ModalAsignar({
     onElegir(persona);
     setBusqueda("");
   };
+  // antes de asignar o quitar, se pregunta (le llega una notificacion)
+  const nombreRol = rol ? roles.de(rol).label : "";
+  const cuando = `${fecha}${hora ? ` a las ${hora}` : ""}`;
+  const confirmarElegir = (persona: string | null) => {
+    if (persona === (actual ?? null)) return cerrar(); // ya estaba
+    if (persona === null) {
+      return confirmar(
+        `¿Quitar a ${actual}?`,
+        `Ya no tendrá ${nombreRol} el ${cuando}. Si tiene la app, le avisaremos.`,
+        "Quitar",
+        () => elegir(null),
+      );
+    }
+    confirmar(
+      `¿Asignar a ${persona}?`,
+      actual
+        ? `Tendrá ${nombreRol} el ${cuando}, en lugar de ${actual}. Si tienen la app, les avisaremos.`
+        : `Tendrá ${nombreRol} el ${cuando}. Si tiene la app, le llegará un aviso.`,
+      "Asignar",
+      () => elegir(persona),
+      false,
+    );
+  };
   const agregar = () => {
     if (!nuevo) return;
     agregarInvitado(texto); // queda guardado para la proxima vez
-    elegir(texto);
+    confirmarElegir(texto);
   };
   const cerrar = () => {
     onCerrar();
@@ -210,7 +234,7 @@ export default function ModalAsignar({
                       return (
                         <Pressable
                           key={p}
-                          onPress={() => elegir(p)}
+                          onPress={() => confirmarElegir(p)}
                           style={({ pressed }) => [
                             styles.fila,
                             pressed && styles.presionado,
@@ -254,7 +278,7 @@ export default function ModalAsignar({
 
                   {actual && (
                     <Pressable
-                      onPress={() => elegir(null)}
+                      onPress={() => confirmarElegir(null)}
                       style={({ pressed }) => [
                         styles.quitar,
                         pressed && styles.presionado,

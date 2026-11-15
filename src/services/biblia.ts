@@ -1,3 +1,5 @@
+import { Directory, File, Paths } from "expo-file-system";
+import { Platform } from "react-native";
 import {
   BIBLIA_API,
   BIBLIA_VERSION,
@@ -72,52 +74,130 @@ const limpiar = (texto: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
-// cache de pasajes
-const cache = new Map<string, Verso[]>();
+// Capitulos completos ya leidos: en memoria y guardados en el telefono
+// (biblia/<version>-<libro>-<capitulo>.json). Asi abren al instante y sin
+// internet desde la segunda vez. En la web solo en memoria
+const capitulos = new Map<string, Verso[]>();
+const EN_DISCO = Platform.OS !== "web";
+const archivoDe = (clave: string) =>
+  new File(Paths.document, "biblia", `${clave}.json`);
 
-//
+async function leerGuardado(clave: string): Promise<Verso[] | null> {
+  if (!EN_DISCO) return null;
+  try {
+    const archivo = archivoDe(clave);
+    if (!archivo.exists) return null;
+    const versos = JSON.parse(await archivo.text());
+    return Array.isArray(versos) && versos.length ? versos : null;
+  } catch {
+    return null; // archivo roto: se vuelve a pedir
+  }
+}
+
+function guardarCapitulo(clave: string, versos: Verso[]) {
+  if (!EN_DISCO) return;
+  try {
+    const carpeta = new Directory(Paths.document, "biblia");
+    if (!carpeta.exists)
+      carpeta.create({ intermediates: true, idempotent: true });
+    archivoDe(clave).write(JSON.stringify(versos));
+  } catch (e) {
+    // sin espacio u otro problema: igual se muestra (solo no queda guardado)
+    console.warn("[biblia] no se pudo guardar", clave, e);
+  }
+}
+
+// El capitulo completo: memoria -> telefono -> internet (y se guarda)
+async function obtenerCapitulo(
+  version: string,
+  libro: number,
+  capitulo: number,
+  signal?: AbortSignal,
+): Promise<Verso[]> {
+  const clave = `${version}-${libro}-${capitulo}`;
+  const enMemoria = capitulos.get(clave);
+  if (enMemoria) return enMemoria;
+
+  const guardado = await leerGuardado(clave);
+  if (guardado) {
+    capitulos.set(clave, guardado);
+    return guardado;
+  }
+
+  const res = await fetch(
+    `${BIBLIA_API}/get-text/${version}/${libro}/${capitulo}/`,
+    {
+      signal,
+    },
+  );
+  if (!res.ok) throw new Error(`Error ${res.status}`);
+  const versos: VersoApi[] = await res.json();
+  const resultado = versos.map((v) => ({
+    numero: v.verse,
+    texto: limpiar(v.text),
+  }));
+  if (resultado.length) {
+    capitulos.set(clave, resultado);
+    guardarCapitulo(clave, resultado);
+  }
+  return resultado;
+}
+
+// Solo los versos de la referencia (sin "desde" = el capitulo completo)
+const recortar = (versos: Verso[], ref: Referencia) =>
+  versos.filter(
+    (v) =>
+      ref.desde === undefined ||
+      (v.numero >= ref.desde && v.numero <= (ref.hasta ?? ref.desde)),
+  );
+
+// Ya esta en memoria: se muestra sin esperar (null si no)
+// los recortes ya hechos: la misma cita devuelve la misma lista (asi los
+// efectos que dependen de los versos no se repiten en cada render)
+const recortes = new Map<string, Verso[]>();
+
+export function pasajeEnMemoria(ref: Referencia, version = BIBLIA_VERSION) {
+  const clave = `${version}-${ref.libro}-${ref.capitulo}`;
+  const versos = capitulos.get(clave);
+  if (!versos) return null;
+  const claveRecorte = `${clave}-${ref.desde ?? ""}-${ref.hasta ?? ""}`;
+  let elegidos = recortes.get(claveRecorte);
+  if (!elegidos) {
+    elegidos = recortar(versos, ref);
+    recortes.set(claveRecorte, elegidos);
+  }
+  return elegidos.length ? elegidos : null;
+}
+
+// Guardado en el telefono (sin internet). null si no esta
+export async function pasajeGuardado(
+  ref: Referencia,
+  version = BIBLIA_VERSION,
+): Promise<Verso[] | null> {
+  const enMemoria = pasajeEnMemoria(ref, version);
+  if (enMemoria) return enMemoria;
+  const clave = `${version}-${ref.libro}-${ref.capitulo}`;
+  const guardado = await leerGuardado(clave);
+  if (!guardado) return null;
+  capitulos.set(clave, guardado);
+  const elegidos = recortar(guardado, ref);
+  return elegidos.length ? elegidos : null;
+}
+
 export async function obtenerPasaje(
   ref: Referencia, // referencia de la api ya tipada
   signal?: AbortSignal, // para cancelar la peticion
   version = BIBLIA_VERSION, // RV1960, NTV, LBLA
 ): Promise<Verso[]> {
-  // es una promise porque es asincrona osea espera a que se resuelva y despues devuelve el resultado
-  // construye la clave para buscar la referencia (cada version por separado)
-  const clave = `${version}-${ref.libro}-${ref.capitulo}-${ref.desde}-${ref.hasta}`;
-  // si lo encuentra lo devuelve
-  const guardado = cache.get(clave);
-  // busca el pasaje en el cache
-  if (guardado) return guardado;
-
-  // peticion a la API
-  const res = await fetch(
-    `${BIBLIA_API}/get-text/${version}/${ref.libro}/${ref.capitulo}/`,
-    { signal },
+  const versos = await obtenerCapitulo(
+    version,
+    ref.libro,
+    ref.capitulo,
+    signal,
   );
-
-  if (!res.ok) throw new Error(`Error ${res.status}`);
-
-  // guarda los versos en una respuesta JSON dentro de un array
-  const versos: VersoApi[] = await res.json();
-
-  // filtra los versos segun la referencia elegida
-  const elegidos = versos.filter(
-    (v) =>
-      ref.desde === undefined ||
-      (v.verse >= ref.desde && v.verse <= (ref.hasta ?? ref.desde)),
-  );
-  // si no encuentra nada lanza un error
+  const elegidos = recortar(versos, ref);
   if (elegidos.length === 0) throw new Error("Pasaje no encontrado");
-
-  //mapea los versos con su numero y su texto
-  const resultado = elegidos.map((v) => ({
-    numero: v.verse,
-    texto: limpiar(v.text),
-  }));
-  // guarda el resultado en el cache
-  cache.set(clave, resultado);
-  //devuelve el resultado
-  return resultado;
+  return elegidos;
 }
 
 const azar = (n: number) => Math.floor(Math.random() * n);
