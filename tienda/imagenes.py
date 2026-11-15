@@ -185,7 +185,17 @@ def captura_con_marco(origen: Path):
     print("listo:", salida)
 
 
+def icono_tienda():
+    """Icono de la ficha (512x512, PNG, sin esquinas redondeadas: Google
+    las redondea solo). Sale del mismo icono de la app"""
+    im = Image.open(RAIZ / "assets" / "images" / "icon.png").convert("RGB")
+    salida = TIENDA / "icono-512.png"
+    im.resize((512, 512), Image.LANCZOS).save(salida, optimize=True)
+    print("listo:", salida, f"({salida.stat().st_size // 1024} KB)")
+
+
 if __name__ == "__main__":
+    icono_tienda()
     grafico_destacado()
     ORIGINALES.mkdir(parents=True, exist_ok=True)
     caps = sorted(ORIGINALES.glob("*.png")) + sorted(ORIGINALES.glob("*.jpg"))

@@ -29,6 +29,7 @@ import {
   useCargado,
   useEstudios,
 } from "@/store/estudios";
+import AvisoActualizar from "@/components/AvisoActualizar";
 import { useFonts } from "expo-font";
 import {
   DarkTheme,
@@ -181,6 +182,8 @@ export default function RootLayout() {
           {/* vuelta del login con Google */}
           <Stack.Screen name="auth" />
         </Stack>
+        {/* version vieja: "Hay una version nueva" (u obligatoria) */}
+        <AvisoActualizar />
       </ThemeProvider>
     </GestureHandlerRootView>
   );

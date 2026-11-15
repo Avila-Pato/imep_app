@@ -89,18 +89,19 @@ Congrega es gratis. Descárgala, crea tu iglesia o únete con el código de tu p
 | Gráfico destacado | 1024 × 500 | Logo + "La app de tu iglesia" + 2–3 pantallas |
 | Capturas de teléfono | 1080 × 1920 (9:16), entre 4 y 8 | Ver orden abajo |
 
-### Orden de las capturas (con su frase arriba)
+### Las 8 capturas (listas en `tienda/capturas/listas/`)
 
-1. Anuncios — "Todo lo de tu iglesia en un solo lugar"
-2. Cronograma — "Organiza los turnos de servicio"
-3. Sala con encuentro "Voy / No puedo" — "Una sala para cada grupo"
-4. Muro de oración — "Oren unos por otros"
-5. Biblia con versículo resaltado — "La Biblia en tu bolsillo"
-6. "Para ti" — "Un versículo nuevo cada vez"
-7. Juego de memorizar — "Aprende versículos jugando"
-8. Panel del pastor con código/QR — "Invita a tu iglesia con un código"
+Hechas con `tienda/componer.py`: varias pantallas por imagen, con su frase.
+Súbelas en este orden (las 3 primeras son las que más se ven):
 
-Las primeras 3 son las que más se ven en los resultados de búsqueda: van las más fuertes.
+1. `01-anuncios` — Todo lo de tu iglesia
+2. `02-colores` — La app a tu preferencia (modo claro al centro, azul y verde a los lados)
+3. `03-turnos` — Horarios y turnos (cronograma + panel del pastor)
+4. `04-salas` — Una sala para cada grupo (tipos de sala + lista de salas)
+5. `05-encuentros` — Decidan juntos y oren («Voy / No puedo» + muro de oración)
+6. `06-biblia` — La Biblia en tu bolsillo (capítulo resaltado + «Para ti»)
+7. `07-memorizar` — Aprende versículos jugando (juego + 3 estrellas)
+8. `08-perfil` — Tu perfil, a tu manera (foto, portada y avatares)
 
 ## Seguridad de los datos (Play Console › Contenido de la app)
 

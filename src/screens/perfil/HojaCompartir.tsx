@@ -10,72 +10,108 @@ import {
   SURFACE,
   TEXT,
 } from "@/constants/constans";
-import { enlaceDeCodigo } from "@/utils/invitacion";
 import Octicons from "@expo/vector-icons/Octicons";
-import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { useRef, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
+  PixelRatio,
   Platform,
   Pressable,
+  ScrollView,
   Share,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import QRCode from "react-native-qrcode-svg";
-
-type QrRef = { toDataURL: (cb: (base64: string) => void) => void };
+import { captureRef } from "react-native-view-shot";
+import { capturarWeb, compartirImagenWeb } from "@/utils/compartirImagen";
+import TarjetaInvitacion from "./TarjetaInvitacion";
 
 // Al tocar "Compartir" una invitacion: elegir como mandarla
-//  - el codigo (mensaje con el enlace y las 4 letras)
-//  - la imagen del codigo QR (para imprimir o mostrar en el culto)
+//  - el codigo (mensaje con el enlace, las 4 letras y donde escribirlas)
+//  - la tarjeta de invitacion como imagen: el QR, el codigo y un dibujo de
+//    donde se escribe (para WhatsApp, imprimir o mostrar en el culto)
 export default function HojaCompartir({
   codigo,
   mensaje,
   titulo,
+  iglesia,
+  sala,
   onCerrar,
 }: {
   codigo: string;
   mensaje: string; // texto con el enlace y el codigo
   titulo: string; // "Imep" o "Imep · sala Jóvenes"
+  iglesia: string; // su nombre (va en la tarjeta)
+  sala?: string; // invitacion a una sala
   onCerrar: () => void;
 }) {
-  const qr = useRef<QrRef | null>(null);
+  const tarjeta = useRef<View>(null);
   const [preparando, setPreparando] = useState(false);
   const [error, setError] = useState(false);
-  // la imagen del QR solo en el telefono (en la web no hay archivo que mandar)
-  const conImagen = Platform.OS !== "web";
+  const enWeb = Platform.OS === "web";
+  // en la web del computador la tarjeta se descarga (no hay menu de compartir)
+  const [descargada, setDescargada] = useState(false);
 
   const enviarCodigo = () => {
     onCerrar();
     Share.share({ message: mensaje }).catch(() => {});
   };
 
-  const enviarQr = () => {
-    if (!qr.current) return;
+  // la tarjeta de la vista previa se "fotografia" en alta calidad (1080 px)
+  const enviarTarjeta = async () => {
+    if (!tarjeta.current) return;
     setError(false);
     setPreparando(true);
-    qr.current.toDataURL(async (base64) => {
-      try {
-        const archivo = new File(Paths.cache, `invitacion-${codigo}.png`);
-        if (archivo.exists) archivo.delete();
-        archivo.create();
-        archivo.write(base64, { encoding: "base64" });
-        await Sharing.shareAsync(archivo.uri, {
-          mimeType: "image/png",
-          dialogTitle: `Invitación a ${titulo}`,
-        });
-        onCerrar();
-      } catch (e) {
-        console.warn("[compartir qr]", (e as Error)?.message ?? e);
-        setError(true);
-      } finally {
-        setPreparando(false);
+    try {
+      if (enWeb) {
+        // web: la imagen y el texto juntos en el telefono; descarga en el PC
+        const dataUrl = await capturarWeb(tarjeta.current);
+        const r = await compartirImagenWeb(
+          dataUrl,
+          `invitacion-${codigo}.png`,
+          mensaje,
+        );
+        if (r === "compartido") onCerrar();
+        if (r === "descargado") setDescargada(true);
+        return;
       }
-    });
+      const uri = await captureRef(tarjeta, {
+        format: "png",
+        quality: 1,
+        result: "tmpfile",
+        width: 1080 / PixelRatio.get(),
+      });
+      // la imagen con el mensaje (enlace + codigo) como texto: en WhatsApp
+      // llega en un solo mensaje. Sin el modulo (Expo Go): solo la imagen
+      let Compartir: typeof import("react-native-share").default | null = null;
+      try {
+        Compartir = (await import("react-native-share")).default;
+      } catch {}
+      if (Compartir) {
+        const r = await Compartir.open({
+          url: uri.startsWith("file://") ? uri : `file://${uri}`,
+          type: "image/png",
+          message: mensaje,
+          title: `Invitación a ${titulo}`,
+          failOnCancel: false,
+        });
+        if (!r.dismissedAction) onCerrar();
+        return;
+      }
+      await Sharing.shareAsync(uri, {
+        mimeType: "image/png",
+        dialogTitle: `Invitación a ${titulo}`,
+      });
+      onCerrar();
+    } catch (e) {
+      console.warn("[compartir tarjeta]", (e as Error)?.message ?? e);
+      setError(true);
+    } finally {
+      setPreparando(false);
+    }
   };
 
   return (
@@ -98,35 +134,41 @@ export default function HojaCompartir({
               <Text style={styles.titulo}>Compartir invitación</Text>
               <Text style={styles.sub}>{titulo}</Text>
 
-              {/* el QR (tambien es lo que se manda como imagen) */}
-              <View style={styles.qrCaja}>
-                <QRCode
-                  value={enlaceDeCodigo(codigo)}
-                  size={150}
-                  color="#121212"
-                  backgroundColor="#FFFFFF"
-                  quietZone={12}
-                  getRef={(r) => {
-                    qr.current = r as unknown as QrRef;
-                  }}
+              {/* la tarjeta (es la imagen que se manda) */}
+              <ScrollView
+                style={styles.previa}
+                contentContainerStyle={styles.previaContenido}
+                showsVerticalScrollIndicator={false}
+              >
+                <TarjetaInvitacion
+                  ref={tarjeta}
+                  codigo={codigo}
+                  iglesia={iglesia}
+                  sala={sala}
                 />
-                <Text style={styles.codigo}>{codigo}</Text>
-              </View>
+              </ScrollView>
 
               <Opcion
                 icono="link"
                 titulo="Enviar el código"
-                texto="Un mensaje con el enlace y las 4 letras (WhatsApp, SMS…)"
+                texto="Un mensaje con el enlace, las 4 letras y dónde escribirlas"
                 onPress={enviarCodigo}
               />
-              {conImagen && (
-                <Opcion
-                  icono="image"
-                  titulo="Enviar el código QR"
-                  texto="Como imagen: para imprimir o mostrar en el culto"
-                  onPress={enviarQr}
-                  cargando={preparando}
-                />
+              <Opcion
+                icono="image"
+                titulo="Enviar la tarjeta de invitación"
+                texto={
+                  enWeb
+                    ? "Esta imagen junto al mensaje con el código"
+                    : "Esta imagen junto al mensaje con el código"
+                }
+                onPress={enviarTarjeta}
+                cargando={preparando}
+              />
+              {descargada && (
+                <Text style={styles.aviso}>
+                  Imagen descargada. Adjúntala en WhatsApp junto al código.
+                </Text>
               )}
               {error && (
                 <Text style={styles.error}>
@@ -216,20 +258,13 @@ const styles = StyleSheet.create({
     color: MUTED,
     marginTop: -6,
   },
-  qrCaja: {
-    alignSelf: "center",
-    alignItems: "center",
-    gap: 6,
-    padding: SPACING,
-    borderRadius: 18,
-    backgroundColor: "#FFFFFF",
+  // la vista previa no tapa las opciones en telefonos chicos
+  previa: {
+    maxHeight: 420,
     marginVertical: SPACING / 2,
   },
-  codigo: {
-    fontFamily: FUENTE.semibold,
-    fontSize: 18,
-    letterSpacing: 4,
-    color: "#121212",
+  previaContenido: {
+    alignItems: "center",
   },
   opcion: {
     flexDirection: "row",
@@ -264,6 +299,12 @@ const styles = StyleSheet.create({
   error: {
     fontSize: 12,
     color: PRIMARY,
+    textAlign: "center",
+  },
+  aviso: {
+    fontFamily: FUENTE.medium,
+    fontSize: 12,
+    color: MUTED,
     textAlign: "center",
   },
 });

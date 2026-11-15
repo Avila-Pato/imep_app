@@ -209,9 +209,9 @@ export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
   const compartir = (codigo: string, sala?: string) =>
     setCompartiendo({ codigo, sala });
   const mensajeDe = (codigo: string, sala?: string) =>
-    `Únete a ${iglesia?.sede ?? "nuestra iglesia"}${sala ? ` (sala ${sala})` : ""} en la app:\n` +
-    `${enlaceDeCodigo(codigo)}\n\n` +
-    `Tu código de invitación es: ${codigoVisible(codigo)}`;
+    `Únete a ${iglesia?.sede ?? "nuestra iglesia"}${sala ? ` (sala ${sala})` : ""} en la app Congrega 🙌\n\n` +
+    `1. Descárgala o ábrela aquí: ${enlaceDeCodigo(codigo)}\n` +
+    `2. En «Únete a tu iglesia» escribe tu código: ${codigoVisible(codigo)}`;
 
   return (
     <View style={styles.panel}>
@@ -220,6 +220,8 @@ export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
           codigo={compartiendo.codigo}
           mensaje={mensajeDe(compartiendo.codigo, compartiendo.sala)}
           titulo={`${iglesia?.sede ?? "Tu iglesia"}${compartiendo.sala ? ` · sala ${compartiendo.sala}` : ""}`}
+          iglesia={iglesia?.sede ?? "nuestra iglesia"}
+          sala={compartiendo.sala}
           onCerrar={() => setCompartiendo(null)}
         />
       )}

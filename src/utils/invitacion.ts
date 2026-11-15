@@ -65,7 +65,9 @@ export const SITIO = "https://congrega.expo.app";
 const EN_EXPO_GO =
   Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 export const enlaceDeCodigo = (codigo: string) => {
-  const enlace = `${SITIO}/unirse?codigo=${codigo}`;
+  // con "/" al final: sin ella el servidor responde 404 (igual carga en el
+  // navegador, pero WhatsApp no arma la vista previa con la imagen)
+  const enlace = `${SITIO}/unirse/?codigo=${codigo}`;
   if (!EN_EXPO_GO) return enlace;
   const dev = Linking.createURL("unirse", { queryParams: { codigo } });
   return `${enlace}&dev=${encodeURIComponent(dev)}`;

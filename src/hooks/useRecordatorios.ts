@@ -81,9 +81,11 @@ export function useRecordatorios() {
     }
   }
 
-  // Mis turnos: el dia anterior a las 19:00 y el mismo dia 2 horas antes
+  // Mis turnos: el dia anterior a las 19:00 y el mismo dia 2 horas antes.
+  // Con push, los manda el servidor (recordar-turnos y recordar-pronto):
+  // llegan aunque no haya abierto la app y no se repiten
   const misTurnos = unirTurnos(turnosEditados).filter((t) => t.persona === yo);
-  if (quiere("turnos")) {
+  if (quiere("turnos") && !PUSH_ACTIVO) {
     for (const t of misTurnos) {
       const hora = horaTurno(t) ?? "19:00";
       const rol = roles.de(t.rol).label;
@@ -384,9 +386,11 @@ export function useRecordatorios() {
     }
   }
 
-  // Anuncios: 2 horas antes si tiene hora; si no, a las 9:00 de ese dia
+  // Anuncios: 2 horas antes si tiene hora; si no, a las 9:00 de ese dia.
+  // Con push, el de 2 horas antes lo manda el servidor (recordar-pronto)
   if (quiere("anuncios")) {
     for (const a of anuncios) {
+      if (a.hora && PUSH_ACTIVO) continue;
       const fecha = a.hora ? deKey(a.fecha, a.hora) : deKey(a.fecha, "09:00");
       if (a.hora) fecha.setHours(fecha.getHours() - 2);
       lista.push({

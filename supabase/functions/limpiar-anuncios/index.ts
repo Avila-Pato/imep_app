@@ -3,7 +3,9 @@
 // dia siguiente; esto ademas los saca del servidor.
 // Tambien limpia las peticiones de oracion: las aprobadas al pasar sus 24 h
 // en el muro, las rechazadas al dia siguiente y las que nadie reviso en 7 dias.
-// Y las notas de voz de los chats de mas de 3 meses (el texto se queda)
+// Y las notas de voz de los chats de mas de 3 meses (el texto se queda).
+// Tambien los turnos del cronograma de dias que ya pasaron, y la lista de
+// avisos "2 horas antes" ya enviados (de mas de 3 dias)
 // La llama solo el cron, con el secreto CRON_SECRET en Authorization
 import { admin, json } from "../_shared/push.ts";
 
@@ -112,8 +114,24 @@ Deno.serve(async (req) => {
     if (e4) return json({ error: e4.message }, 500);
   }
 
+  // Turnos de dias que ya pasaron (el cronograma muestra de hoy en adelante)
+  const { data: turnosViejos, error: e5 } = await db
+    .from("turnos")
+    .delete()
+    .lt("fecha", hoy)
+    .select("fecha");
+  if (e5) return json({ error: e5.message }, 500);
+
+  // Avisos "2 horas antes" ya enviados: solo sirven para no repetirlos
+  const { error: e6 } = await db
+    .from("avisos_enviados")
+    .delete()
+    .lt("enviado", hace(24 * 3));
+  if (e6) return json({ error: e6.message }, 500);
+
   return json({
     audios: audios.length,
+    turnos: turnosViejos?.length ?? 0,
     borrados: viejos?.length ?? 0,
     fotos: rutas.length,
     peticiones:

@@ -131,6 +131,7 @@ type Estado = {
   fuenteBiblia?: FuenteBiblia; // letra para leer la Biblia
   codigoVisto?: boolean; // pastor: ya le mostramos donde esta su codigo
   resena?: Resena; // cuando pedirle estrellas en la tienda
+  versionPospuesta?: string; // "Mas tarde" a esta version nueva (sugerida)
   motivos?: string[]; // que la trae a la app (onboarding)
   rol?: RolIglesia; // quien es en la iglesia (el pastor administra)
   cargos: Record<string, CargoId[]>; // nombre -> roles que le dio el pastor
@@ -290,6 +291,7 @@ const useStore = create<Estado>()(
         fuenteBiblia: estado.fuenteBiblia ?? previo.fuenteBiblia,
         codigoVisto: estado.codigoVisto ?? previo.codigoVisto,
         resena: estado.resena ?? previo.resena,
+        versionPospuesta: estado.versionPospuesta ?? previo.versionPospuesta,
         motivos: estado.motivos ?? previo.motivos,
         rol: estado.rol ?? previo.rol,
         cargos: { ...(previo.cargos ?? {}), ...estado.cargos },
@@ -520,6 +522,14 @@ export function buenMomento() {
   });
   // un momento despues: que primero vea lo que hizo (el ✓, la celebracion)
   if (toca) setTimeout(() => pedirResena(), 1500);
+}
+
+// "Mas tarde" a una version nueva: no se vuelve a sugerir hasta otra version
+export function posponerVersion(version: string) {
+  cambiar({ versionPospuesta: version });
+}
+export function useVersionPospuesta() {
+  return useStore((s) => s.versionPospuesta);
 }
 
 // El pastor ya vio donde esta su codigo de invitacion (se muestra una vez)
