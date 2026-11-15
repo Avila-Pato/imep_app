@@ -11,7 +11,11 @@ import {
   LINEA,
   RADIO_BORDE,
 } from "@/constants/constans";
+import { usePasaje } from "@/hooks/usePasaje";
+import SelectorHora from "@/screens/(tab)/components/SelectorHora";
 import { sugerirCitas } from "@/services/biblia";
+import { MAX_PALABRAS_MEMORIZAR, palabrasDe } from "@/utils/memorizar";
+import { diaKey } from "@/utils/tiempo";
 import { enviarMensaje, useEstudios, useMiembros } from "@/store/estudios";
 import { miembrosDe } from "./MiembrosSala";
 import { Grupo } from "@/types/typesComunidad";
@@ -30,15 +34,75 @@ import {
 } from "react-native";
 import ConBordes from "@/components/ConBordes";
 
-type Tipo = "aviso" | "devocional";
+type Tipo = "aviso" | "devocional" | "encuentro" | "memorizar";
 
-const TIPOS: { id: Tipo; label: string; icono: "megaphone" | "book" }[] = [
-  { id: "aviso", label: "Aviso", icono: "megaphone" },
-  { id: "devocional", label: "Devocional", icono: "book" },
+const TIPOS: {
+  id: Tipo;
+  label: string;
+  icono: "megaphone" | "book" | "calendar" | "mortar-board";
+  ayuda: string;
+  boton: string;
+}[] = [
+  {
+    id: "aviso",
+    label: "Aviso",
+    icono: "megaphone",
+    ayuda:
+      "Un mensaje corto para todo el grupo: un cambio de horario, una reunión, algo que deben saber.",
+    boton: "Enviar aviso",
+  },
+  {
+    id: "devocional",
+    label: "Devocional",
+    icono: "book",
+    ayuda:
+      "Una palabra para todo el grupo: un versículo y lo que Dios te mostró en él.",
+    boton: "Publicar devocional",
+  },
+  {
+    id: "encuentro",
+    label: "Encuentro",
+    icono: "calendar",
+    ayuda:
+      "Un desayuno, una salida, una reunión especial. Cada uno responde Voy o No puedo y tú ves cuántos van.",
+    boton: "Invitar al encuentro",
+  },
+  {
+    id: "memorizar",
+    label: "Para memorizar",
+    icono: "mortar-board",
+    ayuda:
+      "Un versículo para aprender de memoria con un juego (completar y ordenar). Ves quiénes ya lo aprendieron.",
+    boton: "Publicar versículo",
+  },
 ];
 
-// El lider del grupo publica para toda su sala: un aviso corto o un
-// devocional (titulo, versiculo y reflexion), y puede notificar a todos
+// Los proximos 60 dias para el encuentro
+const DIAS = Array.from({ length: 60 }, (_, i) => {
+  const f = new Date();
+  f.setDate(f.getDate() + i);
+  return {
+    key: diaKey(f),
+    arriba:
+      i === 0
+        ? "HOY"
+        : i === 1
+          ? "MAÑANA"
+          : f
+              .toLocaleDateString("es-ES", { weekday: "short" })
+              .replace(".", "")
+              .toUpperCase(),
+    numero: f.getDate(),
+    mes: f
+      .toLocaleDateString("es-ES", { month: "short" })
+      .replace(".", "")
+      .toUpperCase(),
+  };
+});
+
+// El lider del grupo publica para toda su sala: un aviso corto, un
+// devocional (titulo, versiculo y reflexion), un encuentro (Voy / No puedo)
+// o un versiculo para memorizar (con juego). Puede notificar a todos
 export default function ModalPublicarLider({
   sala,
   onCerrar,
@@ -52,6 +116,11 @@ export default function ModalPublicarLider({
   const [sugerir, setSugerir] = useState(false);
   const [texto, setTexto] = useState("");
   const [notificar, setNotificar] = useState(true);
+  // encuentro
+  const [fecha, setFecha] = useState(DIAS[0].key);
+  const [conHora, setConHora] = useState(true);
+  const [hora, setHora] = useState("19:00");
+  const [lugar, setLugar] = useState("");
   // a quien le llega la notificacion: vacio = a toda la sala
   const [para, setPara] = useState<string[]>([]);
   const { nombre } = useEstudios();
@@ -64,19 +133,42 @@ export default function ModalPublicarLider({
     setPara((p) => (p.includes(n) ? p.filter((x) => x !== n) : [...p, n]));
 
   const sugerencias = sugerir ? sugerirCitas(cita) : [];
+  const info = TIPOS.find((t) => t.id === tipo)!;
+  // para memorizar: el texto del versiculo (se guarda con el mensaje, asi
+  // todos juegan con el mismo)
+  const pasaje = usePasaje(tipo === "memorizar" ? cita : "");
+  const versiculo = pasaje.versos?.map((v) => v.texto).join(" ") ?? "";
+  const largo = palabrasDe(versiculo).length > MAX_PALABRAS_MEMORIZAR;
   const listo =
-    texto.trim().length >= 3 && (tipo === "aviso" || titulo.trim().length >= 3);
+    tipo === "aviso"
+      ? texto.trim().length >= 3
+      : tipo === "devocional"
+        ? texto.trim().length >= 3 && titulo.trim().length >= 3
+        : tipo === "encuentro"
+          ? titulo.trim().length >= 3
+          : !!versiculo && !largo;
 
   const publicar = () => {
     if (!listo) return;
-    const esDevocional = tipo === "devocional";
+    const conTitulo = tipo === "devocional" || tipo === "encuentro";
+    const conCita = tipo === "devocional" || tipo === "memorizar";
     enviarMensaje({
       id: `m${Date.now()}`,
       grupo: sala.id,
       autor: yo || "Líder",
       tipo,
-      titulo: esDevocional ? titulo.trim() : undefined,
-      cita: esDevocional ? cita.trim() || undefined : undefined,
+      titulo: conTitulo ? titulo.trim() : undefined,
+      cita: conCita ? cita.trim() || undefined : undefined,
+      ...(tipo === "memorizar" ? { versiculo } : {}),
+      ...(tipo === "encuentro"
+        ? {
+            encuentro: {
+              fecha,
+              ...(conHora ? { hora } : {}),
+              ...(lugar.trim() ? { lugar: lugar.trim() } : {}),
+            },
+          }
+        : {}),
       texto: texto.trim(),
       fecha: new Date().toISOString(),
       // el servidor avisa a la sala (o solo a los elegidos)
@@ -153,25 +245,109 @@ export default function ModalPublicarLider({
                       );
                     })}
                   </View>
-                  <Text style={styles.ayuda}>
-                    {tipo === "aviso"
-                      ? "Un mensaje corto para todo el grupo: un cambio de horario, una reunión, algo que deben saber."
-                      : "Una palabra para todo el grupo: un versículo y lo que Dios te mostró en él."}
-                  </Text>
+                  <Text style={styles.ayuda}>{info.ayuda}</Text>
 
-                  {tipo === "devocional" && (
+                  {(tipo === "devocional" || tipo === "encuentro") && (
                     <>
-                      <Text style={styles.etiqueta}>TÍTULO</Text>
+                      <Text style={styles.etiqueta}>
+                        {tipo === "encuentro" ? "¿QUÉ HAREMOS?" : "TÍTULO"}
+                      </Text>
                       <TextInput
                         value={titulo}
                         onChangeText={setTitulo}
-                        placeholder="Ej: Confiar en medio de la tormenta"
+                        placeholder={
+                          tipo === "encuentro"
+                            ? "Ej: Desayuno de mujeres"
+                            : "Ej: Confiar en medio de la tormenta"
+                        }
                         placeholderTextColor={PLACEHOLDER}
                         autoCapitalize="sentences"
                         maxLength={70}
                         style={styles.input}
                       />
+                    </>
+                  )}
 
+                  {tipo === "encuentro" && (
+                    <>
+                      <Text style={styles.etiqueta}>¿CUÁNDO?</Text>
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        style={styles.dias}
+                        contentContainerStyle={styles.diasContent}
+                        keyboardShouldPersistTaps="handled"
+                      >
+                        {DIAS.map((d) => {
+                          const activo = d.key === fecha;
+                          return (
+                            <Pressable
+                              key={d.key}
+                              onPress={() => setFecha(d.key)}
+                              style={[styles.dia, activo && styles.diaActivo]}
+                              accessibilityState={{ selected: activo }}
+                            >
+                              <Text
+                                style={[
+                                  styles.diaArriba,
+                                  activo && styles.oscuro,
+                                ]}
+                              >
+                                {d.arriba}
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.diaNumero,
+                                  activo && styles.oscuro,
+                                ]}
+                              >
+                                {d.numero}
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.diaArriba,
+                                  activo && styles.oscuro,
+                                ]}
+                              >
+                                {d.mes}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </ScrollView>
+                      <View style={styles.filaHora}>
+                        <View style={styles.flex}>
+                          <Text style={styles.etiqueta}>HORA</Text>
+                          {!conHora && (
+                            <Text style={styles.ayuda}>Sin hora fija</Text>
+                          )}
+                        </View>
+                        {conHora && (
+                          <SelectorHora hora={hora} onCambiar={setHora} />
+                        )}
+                        <Switch
+                          value={conHora}
+                          onValueChange={setConHora}
+                          trackColor={{ false: BORDER, true: PRIMARY }}
+                          thumbColor="#FFFFFF"
+                          accessibilityLabel="Con hora"
+                        />
+                      </View>
+                      <Text style={styles.etiqueta}>¿DÓNDE? (OPCIONAL)</Text>
+                      <TextInput
+                        value={lugar}
+                        onChangeText={setLugar}
+                        placeholder="Ej: En la iglesia, salón de abajo"
+                        placeholderTextColor={PLACEHOLDER}
+                        autoCapitalize="sentences"
+                        maxLength={90}
+                        style={styles.input}
+                      />
+                    </>
+                  )}
+
+                  {(tipo === "devocional" || tipo === "memorizar") && (
+                    <>
                       <Text style={styles.etiqueta}>VERSÍCULO</Text>
                       <TextInput
                         value={cita}
@@ -179,7 +355,11 @@ export default function ModalPublicarLider({
                           setCita(t);
                           setSugerir(true);
                         }}
-                        placeholder="Ej: Marcos 4:39"
+                        placeholder={
+                          tipo === "memorizar"
+                            ? "Ej: Filipenses 4:13"
+                            : "Ej: Marcos 4:39"
+                        }
                         placeholderTextColor={PLACEHOLDER}
                         style={styles.input}
                       />
@@ -200,11 +380,41 @@ export default function ModalPublicarLider({
                           ))}
                         </View>
                       )}
+                      {/* para memorizar: asi se vera (y se jugara) */}
+                      {tipo === "memorizar" && pasaje.valida && (
+                        <View style={styles.previa}>
+                          {pasaje.cargando ? (
+                            <Text style={styles.ayuda}>Buscando…</Text>
+                          ) : versiculo ? (
+                            <>
+                              <Text style={styles.previaTexto}>
+                                “{versiculo}”
+                              </Text>
+                              {largo && (
+                                <Text style={styles.aviso}>
+                                  Es muy largo para memorizar. Elige uno o dos
+                                  versículos.
+                                </Text>
+                              )}
+                            </>
+                          ) : (
+                            <Text style={styles.aviso}>
+                              {pasaje.error ?? "No se encontró el versículo"}
+                            </Text>
+                          )}
+                        </View>
+                      )}
                     </>
                   )}
 
                   <Text style={styles.etiqueta}>
-                    {tipo === "aviso" ? "AVISO" : "REFLEXIÓN"}
+                    {tipo === "aviso"
+                      ? "AVISO"
+                      : tipo === "devocional"
+                        ? "REFLEXIÓN"
+                        : tipo === "encuentro"
+                          ? "DETALLES (OPCIONAL)"
+                          : "UNA NOTA (OPCIONAL)"}
                   </Text>
                   <TextInput
                     value={texto}
@@ -212,7 +422,11 @@ export default function ModalPublicarLider({
                     placeholder={
                       tipo === "aviso"
                         ? "Ej: Este jueves la reunión es a las 20:00"
-                        : "Escribe la reflexión para el grupo…"
+                        : tipo === "devocional"
+                          ? "Escribe la reflexión para el grupo…"
+                          : tipo === "encuentro"
+                            ? "Ej: Cada una trae algo para compartir 🥐"
+                            : "Ej: ¡El domingo lo decimos juntos!"
                     }
                     placeholderTextColor={PLACEHOLDER}
                     autoCapitalize="sentences"
@@ -312,14 +526,8 @@ export default function ModalPublicarLider({
                     pressed && styles.presionado,
                   ]}
                 >
-                  <Octicons
-                    name={tipo === "aviso" ? "megaphone" : "book"}
-                    size={16}
-                    color={DARK_BG}
-                  />
-                  <Text style={styles.botonTexto}>
-                    {tipo === "aviso" ? "Enviar aviso" : "Publicar devocional"}
-                  </Text>
+                  <Octicons name={info.icono} size={16} color={DARK_BG} />
+                  <Text style={styles.botonTexto}>{info.boton}</Text>
                 </Pressable>
               </View>
             </KeyboardAvoidingView>
@@ -383,18 +591,21 @@ const styles = StyleSheet.create({
   },
   tipos: {
     flexDirection: "row",
-    padding: 3,
-    borderRadius: 999,
+    flexWrap: "wrap",
+    gap: 6,
+    padding: 4,
+    borderRadius: 18,
     backgroundColor: DARK_BG,
   },
   tipo: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: "45%",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    paddingVertical: 9,
-    borderRadius: 999,
+    paddingVertical: 10,
+    borderRadius: 14,
   },
   tipoActivo: {
     backgroundColor: TEXT,
@@ -452,6 +663,60 @@ const styles = StyleSheet.create({
   sugerenciaTexto: {
     fontSize: 14,
     color: TEXT,
+  },
+  previa: {
+    gap: 6,
+    padding: SPACING * 1.4,
+    borderRadius: 14,
+    backgroundColor: DARK_BG,
+  },
+  previaTexto: {
+    fontFamily: FUENTE.biblia,
+    fontSize: 17,
+    lineHeight: 24,
+    color: TEXT,
+  },
+  aviso: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: "#E5484D",
+  },
+  dias: {
+    marginHorizontal: -SPACING * 2,
+  },
+  diasContent: {
+    paddingHorizontal: SPACING * 2,
+    gap: 8,
+  },
+  dia: {
+    width: 58,
+    paddingVertical: SPACING,
+    alignItems: "center",
+    borderRadius: 14,
+    backgroundColor: DARK_BG,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: BORDER,
+  },
+  diaActivo: {
+    backgroundColor: TEXT,
+    borderColor: TEXT,
+  },
+  diaArriba: {
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 0.6,
+    color: MUTED,
+  },
+  diaNumero: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: TEXT,
+    marginVertical: 2,
+  },
+  filaHora: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING,
   },
   notificar: {
     flexDirection: "row",

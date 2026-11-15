@@ -1,8 +1,10 @@
+import IconoSala from "@/components/IconoSala";
 import {
   BORDER,
   DARK_BG,
   HOME_PADDING as PADDING,
   MUTED,
+  PRIMARY,
   SPACING,
   SURFACE,
   TEXT,
@@ -107,9 +109,13 @@ export default function SalaScreen() {
         >
           <Octicons name="arrow-left" size={20} color={TEXT} />
         </Pressable>
-        <View style={styles.icono}>
-          <Octicons name={grupo.icono} size={18} color={TEXT} />
-        </View>
+        {grupo.foto ? (
+          <IconoSala sala={grupo} tamano={40} />
+        ) : (
+          <View style={styles.icono}>
+            <Octicons name={grupo.icono} size={18} color={TEXT} />
+          </View>
+        )}
         <Pressable style={styles.flex} onPress={() => setVista("miembros")}>
           {/* la sala de todos lleva el nombre de la iglesia */}
           <Text style={styles.nombre} numberOfLines={1}>
@@ -137,6 +143,24 @@ export default function SalaScreen() {
           </Pressable>
         )}
       </View>
+
+      {/* Sala sin lider ("Lo elijo despues"): se le recuerda a quien la edita */}
+      {puedeEditar && grupo.id !== "general" && !grupo.lider && (
+        <Pressable
+          onPress={() => setEditando(true)}
+          style={({ pressed }) => [styles.sinLider, pressed && styles.presionado]}
+          accessibilityLabel="Elegir el líder de la sala"
+        >
+          <Octicons name="person-add" size={16} color={PRIMARY} />
+          <View style={styles.flex}>
+            <Text style={styles.sinLiderTitulo}>Esta sala aún no tiene líder</Text>
+            <Text style={styles.sub}>
+              Mientras tanto la administras tú. Toca para elegirlo.
+            </Text>
+          </View>
+          <Octicons name="chevron-right" size={14} color={MUTED} />
+        </Pressable>
+      )}
 
       {/* Solo el lider: peticiones que esperan su aprobacion */}
       {/* Mientras se escribe se esconden (el chat no queda aplastado) */}
@@ -198,6 +222,26 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: BORDER,
     marginBottom: SPACING / 2,
+  },
+  presionado: {
+    opacity: 0.7,
+  },
+  sinLider: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING * 1.2,
+    marginHorizontal: PADDING,
+    marginBottom: SPACING,
+    padding: SPACING * 1.2,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: PRIMARY,
+    backgroundColor: SURFACE,
+  },
+  sinLiderTitulo: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: TEXT,
   },
   muro: {
     paddingHorizontal: PADDING,

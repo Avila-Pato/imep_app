@@ -11,9 +11,26 @@ export type Grupo = {
   icono: IconName;
   tono?: string; // color suave del gajo en la rueda de salas
   lider?: string; // lo elige el pastor/administrador al crear la sala
+  // tambien la administran (los elige el lider o el pastor entre los de la sala)
+  ayudantes?: string[];
   // que tiene la sala (sin dato = si). Miembros siempre esta
   funciones?: Partial<Record<FuncionSala, boolean>>;
+  tipo?: TipoSala; // para quien es (niños, jovenes...): define lo de abajo
+  foto?: string; // imagen de la sala (URL https, o la del telefono al subirla)
+  soloLider?: boolean; // en el chat solo escriben el lider y el pastor
+  letraGrande?: boolean; // la sala se ve con letra mas grande
 };
+
+export type TipoSala =
+  | "ninos"
+  | "preadolescentes"
+  | "jovenes"
+  | "mujeres"
+  | "varones"
+  | "matrimonios"
+  | "mayores"
+  | "alabanza"
+  | "otra";
 
 export type FuncionSala = "chat" | "oracion" | "palabra";
 
@@ -39,7 +56,8 @@ export type Mensaje = {
   audio?: NotaDeVoz;
   audioVencido?: boolean; // la nota de voz se borro (tenia mas de 3 meses)
   desafio?: string; // id de la "Palabra de la semana" que responde
-  tipo?: "aviso" | "devocional"; // publicado por el lider para todo el grupo
+  // publicado por el lider para todo el grupo
+  tipo?: "aviso" | "devocional" | "encuentro" | "memorizar";
   titulo?: string; // titulo del devocional
   notificar?: boolean; // aviso/devocional del lider: llega como notificacion
   para?: string[]; // nombres: solo a ellos (sin dato = a toda la sala)
@@ -47,7 +65,22 @@ export type Mensaje = {
   pendiente?: boolean; // aun no llega al servidor
   reacciones?: Record<string, number>; // emoji -> cuantos (como WhatsApp)
   miReaccion?: string; // la que puso esta persona
+  encuentro?: Encuentro; // tipo "encuentro": cuando y donde
+  respuestas?: RespuestaMensaje[]; // Voy / No puedo / Lo aprendi (de todos)
+  miRespuesta?: ValorRespuesta; // la de esta persona
 };
+
+// Encuentro del grupo (desayuno, salida, reunion): los hermanos confirman
+export type Encuentro = {
+  fecha: string; // "YYYY-MM-DD"
+  hora?: string; // "10:00"
+  lugar?: string;
+};
+
+// Respuesta a una publicacion del lider: a un encuentro ("voy" / "no") o
+// a un versiculo para memorizar ("aprendido", al ganar el juego)
+export type ValorRespuesta = "voy" | "no" | "aprendido";
+export type RespuestaMensaje = { nombre: string; valor: ValorRespuesta };
 
 // "Palabra de la semana": el lider elige hermanos de su sala para que cada
 // uno elija un versiculo (o uno fijo) y cuente en el chat que le enseño

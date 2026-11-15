@@ -1,3 +1,4 @@
+import IconoSala from "@/components/IconoSala";
 import { USUARIO } from "@/assets/data/perfilMocks";
 import {
   BORDER,
@@ -63,18 +64,22 @@ function SalaAbierta({
       ]}
       accessibilityLabel={bloqueada ? `${titulo}, únete primero` : titulo}
     >
-      <View
-        style={[
-          styles.iconoGrande,
-          { backgroundColor: bloqueada ? SURFACE : claro },
-        ]}
-      >
-        <Octicons
-          name={sala.icono}
-          size={20}
-          color={bloqueada ? MUTED : DARK_BG}
-        />
-      </View>
+      {sala.foto && !bloqueada ? (
+        <IconoSala sala={sala} tamano={48} />
+      ) : (
+        <View
+          style={[
+            styles.iconoGrande,
+            { backgroundColor: bloqueada ? SURFACE : claro },
+          ]}
+        >
+          <Octicons
+            name={sala.icono}
+            size={20}
+            color={bloqueada ? MUTED : DARK_BG}
+          />
+        </View>
+      )}
       <View style={styles.flex}>
         <Text style={styles.abiertaTitulo}>{titulo}</Text>
         <Text style={styles.meta}>{meta}</Text>
@@ -360,13 +365,17 @@ export default function IglesiaView() {
                 esPastor ? g.label : `${g.label}, solo con invitación`
               }
             >
-              <View style={styles.icono}>
-                <Octicons
-                  name={g.icono}
-                  size={14}
-                  color={esPastor ? (g.tono ?? TEXT) : MUTED}
-                />
-              </View>
+              {g.foto && esPastor ? (
+                <IconoSala sala={g} tamano={32} />
+              ) : (
+                <View style={styles.icono}>
+                  <Octicons
+                    name={g.icono}
+                    size={14}
+                    color={esPastor ? (g.tono ?? TEXT) : MUTED}
+                  />
+                </View>
+              )}
               <View style={styles.flex}>
                 <Text style={styles.filaTitulo}>{g.label}</Text>
                 <Text style={styles.meta}>

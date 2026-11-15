@@ -43,6 +43,7 @@ import CompartirVersiculo from "./CompartirVersiculo";
 import ModalPublicarLider from "./ModalPublicarLider";
 import ModalVersiculo from "./ModalVersiculo";
 import NotaVoz from "./NotaVoz";
+import { TarjetaEncuentro, TarjetaMemorizar } from "./TarjetasLider";
 
 const nuevoId = () => `m${Date.now()}`;
 
@@ -105,6 +106,11 @@ export default function ChatSala({
   // el pastor no lo deja escribir en las salas (el servidor tambien lo impide)
   const { sinChat } = useMisRestricciones();
   const silenciado = !privado && !lider && sinChat;
+  // sala "solo el lider escribe" (ej: niños): los demas leen los avisos
+  // (el servidor tambien lo impide)
+  const soloLeen = !privado && !lider && !!sala.soloLider;
+  // sala con letra grande (ej: adultos mayores)
+  const textoGrande = sala.letraGrande && styles.textoGrande;
   const [publicando, setPublicando] = useState(false);
 
   // Mas nuevo primero: la lista va invertida (el ultimo queda abajo)
@@ -134,6 +140,13 @@ export default function ChatSala({
         contentContainerStyle={styles.lista}
         keyboardShouldPersistTaps="handled"
         renderItem={({ item, index }) => {
+          // Encuentro (Voy / No puedo) y versiculo para memorizar (juego)
+          if (item.tipo === "encuentro") {
+            return <TarjetaEncuentro mensaje={item} grande={sala.letraGrande} />;
+          }
+          if (item.tipo === "memorizar") {
+            return <TarjetaMemorizar mensaje={item} grande={sala.letraGrande} />;
+          }
           // Aviso o devocional del lider: tarjeta a lo ancho
           if (item.tipo) {
             const devocional = item.tipo === "devocional";
@@ -176,7 +189,7 @@ export default function ChatSala({
                     <Octicons name="chevron-right" size={11} color={MUTED} />
                   </Pressable>
                 )}
-                <Text style={styles.texto}>{item.texto}</Text>
+                <Text style={[styles.texto, textoGrande]}>{item.texto}</Text>
                 <Text style={styles.hora}>{horaMensaje(item.fecha)}</Text>
               </View>
             );
@@ -239,7 +252,7 @@ export default function ChatSala({
                   🎤 Nota de voz (ya no está disponible)
                 </Text>
               )}
-              {!!item.texto && <Text style={styles.texto}>{item.texto}</Text>}
+              {!!item.texto && <Text style={[styles.texto, textoGrande]}>{item.texto}</Text>}
               <Text style={styles.hora}>
                 {horaMensaje(item.fecha)}
                 {/* reloj: aun no llega a los demas (se reintenta solo) */}
@@ -313,6 +326,16 @@ export default function ChatSala({
         </View>
       )}
 
+      {/* Solo el lider escribe: los demas leen los avisos */}
+      {soloLeen && !silenciado && !cerrado && (
+        <View style={styles.cerrado}>
+          <Octicons name="megaphone" size={14} color={MUTED} />
+          <Text style={styles.cerradoTexto}>
+            En esta sala solo escribe el líder. Aquí verás sus avisos.
+          </Text>
+        </View>
+      )}
+
       {/* Silenciado por el pastor: puede leer, no escribir */}
       {silenciado && !cerrado && (
         <View style={styles.cerrado}>
@@ -325,7 +348,7 @@ export default function ChatSala({
       )}
 
       {/* Escribir */}
-      {!cerrado && !silenciado && (
+      {!cerrado && !silenciado && !soloLeen && (
         <View style={styles.barra}>
           {lider && (
             <Pressable
@@ -619,6 +642,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 21,
     color: TEXT,
+  },
+  textoGrande: {
+    fontSize: 19,
+    lineHeight: 27,
   },
   hora: {
     alignSelf: "flex-end",

@@ -1,17 +1,23 @@
 import AvatarPersona from "@/components/AvatarPersona";
 import {
+  alternarAyudante,
   miembrosActuales,
   useAvatarDe,
+  useEsLiderPrincipal,
+  useGrupos,
   useMiembros,
   usePuede,
 } from "@/store/estudios";
 import {
   BORDER,
+  DARK_BG,
+  FUENTE,
   HOME_PADDING as PADDING,
   MUTED,
   PRIMARY,
   SPACING,
   TEXT,
+  primarioAlfa,
 } from "@/constants/constans";
 import { GrupoId, Miembro } from "@/types/typesComunidad";
 import Octicons from "@expo/vector-icons/Octicons";
@@ -35,7 +41,11 @@ export function miembrosDe(grupo: GrupoId): Miembro[] {
     }));
 }
 
-// lider: puede escribirle en privado a cada hermano
+const igual = (a = "", b = "") =>
+  a.trim().toLowerCase() === b.trim().toLowerCase();
+
+// lider: puede escribirle en privado a cada hermano. El lider de la sala (o
+// el pastor) ademas elige quienes le ayudan a administrarla
 export default function MiembrosSala({
   grupo,
   lider,
@@ -48,6 +58,10 @@ export default function MiembrosSala({
   const miembros = miembrosDe(grupo);
   const admin = usePuede("roles"); // ve quien esta restringido
   const [viendo, setViendo] = useState<Miembro | null>(null);
+  const sala = useGrupos().find((g) => g.id === grupo);
+  // la de toda la iglesia la guia el pastor (sin ayudantes)
+  const eligeAyudantes = useEsLiderPrincipal(grupo) && grupo !== "general";
+  const ayudantes = sala?.ayudantes ?? [];
 
   return (
     <ScrollView
@@ -55,8 +69,25 @@ export default function MiembrosSala({
       showsVerticalScrollIndicator={false}
     >
       <Text style={styles.titulo}>{miembros.length} MIEMBROS</Text>
+      {eligeAyudantes && miembros.length > 1 && (
+        <View style={styles.ayuda}>
+          <Octicons name="shield" size={14} color={PRIMARY} />
+          <Text style={styles.ayudaTexto}>
+            Toca <Text style={styles.fuerte}>Ayudante</Text> para que alguien
+            te ayude a administrar la sala: publicar avisos y encuentros, dar
+            la palabra y aprobar peticiones.
+          </Text>
+        </View>
+      )}
       {miembros.map((m, i) => {
         const yo = !!m.esYo;
+        const esLiderSala = !!sala?.lider && igual(sala.lider, m.nombre);
+        const esAyudante = ayudantes.some((n) => igual(n, m.nombre));
+        const etiqueta =
+          m.rol ?? (esLiderSala ? "Líder" : esAyudante ? "Ayudante" : null);
+        // el pastor y el lider ya administran; uno no se nombra a si mismo
+        const puedeNombrar =
+          eligeAyudantes && !yo && !m.esPastor && !esLiderSala;
         return (
           <Pressable
             key={m.id ?? m.nombre}
@@ -87,7 +118,36 @@ export default function MiembrosSala({
                 </Text>
               )}
             </View>
-            {m.rol && <Text style={styles.rol}>{m.rol}</Text>}
+            {puedeNombrar ? (
+              <Pressable
+                onPress={() => alternarAyudante(grupo, m.nombre)}
+                hitSlop={6}
+                style={({ pressed }) => [
+                  styles.ayudante,
+                  esAyudante && styles.ayudanteActivo,
+                  pressed && styles.presionado,
+                ]}
+                accessibilityRole="switch"
+                accessibilityState={{ checked: esAyudante }}
+                accessibilityLabel={`${m.nombre} ayuda a administrar la sala`}
+              >
+                <Octicons
+                  name={esAyudante ? "shield-check" : "shield"}
+                  size={12}
+                  color={esAyudante ? DARK_BG : MUTED}
+                />
+                <Text
+                  style={[
+                    styles.ayudanteTexto,
+                    esAyudante && styles.ayudanteTextoActivo,
+                  ]}
+                >
+                  Ayudante
+                </Text>
+              </Pressable>
+            ) : (
+              etiqueta && <Text style={styles.rol}>{etiqueta}</Text>
+            )}
             {lider && !yo && (
               <Pressable
                 onPress={() =>
@@ -184,6 +244,46 @@ const styles = StyleSheet.create({
   },
   presionado: {
     opacity: 0.6,
+  },
+  ayuda: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: SPACING,
+    padding: SPACING * 1.2,
+    marginVertical: SPACING / 2,
+    borderRadius: 14,
+    backgroundColor: primarioAlfa(0.1),
+  },
+  ayudaTexto: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+    color: TEXT,
+  },
+  fuerte: {
+    fontFamily: FUENTE.semibold,
+  },
+  ayudante: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: BORDER,
+  },
+  ayudanteActivo: {
+    backgroundColor: TEXT,
+    borderColor: TEXT,
+  },
+  ayudanteTexto: {
+    fontFamily: FUENTE.semibold,
+    fontSize: 12,
+    color: MUTED,
+  },
+  ayudanteTextoActivo: {
+    color: DARK_BG,
   },
   rol: {
     fontSize: 11,

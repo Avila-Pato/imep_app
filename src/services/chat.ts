@@ -1,5 +1,9 @@
 import { asegurarSesion, supabase } from "@/lib/supabase";
-import { Mensaje } from "@/types/typesComunidad";
+import {
+  Mensaje,
+  RespuestaMensaje,
+  ValorRespuesta,
+} from "@/types/typesComunidad";
 import { File } from "expo-file-system";
 import { Platform } from "react-native";
 import { esUuid } from "./iglesias";
@@ -28,6 +32,7 @@ const datosDe = (m: Mensaje) => ({
   ...(m.titulo ? { titulo: m.titulo } : {}),
   ...(m.notificar ? { notificar: true } : {}),
   ...(m.para?.length ? { para: m.para } : {}),
+  ...(m.encuentro ? { encuentro: m.encuentro } : {}),
 });
 
 const esLocal = (uri?: string) => !!uri && !uri.startsWith("https://");
@@ -209,6 +214,60 @@ export async function reaccionarRemoto(
         )
     : await supabase
         .from("reacciones")
+        .delete()
+        .eq("mensaje_id", mensajeId)
+        .eq("usuario_id", yo);
+  if (error) throw error;
+}
+
+// ───────────── Respuestas (Voy / No puedo / Lo aprendí) ─────────────
+// A los encuentros y versiculos para memorizar del lider: una por persona
+
+export async function bajarRespuestas(iglesiaId: string) {
+  if (!supabase || !esUuid(iglesiaId)) return null;
+  const yo = await asegurarSesion();
+  const { data, error } = await supabase
+    .from("respuestas")
+    .select("mensaje_id, usuario_id, nombre, valor")
+    .eq("iglesia_id", iglesiaId);
+  if (error) throw error;
+  const todas: Record<string, RespuestaMensaje[]> = {};
+  const mias: Record<string, ValorRespuesta> = {};
+  for (const r of (data ?? []) as {
+    mensaje_id: string;
+    usuario_id: string;
+    nombre: string;
+    valor: ValorRespuesta;
+  }[]) {
+    (todas[r.mensaje_id] ??= []).push({ nombre: r.nombre, valor: r.valor });
+    if (r.usuario_id === yo) mias[r.mensaje_id] = r.valor;
+  }
+  return { todas, mias };
+}
+
+// Poner (o cambiar) mi respuesta; null = quitarla
+export async function responderRemoto(
+  iglesiaId: string,
+  mensajeId: string,
+  nombre: string,
+  valor: ValorRespuesta | null,
+) {
+  if (!supabase || !esUuid(iglesiaId) || !esUuid(mensajeId)) return;
+  const yo = await asegurarSesion();
+  if (!yo) return;
+  const { error } = valor
+    ? await supabase.from("respuestas").upsert(
+        {
+          mensaje_id: mensajeId,
+          usuario_id: yo,
+          iglesia_id: iglesiaId,
+          nombre,
+          valor,
+        },
+        { onConflict: "mensaje_id,usuario_id" },
+      )
+    : await supabase
+        .from("respuestas")
         .delete()
         .eq("mensaje_id", mensajeId)
         .eq("usuario_id", yo);

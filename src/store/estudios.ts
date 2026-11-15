@@ -18,6 +18,7 @@ import {
   Mensaje,
   Publicacion,
   Revision,
+  ValorRespuesta,
   VersiculoGuardado,
 } from "@/types/typesComunidad";
 import { Rol, RolId, Turno } from "@/types/typesCronogramas";
@@ -56,10 +57,17 @@ import {
   bajarPrivados,
   bajarReacciones,
   reaccionarRemoto,
+  bajarRespuestas,
+  responderRemoto,
   subirMensaje,
   subirPrivado,
 } from "@/services/chat";
-import { bajarSalas, borrarSalaRemota, subirSala } from "@/services/salas";
+import {
+  bajarSalas,
+  borrarSalaRemota,
+  cambiarAyudantesRemoto,
+  subirSala,
+} from "@/services/salas";
 import {
   bajarPeticiones,
   borrarPeticionRemota,
@@ -492,6 +500,22 @@ export function usePuede(permiso: Permiso) {
 // ¿Maneja esta sala? (palabra de la semana, aprobar peticiones)
 // El pastor, los administradores (quien asigna roles) y el lider de la sala
 export function useEsLider(grupo: GrupoId) {
+  const principal = useEsLiderPrincipal(grupo);
+  const yo = useStore((s) => s.nombre ?? USUARIO.nombre);
+  const ayudantes = useStore(
+    (s) => s.salas.find((g) => g.id === grupo)?.ayudantes,
+  );
+  return principal || mismoNombre(ayudantes ?? [], yo);
+}
+
+const igual = (a: string, b: string) =>
+  a.trim().toLowerCase() === b.trim().toLowerCase();
+const mismoNombre = (lista: string[], yo: string) =>
+  lista.some((n) => igual(n, yo));
+
+// Quien elige a los ayudantes de la sala: el pastor, el administrador o el
+// lider de la sala (un ayudante no nombra a otros)
+export function useEsLiderPrincipal(grupo: GrupoId) {
   const esPastor = useEsPastor();
   const admin = usePuede("roles");
   const yo = useStore((s) => s.nombre ?? USUARIO.nombre);
@@ -499,8 +523,29 @@ export function useEsLider(grupo: GrupoId) {
   return (
     esPastor ||
     admin ||
-    (!!lider && (lider === yo || lider === USUARIO.nombre)) ||
+    (!!lider && (igual(lider, yo) || lider === USUARIO.nombre)) ||
     esLider(USUARIO.nombre, grupo)
+  );
+}
+
+// Da o quita a alguien como ayudante de la sala. Se ve al instante y se
+// guarda en el servidor (si falla, vuelve a lo de alla)
+export function alternarAyudante(grupo: GrupoId, nombre: string) {
+  const s = useStore.getState();
+  const sala = s.salas.find((g) => g.id === grupo);
+  if (!sala) return;
+  const actuales = sala.ayudantes ?? [];
+  const ayudantes = mismoNombre(actuales, nombre)
+    ? actuales.filter((n) => !igual(n, nombre))
+    : [...actuales, nombre];
+  editarSalaLocal(grupo, { ayudantes });
+  const iglesiaId = s.iglesia?.id;
+  if (!esUuid(iglesiaId)) return;
+  enFondo(
+    cambiarAyudantesRemoto(iglesiaId, grupo, ayudantes).catch((e) => {
+      sincronizarSalas();
+      throw e;
+    }),
   );
 }
 
@@ -1122,7 +1167,27 @@ function subirSalaActual(id: GrupoId) {
   const sala = base
     ? { ...base, ...s.salasEditadas[id] }
     : s.salas.find((g) => g.id === id);
-  if (sala) enFondo(subirSala(iglesiaId, sala));
+  if (!sala) return;
+  enFondo(
+    subirSala(iglesiaId, sala).then((foto) => {
+      // la foto ya esta arriba: el telefono usa ese enlace
+      if (foto) editarSalaLocal(id, { foto });
+    }),
+  );
+}
+
+// cambia la sala solo en el telefono (sin volver a subirla)
+function editarSalaLocal(id: GrupoId, cambios: Partial<Omit<Grupo, "id">>) {
+  cambiar((s) =>
+    s.salas.some((g) => g.id === id)
+      ? { salas: s.salas.map((g) => (g.id === id ? { ...g, ...cambios } : g)) }
+      : {
+          salasEditadas: {
+            ...s.salasEditadas,
+            [id]: { ...s.salasEditadas[id], ...cambios },
+          },
+        },
+  );
 }
 
 // Trae las salas de la iglesia activa (el servidor manda). La primera vez,
@@ -1450,6 +1515,38 @@ export function reaccionar(mensajeId: string, emoji: string) {
   );
 }
 
+// Responder a un encuentro (Voy / No puedo) o marcar un versiculo como
+// aprendido. Una por persona; la misma otra vez la quita (menos "aprendido").
+// Se ve al instante y se guarda en el servidor
+export function responder(mensajeId: string, valor: ValorRespuesta) {
+  const s = useStore.getState();
+  const iglesiaId = s.iglesia?.id;
+  const m = s.mensajes.find((x) => x.id === mensajeId);
+  if (!m || !esUuid(iglesiaId)) return;
+  const yo = s.nombre?.trim() || USUARIO.nombre;
+  const nueva =
+    m.miRespuesta === valor && valor !== "aprendido" ? null : valor;
+  if (nueva === m.miRespuesta) return;
+  const otras = (m.respuestas ?? []).filter((r) => r.nombre !== yo);
+  cambiar((x) => ({
+    mensajes: x.mensajes.map((y) =>
+      y.id === mensajeId
+        ? {
+            ...y,
+            respuestas: nueva ? [...otras, { nombre: yo, valor: nueva }] : otras,
+            miRespuesta: nueva ?? undefined,
+          }
+        : y,
+    ),
+  }));
+  enFondo(
+    responderRemoto(iglesiaId, mensajeId, yo, nueva).catch((e) => {
+      sincronizarMensajes(); // no se pudo: vuelve a lo del servidor
+      throw e;
+    }),
+  );
+}
+
 // Trae el chat de la iglesia activa: lo del servidor + lo que solo esta en
 // este telefono (privados, antiguos y los que aun no suben, que se reintentan)
 export async function sincronizarMensajes() {
@@ -1459,20 +1556,25 @@ export async function sincronizarMensajes() {
     console.warn("[supabase]", e?.message ?? e);
     return null;
   };
-  const [salas, privados, reacciones] = await Promise.all([
+  const [salas, privados, reacciones, respuestas] = await Promise.all([
     bajarMensajes(id).catch(falla),
     bajarPrivados(id, idPrivado).catch(falla),
     bajarReacciones(id).catch(falla),
+    bajarRespuestas(id).catch(falla),
   ]);
   if (!salas || useStore.getState().iglesia?.id !== id) return;
   // cada mensaje con sus reacciones (cuantas de cada emoji y la mia)
   const conReacciones = salas.map((m) => {
     const cuantas = reacciones?.cuantas[m.id];
     const mia = reacciones?.mias[m.id];
+    const todas = respuestas?.todas[m.id];
+    const miRespuesta = respuestas?.mias[m.id];
     return {
       ...m,
       ...(cuantas ? { reacciones: cuantas } : {}),
       ...(mia ? { miReaccion: mia } : {}),
+      ...(todas ? { respuestas: todas } : {}),
+      ...(miRespuesta ? { miRespuesta } : {}),
     };
   });
   const remotos = [...conReacciones, ...(privados ?? [])];

@@ -89,6 +89,24 @@ export function useEnVivo() {
             esperaChat = setTimeout(() => sincronizarMensajes(), 400);
           },
         );
+        // respuestas a encuentros y versiculos (Voy / No puedo / Lo aprendi)
+        for (const evento of ["*", "DELETE"] as const) {
+          canal.on(
+            "postgres_changes",
+            evento === "*"
+              ? {
+                  event: "*",
+                  schema: "public",
+                  table: "respuestas",
+                  filter: `iglesia_id=eq.${id}`,
+                }
+              : { event: "DELETE", schema: "public", table: "respuestas" },
+            () => {
+              clearTimeout(esperaChat);
+              esperaChat = setTimeout(() => sincronizarMensajes(), 400);
+            },
+          );
+        }
         // privados: solo llegan los mios (RLS), no se filtran por iglesia
         canal.on(
           "postgres_changes",

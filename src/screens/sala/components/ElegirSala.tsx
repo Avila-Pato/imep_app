@@ -1,3 +1,4 @@
+import IconoSala from "@/components/IconoSala";
 import ConBordes from "@/components/ConBordes";
 import {
   BORDER,
@@ -72,14 +73,7 @@ export default function ElegirSala({
                       pressed && styles.presionado,
                     ]}
                   >
-                    <View
-                      style={[
-                        styles.icono,
-                        { backgroundColor: g.tono ?? TEXT },
-                      ]}
-                    >
-                      <Octicons name={g.icono} size={14} color={DARK_BG} />
-                    </View>
+                    <IconoSala sala={g} tamano={32} />
                     <Text style={styles.nombre}>
                       {g.id === "general"
                         ? (iglesia?.sede ?? "Mi iglesia")

@@ -41,3 +41,29 @@ export function tiempoRestante(iso: string, ahora = Date.now()) {
 // Fecha ISO de hace N horas (para datos de ejemplo)
 export const haceHoras = (horas: number) =>
   new Date(Date.now() - horas * HORA_MS).toISOString();
+
+const dosCifras = (n: number) => String(n).padStart(2, "0");
+
+// "YYYY-MM-DD" de una fecha (hora local)
+export const diaKey = (f = new Date()) =>
+  `${f.getFullYear()}-${dosCifras(f.getMonth() + 1)}-${dosCifras(f.getDate())}`;
+
+// "2026-11-21" -> fecha local (sin correrse un dia por la zona horaria)
+export const deDiaKey = (key: string) => {
+  const [a, m, d] = key.split("-").map(Number);
+  return new Date(a, m - 1, d);
+};
+
+// "Hoy" | "Mañana" | "Sábado 21 de noviembre"
+export function diaLegible(key: string, ahora = new Date()) {
+  if (key === diaKey(ahora)) return "Hoy";
+  const manana = new Date(ahora);
+  manana.setDate(manana.getDate() + 1);
+  if (key === diaKey(manana)) return "Mañana";
+  const texto = deDiaKey(key).toLocaleDateString("es-ES", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+  return texto.charAt(0).toUpperCase() + texto.slice(1).replace(",", "");
+}

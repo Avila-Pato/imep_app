@@ -1,16 +1,17 @@
 // La app la llama despues de publicar un aviso o devocional en una sala:
 //   supabase.functions.invoke("avisar-mensaje", { body: { mensaje_id } })
 // Comprueba que el mensaje es de quien llama, que es un aviso/devocional con
-// "notificar" y que quien llama dirige la sala (pastor, lider con permiso o
-// el lider de esa sala). Avisa a la sala o solo a los que eligio ("para")
+// "notificar" y que quien llama dirige la sala (pastor, lider con permiso,
+// el lider de esa sala o uno de sus ayudantes). Avisa a la sala o solo a los que eligio ("para")
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { admin, enviar, json, preflight } from "../_shared/push.ts";
 
 type Datos = {
-  tipo?: "aviso" | "devocional";
+  tipo?: "aviso" | "devocional" | "encuentro" | "memorizar";
   titulo?: string;
   notificar?: boolean;
   para?: string[];
+  encuentro?: { fecha: string; hora?: string; lugar?: string };
 };
 
 Deno.serve(async (req) => {
@@ -51,12 +52,15 @@ Deno.serve(async (req) => {
   });
   const { data: sala } = await usuario
     .from("salas")
-    .select("label, lider")
+    .select("label, lider, ayudantes")
     .eq("iglesia_id", m.iglesia_id)
     .eq("id", m.sala)
     .maybeSingle();
+  // el lider de la sala o uno de sus ayudantes (por su nombre)
+  const autor = (m.autor ?? "").trim().toLowerCase();
+  const guias = [sala?.lider ?? "", ...((sala?.ayudantes as string[]) ?? [])];
   const esSuLider =
-    !!sala?.lider && sala.lider.trim() === (m.autor ?? "").trim();
+    !!autor && guias.some((n) => n.trim().toLowerCase() === autor);
   if (!puede && !esSuLider) return json({ error: "sin permiso" }, 403);
 
   const para = (datos.para ?? []).filter((n) => typeof n === "string");
@@ -76,15 +80,37 @@ Deno.serve(async (req) => {
   const titulo =
     datos.tipo === "devocional"
       ? `📖 ${datos.titulo ?? "Devocional"}`
-      : m.sala === "general"
+      : datos.tipo === "encuentro"
+        ? `📅 ${datos.titulo ?? "Encuentro"} · ¿Vas?`
+        : datos.tipo === "memorizar"
+          ? `🧠 Versículo para memorizar · ${nombreSala}`
+          : m.sala === "general"
         ? "📣 Aviso de la iglesia"
         : `📣 Aviso de ${nombreSala}`;
+
+  // encuentro: "sábado 21 de noviembre, 10:00 · En la iglesia"
+  const e = datos.encuentro;
+  const cuando = e
+    ? [
+        new Date(`${e.fecha}T12:00:00Z`).toLocaleDateString("es-ES", {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+          timeZone: "UTC",
+        }) + (e.hora ? `, ${e.hora}` : ""),
+        e.lugar,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "";
 
   const resultado = await enviar(
     (tokens ?? []).map((t: { token: string }) => ({
       to: t.token,
       title: titulo,
-      body: [m.texto.slice(0, 150), iglesia].filter(Boolean).join(" · "),
+      body: [cuando, m.texto.slice(0, 150), iglesia]
+        .filter(Boolean)
+        .join(" · "),
       data: { url: `/sala/${m.sala}`, iglesia_id: m.iglesia_id },
     })),
   );
