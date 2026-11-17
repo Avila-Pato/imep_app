@@ -141,6 +141,13 @@ async function llamarFuncion(nombre: string, body: object) {
   throw new Error(`${nombre} ${detalle}`);
 }
 
+// El pastor creo otra iglesia (el servidor ya sumo a sus hermanos): les
+// avisa "Te sumaron a ..." (la Edge Function revisa que sea el pastor)
+export async function avisarIglesiaNueva(id: string) {
+  if (!supabase || !esUuid(id)) return;
+  await llamarFuncion("avisar-iglesia", { iglesia_id: id });
+}
+
 // Push a toda la iglesia (la Edge Function revisa que pueda publicar).
 // cambio: se edito y cambio el dia, la hora o el lugar ("Cambió el horario")
 export async function avisarAnuncio(id: string, cambio = false) {

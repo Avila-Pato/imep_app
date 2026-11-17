@@ -29,10 +29,12 @@ import {
   borrarDelServidor,
   eliminarCuentaDelServidor,
 } from "@/services/reinicio";
-import { registrarDispositivo } from "@/services/push";
+import { PUSH_ACTIVO, registrarDispositivo } from "@/services/push";
+import { avisarAhora } from "@/services/notificaciones";
 import { horaTurno, usarHorarios } from "@/utils/cultos";
 import {
   avisarAnuncio,
+  avisarIglesiaNueva,
   avisarMensaje,
   avisarPeticion,
   avisarPeticionAprobada,
@@ -1005,7 +1007,10 @@ export function agregarIglesia(datos: Iglesia) {
       ? { ...pasarA(s, iglesia), iglesias }
       : { iglesia, iglesias };
   });
-  subir(iglesia);
+  // ya arriba: a sus hermanos (que el servidor sumo) les llega el aviso
+  subir(iglesia).then((r) => {
+    if (r) enFondo(avisarIglesiaNueva(iglesia.id));
+  });
 }
 
 // Toco un aviso de otra de sus iglesias: se cambia a esa (si es suya)
@@ -1111,6 +1116,20 @@ export async function sincronizarIglesias() {
   }
   const ids = new Set(remotas.map((r) => r.iglesia.id));
   const reintentar: Iglesia[] = [];
+  // Me sumaron a una iglesia nueva (como hermano; no la primera vez): en
+  // Expo Go el aviso lo da el telefono (con push llega del servidor)
+  const conocidas = listaIglesias(useStore.getState());
+  if (!PUSH_ACTIVO && conocidas.some((x) => esUuid(x.id))) {
+    for (const r of remotas) {
+      if (r.rol !== "hermano" || conocidas.some((x) => x.id === r.iglesia.id))
+        continue;
+      avisarAhora(
+        `⛪ Te sumaron a ${r.iglesia.sede}`,
+        "Tu pastor abrió esta iglesia en Congrega. Toca para verla",
+        "/eventos?vista=anuncios",
+      ).catch(() => {});
+    }
+  }
   cambiar((s) => {
     // el servidor manda: las que estaban arriba y ya no estan, se borraron
     // (desde otro telefono o en pruebas). Las que nunca subieron, se reintentan
