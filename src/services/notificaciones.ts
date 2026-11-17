@@ -1,6 +1,7 @@
 // Notificaciones locales: se programan en el mismo telefono (sin servidor).
 // Cuando haya backend, los avisos nuevos (ej: un anuncio recien publicado)
 // llegaran como push; esto queda para los recordatorios.
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 
@@ -27,8 +28,14 @@ export function alActivarPermiso(f: () => void) {
   };
 }
 
-// Una vez al abrir la app: como mostrarlas y el canal de Android
-export async function configurarNotificaciones() {
+// Una vez al abrir la app: como mostrarlas y el canal de Android.
+// (Android 13+: sin el canal creado, el aviso de permiso NO aparece)
+let configurando: Promise<void> | null = null;
+export function configurarNotificaciones() {
+  configurando ??= configurar();
+  return configurando;
+}
+async function configurar() {
   if (!NOTIS_DISPONIBLES) return;
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
@@ -52,16 +59,23 @@ export async function tienePermiso() {
 }
 
 // Al entrar a la app (despues de la bienvenida): pregunta UNA vez. Si ya
-// respondio (si o no), no insiste: puede cambiarlo en Perfil → Notificaciones
+// respondio (si o no), no insiste: puede cambiarlo en Perfil → Notificaciones.
+// Ojo: en Android 13+ antes de preguntar el estado ya es "denied" (con
+// canAskAgain): por eso se anota aqui si ya se pregunto
+const YA_PREGUNTO = "imep:permisoPedido";
 export async function pedirPermisoAlEntrar() {
   if (!NOTIS_DISPONIBLES) return;
   const actual = await Notifications.getPermissionsAsync();
-  if (actual.granted || actual.status !== "undetermined") return;
+  if (actual.granted || !actual.canAskAgain) return;
+  const pregunto = await AsyncStorage.getItem(YA_PREGUNTO).catch(() => null);
+  if (pregunto) return;
+  await AsyncStorage.setItem(YA_PREGUNTO, "1").catch(() => {});
   await pedirPermiso();
 }
 
 export async function pedirPermiso() {
   if (!NOTIS_DISPONIBLES) return false;
+  await configurarNotificaciones().catch(() => {}); // el canal primero
   const ok = (await Notifications.requestPermissionsAsync()).granted;
   if (ok) oyentesPermiso.forEach((f) => f());
   return ok;

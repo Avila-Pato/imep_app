@@ -38,10 +38,13 @@ import { confirmar } from "@/utils/confirmar";
 import { horaCulto, horaTurno, horariosActuales } from "@/utils/cultos";
 import { unirTurnos } from "@/utils/turnos";
 import Octicons from "@expo/vector-icons/Octicons";
-import { useEffect, useRef, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  BackHandler,
   LayoutChangeEvent,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -301,6 +304,22 @@ export default function CronogramaView() {
       withSpring(top.get() > mitad ? arriba.get() : abajo.get(), RESORTE),
     );
   };
+
+  // Boton "atras" de Android: si la hoja de los roles esta subida (o
+  // editando), baja a donde estaba (se ve el horario) en vez de salir
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== "android") return;
+      const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+        const subida = top.get() < (arriba.get() + abajo.get()) / 2;
+        if (!editando && !subida) return false; // ya esta abajo: sale
+        if (editando) setEditando(false);
+        top.set(withSpring(abajo.get(), RESORTE));
+        return true;
+      });
+      return () => sub.remove();
+    }, [editando, top, arriba, abajo]),
+  );
 
   const panelStyle = useAnimatedStyle(() => ({ top: top.get() }));
 

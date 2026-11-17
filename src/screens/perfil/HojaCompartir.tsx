@@ -19,15 +19,15 @@ import {
   PixelRatio,
   Platform,
   Pressable,
-  ScrollView,
   Share,
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { captureRef } from "react-native-view-shot";
 import { capturarWeb, compartirImagenWeb } from "@/utils/compartirImagen";
-import TarjetaInvitacion from "./TarjetaInvitacion";
+import TarjetaInvitacion, { ANCHO } from "./TarjetaInvitacion";
 
 // Al tocar "Compartir" una invitacion: elegir como mandarla
 //  - el codigo (mensaje con el enlace, las 4 letras y donde escribirlas)
@@ -49,6 +49,11 @@ export default function HojaCompartir({
   onCerrar: () => void;
 }) {
   const tarjeta = useRef<View>(null);
+  // la tarjeta mide ANCHO x alto; se achica para que entre completa
+  const [alto, setAlto] = useState(0);
+  const { height: altoPantalla } = useWindowDimensions();
+  const maximo = Math.min(400, altoPantalla * 0.45);
+  const escala = alto ? Math.min(1, maximo / alto) : 1;
   const [preparando, setPreparando] = useState(false);
   const [error, setError] = useState(false);
   const enWeb = Platform.OS === "web";
@@ -134,19 +139,32 @@ export default function HojaCompartir({
               <Text style={styles.titulo}>Compartir invitación</Text>
               <Text style={styles.sub}>{titulo}</Text>
 
-              {/* la tarjeta (es la imagen que se manda) */}
-              <ScrollView
-                style={styles.previa}
-                contentContainerStyle={styles.previaContenido}
-                showsVerticalScrollIndicator={false}
+              {/* la tarjeta (es la imagen que se manda): completa y achicada
+                  para que entre, con un titulo que dice que es un ejemplo */}
+              <Text style={styles.previaTitulo}>
+                ASÍ SE VERÁ LA IMAGEN QUE ENVÍES
+              </Text>
+              <View
+                style={[
+                  styles.previa,
+                  alto ? { height: alto * escala, width: ANCHO * escala } : null,
+                ]}
               >
-                <TarjetaInvitacion
-                  ref={tarjeta}
-                  codigo={codigo}
-                  iglesia={iglesia}
-                  sala={sala}
-                />
-              </ScrollView>
+                <View
+                  style={[
+                    styles.previaTarjeta,
+                    { transform: [{ scale: escala }] },
+                  ]}
+                  onLayout={(e) => setAlto(e.nativeEvent.layout.height)}
+                >
+                  <TarjetaInvitacion
+                    ref={tarjeta}
+                    codigo={codigo}
+                    iglesia={iglesia}
+                    sala={sala}
+                  />
+                </View>
+              </View>
 
               <Opcion
                 icono="link"
@@ -258,13 +276,26 @@ const styles = StyleSheet.create({
     color: MUTED,
     marginTop: -6,
   },
-  // la vista previa no tapa las opciones en telefonos chicos
-  previa: {
-    maxHeight: 420,
-    marginVertical: SPACING / 2,
+  previaTitulo: {
+    fontFamily: FUENTE.semibold,
+    fontSize: 10,
+    letterSpacing: 1.4,
+    color: MUTED,
+    textAlign: "center",
+    marginTop: SPACING / 2,
   },
-  previaContenido: {
-    alignItems: "center",
+  // la vista previa entra completa (achicada) sin tapar las opciones
+  previa: {
+    alignSelf: "center",
+    marginBottom: SPACING / 2,
+  },
+  previaTarjeta: {
+    width: ANCHO,
+    transformOrigin: "top left",
+    borderRadius: 22,
+    // un borde suave: se nota donde termina la imagen
+    borderWidth: 1,
+    borderColor: BORDER,
   },
   opcion: {
     flexDirection: "row",

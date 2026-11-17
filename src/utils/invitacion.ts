@@ -64,6 +64,17 @@ export const SITIO = "https://congrega.expo.app";
 // desarrollo (&dev=exp://...) y la pagina muestra "Abrir en Expo Go"
 const EN_EXPO_GO =
   Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+// El mensaje de invitacion (WhatsApp, SMS...): el enlace y donde escribir
+// el codigo. Lo usan el Panel y "Editar sala"
+export const mensajeInvitacion = (
+  iglesia: string,
+  codigo: string,
+  sala?: string,
+) =>
+  `Únete a ${iglesia}${sala ? ` (sala ${sala})` : ""} en la app Congrega 🙌\n\n` +
+  `1. Descárgala o ábrela aquí: ${enlaceDeCodigo(codigo)}\n` +
+  `2. En «Únete a tu iglesia» escribe tu código: ${codigoVisible(codigo)}`;
+
 export const enlaceDeCodigo = (codigo: string) => {
   // con "/" al final: sin ella el servidor responde 404 (igual carga en el
   // navegador, pero WhatsApp no arma la vista previa con la imagen)

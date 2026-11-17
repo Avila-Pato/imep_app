@@ -187,4 +187,38 @@ export function useEnVivo() {
       if (canal) cliente.removeChannel(canal);
     };
   }, [id]);
+
+  // Me sumaron a OTRA iglesia (ej: el pastor creo una nueva y el servidor
+  // agrega a sus hermanos, o entre con otro codigo): aparece al tiro, sin
+  // tener que cerrar y abrir la app
+  useEffect(() => {
+    const cliente = supabase;
+    if (!cliente) return;
+    let canal: ReturnType<typeof cliente.channel> | null = null;
+    let vivo = true;
+    asegurarSesion()
+      .then(async () => {
+        const { data } = await cliente.auth.getSession();
+        const yo = data.session?.user.id;
+        if (!vivo || !yo) return;
+        canal = cliente
+          .channel(`mis-iglesias-${yo}`)
+          .on(
+            "postgres_changes",
+            {
+              event: "INSERT",
+              schema: "public",
+              table: "miembros",
+              filter: `usuario_id=eq.${yo}`,
+            },
+            () => sincronizarIglesias(),
+          )
+          .subscribe();
+      })
+      .catch(() => {});
+    return () => {
+      vivo = false;
+      if (canal) cliente.removeChannel(canal);
+    };
+  }, []);
 }

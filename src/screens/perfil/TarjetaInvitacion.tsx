@@ -12,6 +12,7 @@ const TINTA = "#1B1B1B";
 const GRIS = "#6F6B66";
 const SUAVE = "#F3F1EC";
 const ACENTO = "#E5484D";
+export const ANCHO = 320; // ancho de la tarjeta (la vista previa la achica)
 
 // Tarjeta de invitacion (se comparte como imagen): la iglesia, el QR, el
 // codigo y DONDE escribirlo (un dibujo del campo de "Unete a tu iglesia")
@@ -99,7 +100,7 @@ function Paso({ n, texto }: { n: number; texto: string }) {
 
 const styles = StyleSheet.create({
   tarjeta: {
-    width: 320,
+    width: ANCHO,
     padding: 22,
     borderRadius: 22,
     backgroundColor: "#FFFFFF",

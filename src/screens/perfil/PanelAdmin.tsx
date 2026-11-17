@@ -28,7 +28,11 @@ import {
 import { IconName } from "@/types/typesCronogramas";
 import { GrupoId } from "@/types/typesComunidad";
 import { proximoCulto } from "@/utils/cultos";
-import { codigoVisible, enlaceDeCodigo } from "@/utils/invitacion";
+import {
+  codigoVisible,
+  enlaceDeCodigo,
+  mensajeInvitacion,
+} from "@/utils/invitacion";
 import { estadoPeticion } from "@/utils/peticiones";
 import { unirTurnos } from "@/utils/turnos";
 import Octicons from "@expo/vector-icons/Octicons";
@@ -209,9 +213,7 @@ export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
   const compartir = (codigo: string, sala?: string) =>
     setCompartiendo({ codigo, sala });
   const mensajeDe = (codigo: string, sala?: string) =>
-    `Únete a ${iglesia?.sede ?? "nuestra iglesia"}${sala ? ` (sala ${sala})` : ""} en la app Congrega 🙌\n\n` +
-    `1. Descárgala o ábrela aquí: ${enlaceDeCodigo(codigo)}\n` +
-    `2. En «Únete a tu iglesia» escribe tu código: ${codigoVisible(codigo)}`;
+    mensajeInvitacion(iglesia?.sede ?? "nuestra iglesia", codigo, sala);
 
   return (
     <View style={styles.panel}>

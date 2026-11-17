@@ -39,6 +39,7 @@ import {
   View,
 } from "react-native";
 import ConBordes from "@/components/ConBordes";
+import CodigoDeSala from "./CodigoDeSala";
 
 // Lo que puede tener cada sala (se elige al crearla)
 const FUNCIONES: {
@@ -409,6 +410,9 @@ export default function ModalNuevaSala({
                           </Text>
                         </View>
                       </View>
+
+                      {/* editando: el codigo para invitar a esta sala */}
+                      {sala && !comoLider && <CodigoDeSala sala={sala} />}
 
                       <Text style={styles.etiqueta}>NOMBRE</Text>
                       <TextInput
