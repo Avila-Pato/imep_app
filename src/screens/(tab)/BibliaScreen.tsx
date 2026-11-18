@@ -25,6 +25,9 @@ import AccionesVersiculo, {
 } from "./components/AccionesVersiculo";
 import BibliaView from "./components/BibliaView";
 
+// Alto aprox. de las opciones de arriba (libro, version, Para ti, letra)
+const ALTO_OPCIONES = 240;
+
 // Pestaña Biblia: abre directo en la lectura (el libro y sus versiculos).
 // Sin titulo arriba: el tabbar ya dice "Biblia".
 // El estudio guiado y lo guardado van en el Perfil.
@@ -46,6 +49,10 @@ export default function BibliaScreen() {
   const scrollRef = useRef<ScrollView>(null);
   // bajo bastante (capitulos largos, ej: Salmo 119): aparece "volver arriba"
   const [lejos, setLejos] = useState(false);
+  // las opciones de arriba (libro, version, Para ti, letra) quedaron fuera
+  // de la pantalla (ej: al entrar desde "Para ti" directo a un versiculo):
+  // aparece una barrita fija para volver a ellas
+  const [sinOpciones, setSinOpciones] = useState(false);
   const arriba = () => scrollRef.current?.scrollTo({ y: 0, animated: true });
   // versiculos tocados (muestran la barra de acciones)
   const [seleccion, setSeleccion] = useState<SeleccionBiblia | null>(null);
@@ -70,8 +77,11 @@ export default function BibliaScreen() {
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={100}
         onScroll={(e) => {
-          const ahora = e.nativeEvent.contentOffset.y > 900;
+          const y = e.nativeEvent.contentOffset.y;
+          const ahora = y > 900;
           if (ahora !== lejos) setLejos(ahora);
+          const escondidas = y > ALTO_OPCIONES;
+          if (escondidas !== sinOpciones) setSinOpciones(escondidas);
         }}
       >
         <BibliaView
@@ -96,6 +106,25 @@ export default function BibliaScreen() {
           onSeleccion={setSeleccion}
         />
       </ScrollView>
+
+      {/* Opciones fuera de la pantalla: barrita fija arriba para volver */}
+      {leyendo && sinOpciones && !seleccion && (
+        <Pressable
+          onPress={arriba}
+          style={({ pressed }) => [
+            styles.opciones,
+            pressed && styles.presionado,
+          ]}
+          accessibilityLabel="Ver las opciones: libro, versión y letra"
+        >
+          <Octicons name="book" size={13} color={TEXT} />
+          <Text style={styles.opcionesTexto} numberOfLines={1}>
+            {LIBROS_BIBLIA[leyendo.libro - 1]} {leyendo.capitulo}
+          </Text>
+          <Text style={styles.opcionesMas}>· Opciones</Text>
+          <Octicons name="chevron-up" size={14} color={TEXT} />
+        </Pressable>
+      )}
 
       {/* Volver arriba: solo cuando bajo bastante leyendo */}
       {leyendo && !seleccion && lejos && (
@@ -176,6 +205,37 @@ export default function BibliaScreen() {
 
 const styles = StyleSheet.create({
   presionado: {
+    opacity: 0.6,
+  },
+  // barrita fija arriba (cuando las opciones quedaron fuera de la pantalla)
+  opciones: {
+    position: "absolute",
+    top: SPACING,
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: ELEVADO,
+    borderWidth: 1,
+    borderColor: LINEA,
+    shadowColor: "#000",
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 6,
+  },
+  opcionesTexto: {
+    fontFamily: FUENTE.semibold,
+    fontSize: 13,
+    color: TEXT,
+  },
+  opcionesMas: {
+    fontFamily: FUENTE.medium,
+    fontSize: 13,
+    color: TEXT,
     opacity: 0.6,
   },
   // a lo ancho (con el mismo margen que la lectura)
