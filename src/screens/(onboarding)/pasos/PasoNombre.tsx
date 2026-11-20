@@ -6,7 +6,7 @@ import { BotonPrincipal, Paso, Subtitulo, Titulo } from "./ui";
 
 // "¿Cómo te llamamos?"
 export default function PasoNombre({ onSeguir }: { onSeguir: () => void }) {
-  const [nombre, setNombre] = useState(useEstudios().nombre ?? "");
+  const [nombre, setNombre] = useState(useEstudios("nombre").nombre ?? "");
   const listo = nombre.trim().length >= 2;
 
   const seguir = () => {

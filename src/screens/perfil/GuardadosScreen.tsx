@@ -20,7 +20,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 // Versiculos guardados y oraciones escritas con ellos (desde el Perfil).
 // Lista virtual: aunque sean muchos, solo se dibujan los que se ven
 export default function GuardadosScreen() {
-  const { versiculos } = useEstudios();
+  const { versiculos } = useEstudios("versiculos");
   const lista = [...versiculos].sort((a, b) => b.fecha.localeCompare(a.fecha));
 
   return (

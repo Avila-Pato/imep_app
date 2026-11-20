@@ -424,7 +424,7 @@ function Lectura({
   seleccionados: number[];
   onTocar: (v: Verso) => void;
 }) {
-  const { resaltados, letra = 1 } = useEstudios();
+  const { resaltados, letra = 1 } = useEstudios("resaltados", "letra");
   const [eligiendo, setEligiendo] = useState(false); // selector de libro abierto
   const fuente = useFuenteBiblia();
   // tamaño elegido con A− / A+

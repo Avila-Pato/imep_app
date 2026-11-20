@@ -191,7 +191,7 @@ export default function CronogramaView() {
   const diasSel = diasDesdeHoy(seleccionado);
 
   // Turnos de ejemplo + los que asigno el admin
-  const { turnosEditados } = useEstudios();
+  const { turnosEditados } = useEstudios("turnosEditados");
   const claveSubida = useClaveSubidaCronograma();
   const iglesiaActiva = useIglesia();
   // la casilla que se acaba de cambiar muestra si se guardo (gira → ✓)

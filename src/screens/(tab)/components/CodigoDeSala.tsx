@@ -19,7 +19,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 // Si aun no tiene codigo, se crea aqui mismo
 export default function CodigoDeSala({ sala }: { sala: Grupo }) {
   const esPastor = useEsPastor();
-  const { codigos, iglesia } = useEstudios();
+  const { codigos, iglesia } = useEstudios("codigos", "iglesia");
   const [compartiendo, setCompartiendo] = useState(false);
   if (!esPastor || sala.id === "general") return null;
   const codigo = codigos[sala.id]?.codigo;

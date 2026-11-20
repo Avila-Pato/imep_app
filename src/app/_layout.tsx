@@ -92,7 +92,7 @@ export default function RootLayout() {
   useRecordatorios();
   // cronograma, anuncios y miembros al instante (Supabase Realtime)
   useEnVivo();
-  const { bienvenida: vista } = useEstudios();
+  const { bienvenida: vista } = useEstudios("bienvenida");
   const bienvenida = vista || !MOSTRAR_BIENVENIDA;
   const listo = (fuentesListas || !!error) && cargado;
 

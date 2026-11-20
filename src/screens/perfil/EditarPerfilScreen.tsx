@@ -49,7 +49,7 @@ const IDS_TEMA = Object.keys(TEMAS) as TemaId[];
 // Editar perfil: elegir un chibi o una foto, el nombre y la letra de la
 // Biblia. Los cambios se guardan al tocar "Guardar"
 export default function EditarPerfilScreen() {
-  const estado = useEstudios();
+  const estado = useEstudios("avatar", "fuenteBiblia", "nombre", "portada");
   const { top } = useSafeAreaInsets();
   const [avatar, setAvatar] = useState<AvatarElegido | undefined>(
     estado.avatar,

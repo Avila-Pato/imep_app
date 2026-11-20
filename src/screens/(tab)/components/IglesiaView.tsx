@@ -115,7 +115,7 @@ export default function IglesiaView() {
     grupo: miGrupo,
     iglesia: miIglesia,
     nombre,
-  } = useEstudios();
+  } = useEstudios("mensajes", "vistos", "grupo", "iglesia", "nombre");
   const yo = nombre?.trim() || USUARIO.nombre;
   const [invitando, setInvitando] = useState(false);
   const [enlace, setEnlace] = useState("");

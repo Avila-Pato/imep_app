@@ -13,7 +13,7 @@ export type Verificacion =
 // iglesia lleva. Con servidor solo vale lo que diga el servidor
 export function useVerificarCodigo(texto: string): Verificacion {
   const grupos = useGrupos();
-  const { codigos } = useEstudios();
+  const { codigos } = useEstudios("codigos");
   // ultimo resultado del servidor y de que codigo era
   const [remoto, setRemoto] = useState<{
     codigo: string;

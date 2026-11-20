@@ -73,7 +73,7 @@ export default function ModalAsignar({
   onElegir,
   onCerrar,
 }: Props) {
-  const { invitados } = useEstudios();
+  const { invitados } = useEstudios("invitados");
   const avatarDe = useAvatarDe();
   // los hermanos que se unieron a la iglesia, cada uno con su cuenta (dos
   // con el mismo nombre son dos personas: se distinguen por cuando se unieron)

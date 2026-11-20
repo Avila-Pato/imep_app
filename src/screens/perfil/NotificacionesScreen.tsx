@@ -72,7 +72,7 @@ const TIPOS: {
 
 // Notificaciones: permiso del telefono y que recordatorios recibir
 export default function NotificacionesScreen() {
-  const { avisos } = useEstudios();
+  const { avisos } = useEstudios("avisos");
   const esPastor = useEsPastor();
   // null = revisando el permiso
   const [permiso, setPermiso] = useState<boolean | null>(null);

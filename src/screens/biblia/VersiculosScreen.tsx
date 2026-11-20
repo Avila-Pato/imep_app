@@ -17,7 +17,12 @@ import { claveVerso } from "@/screens/(tab)/components/AccionesVersiculo";
 import ModalOracion from "@/screens/(tab)/components/ModalOracion";
 import TamanoLetra from "@/screens/(tab)/components/TamanoLetra";
 import { Verso } from "@/services/biblia";
-import { masVersiculos, VersoFeed } from "@/services/feedVersiculos";
+import {
+  masVersiculos,
+  prepararReserva,
+  tomarReserva,
+  VersoFeed,
+} from "@/services/feedVersiculos";
 import {
   alternarMeGusta,
   darMeGusta,
@@ -81,10 +86,16 @@ function useFeed(activo: boolean, version: string) {
   const pedirMas = () => {
     if (pidiendo.current) return;
     pidiendo.current = true;
-    masVersiculos(5, vistosCon(items), version)
+    const vistos = vistosCon(items);
+    masVersiculos(5, vistos, version)
       .then((nuevos) => {
         setError(null);
         setItems((a) => [...a, ...nuevos]);
+        // y deja listos unos para la proxima vez que abra "Para ti"
+        prepararReserva(
+          version,
+          new Set([...vistos, ...nuevos.map((v) => v.clave)]),
+        );
       })
       .catch(() => setError(ERROR_FEED))
       .finally(() => {
@@ -92,19 +103,45 @@ function useFeed(activo: boolean, version: string) {
       });
   };
 
-  // al abrir (o al cambiar de version) empieza un feed nuevo
+  // al abrir (o al cambiar de version) empieza un feed nuevo:
+  //  1) los que quedaron preparados la vez anterior (al instante)
+  //  2) si no hay: los 2 primeros apenas llegan (el primero de un capitulo
+  //     ya guardado si se puede) y el resto sigue cargando por detras
   useEffect(() => {
     if (!activo) return;
     let vivo = true;
     pidiendo.current = true;
-    masVersiculos(5, new Set(versosVistosAhora() ?? []), version)
-      .then((nuevos) => {
+    const vistos = new Set(versosVistosAhora() ?? []);
+    const mostrar = (nuevos: VersoFeed[]) => {
+      setError(null);
+      setItems(nuevos);
+      // el primero ya se esta viendo
+      if (nuevos[0]) marcarVersoVisto(nuevos[0].clave);
+    };
+    (async () => {
+      let lista = await tomarReserva(version, vistos);
+      if (!vivo) return;
+      if (lista.length) mostrar(lista);
+      else {
+        lista = await masVersiculos(2, vistos, version, true);
         if (!vivo) return;
-        setError(null);
-        setItems(nuevos);
-        // el primero ya se esta viendo
-        if (nuevos[0]) marcarVersoVisto(nuevos[0].clave);
-      })
+        mostrar(lista);
+      }
+      // los siguientes (por detras): asi nunca se queda esperando
+      const usados = new Set([...vistos, ...lista.map((v) => v.clave)]);
+      const mas = await masVersiculos(4, usados, version).catch(
+        () => [] as VersoFeed[],
+      );
+      if (!vivo) return;
+      setItems((a) => [
+        ...a,
+        ...mas.filter((v) => !a.some((x) => x.clave === v.clave)),
+      ]);
+      prepararReserva(
+        version,
+        new Set([...usados, ...mas.map((v) => v.clave)]),
+      );
+    })()
       .catch(() => {
         if (vivo) setError(ERROR_FEED);
       })
@@ -429,7 +466,7 @@ function Pagina({
     meGusta,
     ayudasVistas = [],
     letra = 1,
-  } = useEstudios();
+  } = useEstudios("resaltados", "versiculos", "meGusta", "ayudasVistas", "letra");
   const version = useVersion();
   const tamanoTexto = tamanoVerso(verso.texto, letra);
   const fuente = useFuenteBiblia(); // letra elegida en Editar perfil

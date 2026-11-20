@@ -52,7 +52,7 @@ const ROLES: {
 
 // "¿Quién eres en la iglesia?": el pastor administra casi toda la app
 export default function PasoRol({ onSeguir }: { onSeguir: () => void }) {
-  const [rol, setRol] = useState<RolIglesia | undefined>(useEstudios().rol);
+  const [rol, setRol] = useState<RolIglesia | undefined>(useEstudios("rol").rol);
 
   return (
     <Paso

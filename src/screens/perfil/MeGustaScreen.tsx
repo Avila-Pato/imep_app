@@ -19,7 +19,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 // Todos los versiculos con "me gusta" (desde el Perfil). Lista virtual:
 // aunque sean miles, solo se dibujan los que se ven
 export default function MeGustaScreen() {
-  const { meGusta, meGustaTextos } = useEstudios();
+  const { meGusta, meGustaTextos } = useEstudios("meGusta", "meGustaTextos");
   const gustados = meGusta
     .map((clave) => ({ clave, ...meGustaTextos[clave] }))
     .filter((g) => !!g.texto)

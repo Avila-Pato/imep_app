@@ -20,7 +20,7 @@ import { BotonPrincipal, Paso, Subtitulo, Titulo } from "./ui";
 // "¿Qué te trae aquí?" (se puede elegir mas de uno)
 export default function PasoMotivos({ onSeguir }: { onSeguir: () => void }) {
   const [elegidos, setElegidos] = useState<string[]>(
-    useEstudios().motivos ?? [],
+    useEstudios("motivos").motivos ?? [],
   );
 
   const alternar = (id: string) =>

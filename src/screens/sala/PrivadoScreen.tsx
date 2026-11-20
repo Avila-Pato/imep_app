@@ -33,7 +33,7 @@ import ChatSala from "./components/ChatSala";
 export default function PrivadoScreen() {
   const { persona } = useLocalSearchParams<{ persona: string }>();
   const nombre = decodeURIComponent(persona ?? "");
-  const { nombre: miNombre } = useEstudios();
+  const { nombre: miNombre } = useEstudios("nombre");
   const id = idPrivado(miNombre?.trim() || USUARIO.nombre, nombre);
   // el teclado se mide desde arriba de la pantalla: se suma la barra de estado
   const { top } = useSafeAreaInsets();

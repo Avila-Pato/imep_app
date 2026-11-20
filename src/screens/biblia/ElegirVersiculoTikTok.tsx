@@ -37,7 +37,7 @@ export default function ElegirVersiculoTikTok({
   onElegir: (cita: string, texto: string) => void;
   onCerrar: () => void;
 }) {
-  const { letra = 1 } = useEstudios();
+  const { letra = 1 } = useEstudios("letra");
   const fuente = useFuenteBiblia(); // la letra que eligio (Aa)
   const [pos, setPos] = useState({ libro: 43, capitulo: 3 }); // Juan 3
   const nombre = LIBROS_BIBLIA[pos.libro - 1];

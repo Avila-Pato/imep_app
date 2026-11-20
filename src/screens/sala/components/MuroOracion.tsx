@@ -49,7 +49,7 @@ type Props = {
 
 // Muro de peticiones de oracion, como papelitos pegados en una pared
 export default function MuroOracion({ grupo }: Props) {
-  const { publicaciones, orando, revisiones, grupo: miGrupo } = useEstudios();
+  const { publicaciones, orando, revisiones, grupo: miGrupo } = useEstudios("publicaciones", "orando", "revisiones", "grupo");
   const grupos = useGrupos(); // incluye las salas que creo el pastor
   const guio = useSalasQueGuio();
   const [abiertaId, setAbiertaId] = useState<string | null>(null);

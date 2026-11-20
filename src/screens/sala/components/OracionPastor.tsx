@@ -34,7 +34,7 @@ import ModalPedirOracion from "./ModalPedirOracion";
 // aprueba o rechaza aqui mismo), las que estan en el muro (y puede quitarlas
 // por si acaso) y pedir oracion el tambien (la suya se publica directo)
 export default function OracionPastor() {
-  const { publicaciones, revisiones } = useEstudios();
+  const { publicaciones, revisiones } = useEstudios("publicaciones", "revisiones");
   const [pidiendo, setPidiendo] = useState(false);
 
   const pendientes = publicaciones

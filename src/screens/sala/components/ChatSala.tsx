@@ -89,7 +89,7 @@ export default function ChatSala({
   privado?: boolean; // chat de dos personas (sin avisos para todos)
 }) {
   const grupo = sala.id;
-  const { mensajes, nombre, vaciados } = useEstudios();
+  const { mensajes, nombre, vaciados } = useEstudios("mensajes", "nombre", "vaciados");
   // vacio el chat: solo ve lo que llego despues
   const desde = vaciados?.[sala.id] ?? "";
   const yo = nombre?.trim() || USUARIO.nombre;

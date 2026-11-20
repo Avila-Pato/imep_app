@@ -74,7 +74,7 @@ export default function SalaScreen() {
   const chatCerrado = grupo.funciones?.chat === false;
   const lider = useEsLider(grupo.id);
   const vista = vistas.some((v) => v.id === elegida) ? elegida : vistas[0].id;
-  const { grupo: miGrupo, iglesia } = useEstudios();
+  const { grupo: miGrupo, iglesia } = useEstudios("grupo", "iglesia");
   const guio = useSalasQueGuio(); // lider o ayudante: entra sin invitacion
 
   // Al entrar y al salir, la sala queda como leida

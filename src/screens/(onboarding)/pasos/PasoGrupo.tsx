@@ -28,7 +28,7 @@ import { BotonPrincipal, Paso, Subtitulo, Titulo } from "./ui";
 // El codigo se revisa en el servidor: si no existe, no deja unirse
 export default function PasoGrupo({ onSeguir }: { onSeguir: () => void }) {
   // si llego por un enlace de invitacion, el codigo ya viene escrito
-  const { invitacion } = useEstudios();
+  const { invitacion } = useEstudios("invitacion");
   const [enlace, setEnlace] = useState(invitacion ?? "");
   const [error, setError] = useState(false);
   const [uniendo, setUniendo] = useState(false);

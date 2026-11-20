@@ -43,7 +43,7 @@ export default function PopupAyuda({
   puntos: PuntoAyuda[];
 }) {
   const cargado = useCargado();
-  const { ayudasVistas = [] } = useEstudios();
+  const { ayudasVistas = [] } = useEstudios("ayudasVistas");
   const espacio = useEspacioBarra(); // barra de pestañas de abajo
   if (!cargado || ayudasVistas.includes(id)) return null;
 

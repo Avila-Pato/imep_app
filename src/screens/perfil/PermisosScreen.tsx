@@ -57,7 +57,7 @@ const PUEDE: Record<string, string> = {
 export default function PermisosScreen() {
   const esPastor = useEsPastor();
   const puedeRoles = usePuede("roles");
-  const { cargos, nombre } = useEstudios();
+  const { cargos, nombre } = useEstudios("cargos", "nombre");
   const [busqueda, setBusqueda] = useState("");
   // los hermanos que se unieron (menos el pastor)
   const PERSONAS = useMiembros().filter((m) => m.rol !== "pastor");

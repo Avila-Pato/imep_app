@@ -77,7 +77,7 @@ export default function ModalFormAnuncio({ anuncio, autor, onCerrar }: Props) {
     anuncio?.categoria ?? "evento",
   );
   // categorias: Eventos + las que ya uso la iglesia + las nuevas de ahora
-  const { anuncios } = useEstudios();
+  const { anuncios } = useEstudios("anuncios");
   // pastor con varias iglesias (anuncio nuevo): en esta o en todas
   const esPastor = useEsPastor();
   const activa = useIglesia();

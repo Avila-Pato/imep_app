@@ -58,7 +58,7 @@ export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
     revisiones,
     anuncios,
     nombre,
-  } = useEstudios();
+  } = useEstudios("codigos", "turnosEditados", "publicaciones", "revisiones", "anuncios", "nombre");
   // anuncio nuevo directo desde el perfil
   const [escribiendo, setEscribiendo] = useState(false);
   const [predicando, setPredicando] = useState(false);

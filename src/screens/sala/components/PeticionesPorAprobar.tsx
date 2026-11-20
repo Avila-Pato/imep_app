@@ -34,7 +34,7 @@ export default function PeticionesPorAprobar({
   grupo: GrupoId;
   oculto?: boolean;
 }) {
-  const { publicaciones, revisiones } = useEstudios();
+  const { publicaciones, revisiones } = useEstudios("publicaciones", "revisiones");
   const [abierto, setAbierto] = useState(false);
   const lider = useEsLider(grupo);
 

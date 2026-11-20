@@ -21,7 +21,7 @@ const RANGO = LETRA_MAX - LETRA_MIN;
 // Nivelador del tamaño de letra de la Biblia: A chica ── ● ── A grande.
 // Se arrastra el punto (o se toca la barra) y la letra cambia en vivo.
 export default function TamanoLetra() {
-  const letra = useEstudios().letra ?? 1;
+  const letra = useEstudios("letra").letra ?? 1;
   const [ancho, setAncho] = useState(0); // ancho util de la barra
   const x = useSharedValue(0); // posicion del punto
   const arrastrando = useSharedValue(false);

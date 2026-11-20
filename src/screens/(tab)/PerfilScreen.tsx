@@ -160,7 +160,7 @@ export default function PerfilScreen() {
     avatar,
     portada,
     cuenta,
-  } = useEstudios();
+  } = useEstudios("grupo", "guardados", "versiculos", "nombre", "cargos", "meGusta", "meGustaTextos", "avatar", "portada", "cuenta");
   const esPastor = useEsPastor();
   const iglesia = useIglesia();
   const misIglesias = useIglesias().map((i) => i.sede);

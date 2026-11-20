@@ -55,7 +55,7 @@ export function useRecordatorios() {
     anunciosAvisados,
     publicaciones,
     revisiones,
-  } = useEstudios();
+  } = useEstudios("avisos", "turnosEditados", "nombre", "iglesia", "anuncios", "desafios", "mensajes", "turnosAvisados", "anunciosAvisados", "publicaciones", "revisiones");
   const revisa = usePuede("salas"); // pastor o lider: aprueba peticiones
   const quiere = (t: TipoAviso) => avisos[t] ?? true;
   const yo = nombre ?? USUARIO.nombre;

@@ -53,7 +53,7 @@ export default function ModalOracion({
   // Con la clasica va en cursiva, como antes
   const fuente = useFuenteBiblia();
   const clasica = useFuenteBibliaId() === "clasica";
-  const { letra = 1 } = useEstudios();
+  const { letra = 1 } = useEstudios("letra");
 
   return (
     <Modal

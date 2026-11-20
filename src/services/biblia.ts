@@ -107,6 +107,36 @@ function guardarCapitulo(clave: string, versos: Verso[]) {
   }
 }
 
+// Los capitulos de esa version que ya estan en el telefono (o en memoria):
+// "Para ti" los usa para mostrar el primero sin esperar internet
+export function capitulosGuardados(
+  version = BIBLIA_VERSION,
+): { libro: number; capitulo: number }[] {
+  const claves = new Set(
+    [...capitulos.keys()].filter((k) => k.startsWith(`${version}-`)),
+  );
+  if (EN_DISCO) {
+    try {
+      const carpeta = new Directory(Paths.document, "biblia");
+      if (carpeta.exists) {
+        for (const f of carpeta.list()) {
+          const nombre = f.name.replace(/\.json$/, "");
+          if (nombre.startsWith(`${version}-`)) claves.add(nombre);
+        }
+      }
+    } catch {
+      // sin acceso a la carpeta: solo lo de memoria
+    }
+  }
+  return [...claves].flatMap((k) => {
+    const [libro, capitulo] = k
+      .slice(version.length + 1)
+      .split("-")
+      .map(Number);
+    return libro && capitulo ? [{ libro, capitulo }] : [];
+  });
+}
+
 // El capitulo completo: memoria -> telefono -> internet (y se guarda)
 async function obtenerCapitulo(
   version: string,

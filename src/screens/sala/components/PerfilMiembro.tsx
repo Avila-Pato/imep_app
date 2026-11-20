@@ -61,7 +61,7 @@ export default function PerfilMiembro({
   const todos = useMiembros();
   const grupos = useGrupos();
   const roles = useRoles();
-  const { turnosEditados } = useEstudios();
+  const { turnosEditados } = useEstudios("turnosEditados");
   const admin = usePuede("roles");
   // sacar de la iglesia: SOLO el pastor (ni la secretaria ni otros roles)
   const esPastor = useEsPastor();

@@ -39,7 +39,7 @@ export default function PasoCuenta({ onSeguir }: { onSeguir: () => void }) {
   const [verClave, setVerClave] = useState(false);
   const listo = correoValido(correo) && clave.length >= 6;
   // ya entro con Google antes: no se le pide crear otra cuenta
-  const { cuenta } = useEstudios();
+  const { cuenta } = useEstudios("cuenta");
 
   const google = async () => {
     // sin servidor (modo de prueba) sigue como antes

@@ -50,7 +50,7 @@ export default function DesafioSala({
   sala: Grupo;
   oculto?: boolean;
 }) {
-  const { desafios, mensajes } = useEstudios();
+  const { desafios, mensajes } = useEstudios("desafios", "mensajes");
   const lider = useEsLider(sala.id); // pastor, administrador o lider
   const [abierto, setAbierto] = useState(false);
   const [creando, setCreando] = useState(false);

@@ -136,7 +136,7 @@ export default function AnunciosView({
   const nombreIglesia = useNombreIglesiaSiVarias();
   // espacio para la barra flotante y los botones del telefono
   const espacio = useEspacioBarra();
-  const { anuncios, nombre } = useEstudios();
+  const { anuncios, nombre } = useEstudios("anuncios", "nombre");
   const puedePublicar = usePuede("anuncios");
   const [filtro, setFiltro] = useState<Filtro>("todos");
   const [abiertoId, setAbiertoId] = useState<string | null>(null);

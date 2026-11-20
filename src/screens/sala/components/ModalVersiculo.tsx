@@ -33,7 +33,7 @@ type Props = {
 // Al tocar la cita de un mensaje: la palabra que eligio el hermano a
 // pantalla completa (como TikTok), con lo que escribio abajo
 export default function ModalVersiculo({ mensaje, onCerrar }: Props) {
-  const { letra = 1 } = useEstudios();
+  const { letra = 1 } = useEstudios("letra");
   const fuente = useFuenteBiblia(); // la letra que eligio (Aa)
   const cita = mensaje?.cita ?? "";
   const pasaje = usePasaje(cita);

@@ -43,7 +43,7 @@ export default function PredicacionView({ inicialId }: { inicialId?: string }) {
   const lista = usePredicaciones();
   // el pastor (o quien publica anuncios) sube, edita y borra
   const puede = usePuede("anuncios");
-  const { nombre } = useEstudios();
+  const { nombre } = useEstudios("nombre");
   const [actualId, setActualId] = useState(inicialId);
   // null = cerrado; undefined dentro del objeto = nueva
   const [form, setForm] = useState<{ p?: Predicacion } | null>(null);

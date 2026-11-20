@@ -36,7 +36,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 export default function UnirseScreen() {
   const { codigo } = useLocalSearchParams<{ codigo: string }>();
   const cargado = useCargado();
-  const { bienvenida } = useEstudios();
+  const { bienvenida } = useEstudios("bienvenida");
   const limpio = extraerCodigo(codigo ?? "");
 
   // esperar lo guardado en el telefono (si no, parece que no hizo el onboarding)

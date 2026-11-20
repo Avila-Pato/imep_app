@@ -30,7 +30,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 export default function CodigoPastor() {
   const esPastor = useEsPastor();
   const visto = useCodigoVisto();
-  const { iglesia, codigos } = useEstudios();
+  const { iglesia, codigos } = useEstudios("iglesia", "codigos");
   const general = codigos.general;
   const mostrar = esPastor && !visto && !!iglesia;
   const [copiado, setCopiado] = useState(false);

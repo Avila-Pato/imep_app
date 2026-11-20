@@ -16,7 +16,7 @@ export type Unido = { grupo?: string; sala?: string; iglesia?: string };
 // Devuelve a que se unio, o null si el codigo no sirve
 export function useUnirse() {
   const grupos = useGrupos();
-  const { codigos, nombre } = useEstudios();
+  const { codigos, nombre } = useEstudios("codigos", "nombre");
 
   return async (texto: string): Promise<Unido | null> => {
     if (conectado()) {

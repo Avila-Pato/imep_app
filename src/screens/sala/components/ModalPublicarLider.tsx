@@ -123,7 +123,7 @@ export default function ModalPublicarLider({
   const [lugar, setLugar] = useState("");
   // a quien le llega la notificacion: vacio = a toda la sala
   const [para, setPara] = useState<string[]>([]);
-  const { nombre } = useEstudios();
+  const { nombre } = useEstudios("nombre");
   useMiembros(); // se actualiza cuando llegan del servidor
   const yo = nombre?.trim() ?? "";
   const personas = miembrosDe(sala.id)

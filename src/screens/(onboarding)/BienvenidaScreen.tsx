@@ -80,7 +80,7 @@ const entraIzquierda = entrada(-40); // al volver
 // Onboarding por pasos (solo la primera vez): crear cuenta, conocer a la
 // persona, presentar la app y entrar a su grupo
 export default function BienvenidaScreen() {
-  const { nombre, rol } = useEstudios();
+  const { nombre, rol } = useEstudios("nombre", "rol");
   const PASOS = pasosPara(rol);
   const [paso, setPaso] = useState(0);
   // hacia donde se mueve (para que el paso entre del lado correcto)

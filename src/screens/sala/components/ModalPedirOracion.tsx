@@ -45,7 +45,7 @@ export default function ModalPedirOracion({
   grupo?: GrupoId; // (ya no se usa: siempre va al muro de toda la iglesia)
   onCerrar: () => void;
 }) {
-  const { iglesia, nombre } = useEstudios();
+  const { iglesia, nombre } = useEstudios("iglesia", "nombre");
   const iglesias = useIglesias().filter((i) => !!i.id);
   // varias iglesias: "todas" o una
   const [destino, setDestino] = useState<string>(iglesia?.id ?? "todas");

@@ -134,7 +134,7 @@ export default function OracionesScreen() {
   // a que iglesia va la peticion (o a todas, si esta en varias)
   const [destino, setDestino] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
-  const { guardados, iglesia, nombre } = useEstudios();
+  const { guardados, iglesia, nombre } = useEstudios("guardados", "iglesia", "nombre");
   // Aviso "Guardado correctamente" despues de guardar
   const [avisoGuardado, setAvisoGuardado] = useState(false);
   // Siempre va al muro de toda la iglesia (no a las salas de grupo)

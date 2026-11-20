@@ -62,7 +62,7 @@ type Props = {
 
 // Barra que aparece al tocar versiculos: resaltar, guardar, copiar, compartir, orar
 export default function AccionesVersiculo({ seleccion, onListo }: Props) {
-  const { resaltados, iglesia } = useEstudios();
+  const { resaltados, iglesia } = useEstudios("resaltados", "iglesia");
   const esPastor = useEsPastor();
   // mandar el versiculo a un chat: primero se elige la sala
   const [eligiendo, setEligiendo] = useState(false);

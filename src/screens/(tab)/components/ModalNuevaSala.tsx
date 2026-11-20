@@ -174,7 +174,7 @@ export default function ModalNuevaSala({
   // la de toda la iglesia no se puede borrar
   const sePuedeBorrar = !!sala && sala.id !== "general" && !comoLider;
   const [otro, setOtro] = useState("");
-  const { nombre: miNombre, invitados } = useEstudios();
+  const { nombre: miNombre, invitados } = useEstudios("nombre", "invitados");
   const hermanos = useMiembros();
   // los hermanos (con su cuenta); los invitados y el lider escrito a mano,
   // solo por nombre. Si dos se llaman igual, se distinguen por cuando se unieron

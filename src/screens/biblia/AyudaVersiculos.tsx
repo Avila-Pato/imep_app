@@ -71,7 +71,7 @@ const AYUDA = "versiculos-para-ti-2";
 
 export default function AyudaVersiculos() {
   const cargado = useCargado();
-  const { ayudasVistas = [] } = useEstudios();
+  const { ayudasVistas = [] } = useEstudios("ayudasVistas");
   // hasta saber lo guardado no se muestra (asi no aparece de mas)
   if (!cargado || ayudasVistas.includes(AYUDA)) return null;
 

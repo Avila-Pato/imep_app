@@ -93,6 +93,8 @@ import { unirTurnos } from "@/utils/turnos";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSyncExternalStore } from "react";
 import { create } from "zustand";
+import { useShallow } from "zustand/react/shallow";
+import { AppState } from "react-native";
 import { persist, PersistStorage } from "zustand/middleware";
 
 // Estado compartido entre pantallas (Estudio y Comunidad), guardado en el telefono.
@@ -194,10 +196,38 @@ const almacen: PersistStorage<Estado> = {
     const texto = await AsyncStorage.getItem(clave);
     return texto ? { state: JSON.parse(texto) } : null;
   },
-  setItem: (clave, valor) =>
-    AsyncStorage.setItem(clave, JSON.stringify(valor.state)),
-  removeItem: (clave) => AsyncStorage.removeItem(clave),
+  // Antes: cada cambio (cada versiculo visto en "Para ti", cada mensaje del
+  // chat) convertia TODO a texto y lo escribia. Ahora se espera a que pare
+  // un momento y se escribe una vez (o al tiro si la app se va al fondo)
+  setItem: (clave, valor) => {
+    porGuardar = { clave, estado: valor.state };
+    clearTimeout(esperaGuardar);
+    esperaGuardar = setTimeout(guardarYa, 500);
+  },
+  removeItem: (clave) => {
+    // se borra todo (reiniciar): lo porGuardar ya no se escribe
+    porGuardar = null;
+    clearTimeout(esperaGuardar);
+    return AsyncStorage.removeItem(clave);
+  },
 };
+
+// Lo ultimo por guardar (solo se escribe el estado mas reciente)
+let porGuardar: { clave: string; estado: unknown } | null = null;
+let esperaGuardar: ReturnType<typeof setTimeout> | undefined;
+function guardarYa() {
+  clearTimeout(esperaGuardar);
+  if (!porGuardar) return;
+  const { clave, estado } = porGuardar;
+  porGuardar = null;
+  AsyncStorage.setItem(clave, JSON.stringify(estado)).catch((e) =>
+    console.warn("[guardar]", e?.message ?? e),
+  );
+}
+// la app se va al fondo (o se cierra): se guarda al instante
+AppState.addEventListener("change", (estado) => {
+  if (estado !== "active") guardarYa();
+});
 
 const unir = <T extends { id: string }>(a: T[], b: T[]) => [
   ...a,
@@ -379,8 +409,21 @@ export async function eliminarCuenta() {
   reiniciarApp();
 }
 
-export function useEstudios() {
-  return useStore();
+// Lo guardado que usa una pantalla. Con las claves (useEstudios("nombre",
+// "iglesia")) la pantalla solo se vuelve a dibujar cuando cambia ESO, no con
+// cada cambio del store (ej: al marcar un versiculo visto o llegar un
+// mensaje del chat, antes se redibujaban todas las pestañas abiertas).
+// Sin claves: todo el store (evitarlo)
+export function useEstudios<K extends keyof Estado>(
+  ...claves: K[]
+): Pick<Estado, K> {
+  return useStore(
+    useShallow((s) =>
+      claves.length
+        ? (Object.fromEntries(claves.map((k) => [k, s[k]])) as Pick<Estado, K>)
+        : s,
+    ),
+  );
 }
 
 // true cuando ya se cargo lo guardado en el telefono (evita mostrar
@@ -695,7 +738,15 @@ export function useMiembros(): MiembroIglesia[] {
 // cada uno con el nombre de su iglesia y la hora segun SUS horarios
 export type MiTurno = Turno & { iglesia?: string; horaFinal?: string };
 export function useMisTurnos(): MiTurno[] {
-  const s = useStore();
+  // solo lo que usa (no se redibuja con cada cambio del store)
+  const s = useEstudios(
+    "nombre",
+    "miembros",
+    "iglesia",
+    "iglesias",
+    "turnosEditados",
+    "porIglesia",
+  );
   // nombre exacto: "pato" y "Pato" pueden ser dos hermanos distintos
   const yo = (s.nombre ?? USUARIO.nombre).trim();
   // mi cuenta (la misma en todas mis iglesias): manda sobre el nombre
@@ -877,7 +928,7 @@ const enFondo = (p: Promise<unknown>) =>
   p.catch((e) => console.warn("[supabase]", e?.message ?? e));
 const misma = (a?: Iglesia, b?: Iglesia) =>
   !!a && !!b && idIglesia(a) === idIglesia(b);
-const listaIglesias = (s: Estado) =>
+const listaIglesias = (s: Pick<Estado, "iglesias" | "iglesia">) =>
   s.iglesias ?? (s.iglesia ? [s.iglesia] : []);
 
 // Guarda lo de la iglesia activa y carga lo de "destino"
@@ -938,7 +989,13 @@ export function useSalasDeTodas() {
 // telefono (la activa usa lo de ahora; las demas, lo que se guardo de ellas).
 // Para el resumen "Todas" del cronograma del pastor
 export function useCronogramasDeTodas() {
-  const s = useStore();
+  const s = useEstudios(
+    "iglesia",
+    "iglesias",
+    "porIglesia",
+    "turnosEditados",
+    "rolesExtra",
+  );
   return listaIglesias(s).map((iglesia) => {
     const activa = misma(iglesia, s.iglesia);
     const datos = activa ? s : s.porIglesia?.[idIglesia(iglesia)];

@@ -33,7 +33,7 @@ export default function ElegirSala({
   onElegir: (sala: Grupo) => void;
   onCerrar: () => void;
 }) {
-  const { grupo: miGrupo } = useEstudios();
+  const { grupo: miGrupo } = useEstudios("grupo");
   const esPastor = useEsPastor();
   const guio = useSalasQueGuio();
   const iglesia = useIglesia(); // la sala general lleva su nombre
