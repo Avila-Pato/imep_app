@@ -70,7 +70,48 @@ const partesFecha = (key: string) => {
 
 // Pide confirmacion antes de borrar todo (en web no hay Alert con botones).
 // El aviso dice exactamente que se pierde: al pastor, sus iglesias completas
-const confirmarReinicio = (esPastor: boolean, iglesias: string[]) => {
+// Con cuenta de Google (correo): el hermano solo cierra sesion en este
+// telefono (su perfil y su iglesia quedan guardados en su cuenta); el pastor
+// elige entre cerrar sesion o borrar todo. Sin cuenta se pierde todo
+const confirmarReinicio = (
+  esPastor: boolean,
+  iglesias: string[],
+  correo?: string,
+) => {
+  const reiniciar = (soloSalir = false) =>
+    reiniciarTodo(soloSalir).catch((e) => {
+      console.warn("[supabase]", e?.message ?? e);
+      const error =
+        "No se pudo borrar del servidor. Revisa tu conexión e inténtalo de nuevo. No se borró nada.";
+      if (Platform.OS === "web") window.alert(error);
+      else Alert.alert("No se pudo reiniciar", error);
+    });
+
+  const guardada = correo
+    ? `Tu perfil y ${esPastor ? "tus iglesias" : "tu iglesia"} quedan guardados en tu cuenta de Google (${correo}). Cuando entres de nuevo con Google, vuelve todo.`
+    : "";
+
+  if (correo && !esPastor) {
+    const titulo = "¿Cerrar sesión en este teléfono?";
+    const texto = `${guardada}
+
+Solo se borra lo guardado en este teléfono (versículos guardados, estudios y notas).`;
+    if (Platform.OS === "web") {
+      if (
+        window.confirm(`${titulo}
+
+${texto}`)
+      )
+        reiniciar(true);
+      return;
+    }
+    Alert.alert(titulo, texto, [
+      { text: "Cancelar", style: "cancel" },
+      { text: "Cerrar sesión", onPress: () => reiniciar(true) },
+    ]);
+    return;
+  }
+
   const titulo = esPastor
     ? "¿Borrar todo y empezar de cero?"
     : "¿Reiniciar la app?";
@@ -80,17 +121,10 @@ const confirmarReinicio = (esPastor: boolean, iglesias: string[]) => {
       }${iglesias.length ? ` (${iglesias.join(", ")})` : ""} y todo lo que tienen: los hermanos unidos, los anuncios, el cronograma y los turnos, las salas y sus chats, las predicaciones y los códigos de invitación.
 
 Los hermanos perderán el acceso. Esto no se puede deshacer.`
-    : "Saldrás de tu iglesia y se borrará todo lo guardado en este teléfono (versículos, estudios y notas). Tu iglesia y sus anuncios no se borran: puedes volver a unirte con una invitación.";
-  const boton = esPastor ? "Borrar todo" : "Reiniciar";
+    : `Saldrás de tu iglesia y se borrará todo: tu perfil, tu nombre y foto, y lo guardado en este teléfono (versículos, estudios y notas).
 
-  const reiniciar = () =>
-    reiniciarTodo().catch((e) => {
-      console.warn("[supabase]", e?.message ?? e);
-      const error =
-        "No se pudo borrar del servidor. Revisa tu conexión e inténtalo de nuevo. No se borró nada.";
-      if (Platform.OS === "web") window.alert(error);
-      else Alert.alert("No se pudo reiniciar", error);
-    });
+No tienes una cuenta guardada, así que no podrás recuperarlo: tendrás que unirte otra vez con una invitación. Para no perder nada, primero toca «Guarda tu cuenta con Google» en tu Perfil.`;
+  const boton = esPastor ? "Borrar todo" : "Reiniciar";
 
   if (Platform.OS === "web") {
     if (
@@ -101,10 +135,22 @@ ${texto}`)
       reiniciar();
     return;
   }
-  Alert.alert(titulo, texto, [
-    { text: "Cancelar", style: "cancel" },
-    { text: boton, style: "destructive", onPress: reiniciar },
-  ]);
+  // pastor con cuenta: tambien puede solo cerrar sesion (sin borrar nada)
+  Alert.alert(
+    titulo,
+    correo
+      ? `${texto}
+
+Si solo quieres salir de este teléfono, toca «Cerrar sesión»: ${guardada}`
+      : texto,
+    [
+      { text: "Cancelar", style: "cancel" },
+      ...(correo
+        ? [{ text: "Cerrar sesión", onPress: () => reiniciar(true) }]
+        : []),
+      { text: boton, style: "destructive", onPress: () => reiniciar() },
+    ],
+  );
 };
 
 // Eliminar la cuenta (Google Play lo exige): avisa que es para siempre y,
@@ -160,7 +206,18 @@ export default function PerfilScreen() {
     avatar,
     portada,
     cuenta,
-  } = useEstudios("grupo", "guardados", "versiculos", "nombre", "cargos", "meGusta", "meGustaTextos", "avatar", "portada", "cuenta");
+  } = useEstudios(
+    "grupo",
+    "guardados",
+    "versiculos",
+    "nombre",
+    "cargos",
+    "meGusta",
+    "meGustaTextos",
+    "avatar",
+    "portada",
+    "cuenta",
+  );
   const esPastor = useEsPastor();
   const iglesia = useIglesia();
   const misIglesias = useIglesias().map((i) => i.sede);
@@ -477,7 +534,11 @@ export default function PerfilScreen() {
                                   ? () => router.push("/notificaciones" as Href)
                                   : op.id === "reiniciar"
                                     ? () =>
-                                        confirmarReinicio(esPastor, misIglesias)
+                                        confirmarReinicio(
+                                          esPastor,
+                                          misIglesias,
+                                          cuenta?.correo,
+                                        )
                                     : op.id === "eliminar"
                                       ? () =>
                                           confirmarEliminar(

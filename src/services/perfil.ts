@@ -56,3 +56,30 @@ async function subirFoto(yo: string, uri: string) {
   if (error) throw error;
   return supabase!.storage.from("avatares").getPublicUrl(ruta).data.publicUrl;
 }
+
+// Mi perfil guardado en el servidor (al volver a entrar con Google despues
+// de reiniciar: recupera el nombre y la foto que tenia)
+export async function bajarMiPerfil(): Promise<{
+  nombre?: string;
+  avatar?: AvatarElegido;
+} | null> {
+  if (!supabase) return null;
+  const { data: sesion } = await supabase.auth.getSession();
+  const yo = sesion.session?.user.id;
+  if (!yo) return null;
+  const { data, error } = await supabase
+    .from("perfiles")
+    .select("nombre, avatar, foto")
+    .eq("id", yo)
+    .maybeSingle();
+  if (error || !data) return null;
+  const avatar =
+    (data.avatar as AvatarElegido | null) ??
+    (data.foto
+      ? { tipo: "foto" as const, uri: data.foto as string }
+      : undefined);
+  return {
+    nombre: (data.nombre as string | null) ?? undefined,
+    avatar: avatar ?? undefined,
+  };
+}

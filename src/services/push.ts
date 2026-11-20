@@ -33,3 +33,17 @@ export async function registrarDispositivo(
   });
   if (error) throw error;
 }
+
+// Token push de este telefono (para quitarlo al cerrar sesion sin tocar los
+// otros telefonos de la misma cuenta). null si no recibe push
+export async function tokenDeEsteTelefono(): Promise<string | null> {
+  if (!supabase || !NOTIS_DISPONIBLES || !PROJECT_ID || EN_EXPO_GO) return null;
+  try {
+    const { data } = await Notifications.getExpoPushTokenAsync({
+      projectId: PROJECT_ID,
+    });
+    return data;
+  } catch {
+    return null;
+  }
+}

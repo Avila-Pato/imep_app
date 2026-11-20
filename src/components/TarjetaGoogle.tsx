@@ -27,6 +27,8 @@ import {
 export default function TarjetaGoogle() {
   const [entrando, setEntrando] = useState(false);
   const [error, setError] = useState(false);
+  // el texto completo se despliega con "Ver más"
+  const [abierto, setAbierto] = useState(false);
 
   // sin servidor (modo de prueba) no hay cuentas
   if (!conectado()) return null;
@@ -37,7 +39,7 @@ export default function TarjetaGoogle() {
     try {
       if ((await entrarConGoogle()) === "cancelado") return;
       const cuenta = await miCuenta();
-      if (cuenta) conectarCuenta(cuenta);
+      if (cuenta) await conectarCuenta(cuenta);
       await sincronizarIglesias();
     } catch (e) {
       console.warn("[supabase]", (e as Error)?.message ?? e);
@@ -49,15 +51,7 @@ export default function TarjetaGoogle() {
 
   return (
     <View style={styles.caja}>
-      <Pressable
-        onPress={google}
-        disabled={entrando}
-        style={({ pressed }) => [
-          styles.fila,
-          (pressed || entrando) && styles.presionado,
-        ]}
-        accessibilityLabel="Guardar mi cuenta con Google"
-      >
+      <View style={styles.fila}>
         <View style={styles.icono}>
           {entrando ? (
             <ActivityIndicator size="small" color="#121212" />
@@ -65,14 +59,36 @@ export default function TarjetaGoogle() {
             <FontAwesome name="google" size={14} color="#121212" />
           )}
         </View>
-        <View style={styles.flex}>
+        {/* tocar el texto lo despliega (sin entrar a Google) */}
+        <Pressable
+          onPress={() => setAbierto((a) => !a)}
+          style={styles.flex}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: abierto }}
+          accessibilityLabel={abierto ? "Ver menos" : "Ver más"}
+        >
           <Text style={styles.titulo}>Guarda tu cuenta con Google</Text>
-          <Text style={styles.texto} numberOfLines={1}>
-            Para no perder tu iglesia si cambias de teléfono
+          <Text style={styles.texto} numberOfLines={abierto ? undefined : 1}>
+            Guarda tu perfil y tu iglesia: si reinicias o cambias de teléfono,
+            entras con Google y vuelve todo.
+            {abierto &&
+              "\n\nSin una cuenta guardada, al reiniciar la app se borra todo: tu nombre, tu foto y tu iglesia, y tendrás que unirte otra vez con una invitación."}
           </Text>
-        </View>
-        <Text style={styles.accion}>Entrar</Text>
-      </Pressable>
+          <Text style={styles.verMas}>{abierto ? "Ver menos" : "Ver más"}</Text>
+        </Pressable>
+        <Pressable
+          onPress={google}
+          disabled={entrando}
+          hitSlop={8}
+          style={({ pressed }) => [
+            styles.boton,
+            (pressed || entrando) && styles.presionado,
+          ]}
+          accessibilityLabel="Guardar mi cuenta con Google"
+        >
+          <Text style={styles.accion}>Entrar</Text>
+        </Pressable>
+      </View>
       {error && (
         <Text style={styles.error}>
           No se pudo entrar con Google. Inténtalo de nuevo.
@@ -121,6 +137,16 @@ const styles = StyleSheet.create({
     fontFamily: FUENTE.medium,
     fontSize: 11,
     color: MUTED,
+  },
+  verMas: {
+    fontFamily: FUENTE.semibold,
+    fontSize: 11,
+    color: TEXT,
+    marginTop: 2,
+    textDecorationLine: "underline",
+  },
+  boton: {
+    alignSelf: "center",
   },
   accion: {
     fontFamily: FUENTE.semibold,

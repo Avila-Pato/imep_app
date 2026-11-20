@@ -24,10 +24,11 @@ import {
 import { Rol, RolId, Turno } from "@/types/typesCronogramas";
 import { Iglesia } from "@/types/typesHome";
 import { Predicacion } from "@/types/typesOraciones";
-import { subirPerfil } from "@/services/perfil";
+import { bajarMiPerfil, subirPerfil } from "@/services/perfil";
 import {
   borrarDelServidor,
   eliminarCuentaDelServidor,
+  salirDeEsteTelefono,
 } from "@/services/reinicio";
 import { PUSH_ACTIVO, registrarDispositivo } from "@/services/push";
 import { avisarAhora } from "@/services/notificaciones";
@@ -398,8 +399,10 @@ export function reiniciarApp() {
 
 // Reinicio completo: primero borra lo del servidor (si falla, no se toca el
 // telefono, para no dejar datos a medias) y luego deja la app como nueva
-export async function reiniciarTodo() {
-  await borrarDelServidor();
+// soloSalir (con cuenta de Google): cierra la sesion en este telefono sin
+// borrar nada del servidor; al entrar de nuevo con Google vuelve todo
+export async function reiniciarTodo(soloSalir = false) {
+  await (soloSalir ? salirDeEsteTelefono() : borrarDelServidor());
   reiniciarApp();
 }
 
@@ -485,13 +488,18 @@ function subirMiPerfil() {
   );
 }
 
-// Entro con Google: guarda la cuenta y completa lo que falte del perfil
-// (el nombre que escribio se respeta; la foto de Google solo si no eligio)
-export function conectarCuenta(cuenta: CuentaConectada) {
+// Entro con Google: guarda la cuenta y completa el perfil. Manda lo que esa
+// cuenta ya tenia guardado en el servidor (volvio despues de reiniciar o en
+// otro telefono: recupera su nombre y su foto aunque en el registro haya
+// escrito otro). Si es una cuenta nueva, queda lo de este telefono y, si
+// falta, lo de Google
+export async function conectarCuenta(cuenta: CuentaConectada) {
+  const guardado = await bajarMiPerfil().catch(() => null);
   cambiar((s) => ({
     cuenta,
-    nombre: s.nombre ?? cuenta.nombre,
+    nombre: guardado?.nombre ?? s.nombre ?? cuenta.nombre,
     avatar:
+      guardado?.avatar ??
       s.avatar ??
       (cuenta.foto ? { tipo: "foto", uri: cuenta.foto } : undefined),
   }));

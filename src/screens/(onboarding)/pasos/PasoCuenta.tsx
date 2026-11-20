@@ -5,6 +5,7 @@ import {
   SPACING,
   TEXT,
   PLACEHOLDER,
+  PRIMARY,
 } from "@/constants/constans";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import Octicons from "@expo/vector-icons/Octicons";
@@ -19,6 +20,8 @@ import {
 import { useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -50,7 +53,7 @@ export default function PasoCuenta({ onSeguir }: { onSeguir: () => void }) {
       if ((await entrarConGoogle()) === "cancelado") return;
       // guarda la cuenta (nombre, correo y foto de Google) para el Perfil
       const cuenta = await miCuenta();
-      if (cuenta) conectarCuenta(cuenta);
+      if (cuenta) await conectarCuenta(cuenta);
       // si entro a una cuenta que ya existia, trae sus iglesias
       await sincronizarIglesias();
       onSeguir();
@@ -60,6 +63,23 @@ export default function PasoCuenta({ onSeguir }: { onSeguir: () => void }) {
     } finally {
       setConGoogle(false);
     }
+  };
+
+  // sin Google: se le recomienda antes de seguir (lo pierde todo si reinicia
+  // o cambia de telefono). Sin servidor no hay cuentas: sigue directo
+  const sinGoogle = () => {
+    if (!conectado()) return onSeguir();
+    const titulo = "¿Seguir sin Google?";
+    const texto =
+      "Te recomendamos continuar con Google: así tu perfil y tu iglesia quedan guardados en tu cuenta y los recuperas si reinicias la app o cambias de teléfono.\n\nSin Google, todo queda solo en este teléfono y se puede perder.";
+    if (Platform.OS === "web") {
+      if (window.confirm(`${titulo}\n\n${texto}`)) onSeguir();
+      return;
+    }
+    Alert.alert(titulo, texto, [
+      { text: "Seguir sin Google", style: "cancel", onPress: onSeguir },
+      { text: "Usar Google", onPress: google },
+    ]);
   };
 
   if (cuenta) {
@@ -147,7 +167,7 @@ export default function PasoCuenta({ onSeguir }: { onSeguir: () => void }) {
 
       <BotonPrincipal
         texto="Crear cuenta"
-        onPress={onSeguir}
+        onPress={sinGoogle}
         deshabilitado={!listo}
       />
 
@@ -171,22 +191,66 @@ export default function PasoCuenta({ onSeguir }: { onSeguir: () => void }) {
           <FontAwesome name="google" size={16} color={DARK_BG} />
         )}
         <Text style={styles.googleTexto}>Continuar con Google</Text>
+        <Text style={styles.recomendado}>Recomendado</Text>
       </Pressable>
       {error && <Text style={styles.error}>{error}</Text>}
 
       <Pressable
-        onPress={onSeguir}
+        onPress={sinGoogle}
         hitSlop={8}
         style={({ pressed }) => [styles.invitado, pressed && styles.presionado]}
       >
         <Octicons name="clock" size={15} color={MUTED} />
         <Text style={styles.invitadoTexto}>Crear mi cuenta después</Text>
       </Pressable>
+      {/* que pasa si no sigue con Google (para que decida informado) */}
+      <View style={styles.aviso}>
+        <Octicons name="info" size={14} color={MUTED} />
+        <Text style={styles.avisoTexto}>
+          <Text style={styles.avisoFuerte}>Sin Google</Text>, tu perfil y tu
+          iglesia quedan solo en este teléfono. Si reinicias la app, la
+          desinstalas o cambias de teléfono, se pierden y tendrás que unirte
+          otra vez con una invitación. Puedes guardar tu cuenta con Google más
+          tarde desde tu Perfil.
+        </Text>
+      </View>
     </Paso>
   );
 }
 
 const styles = StyleSheet.create({
+  recomendado: {
+    position: "absolute",
+    top: -9,
+    right: 14,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+    overflow: "hidden",
+    backgroundColor: PRIMARY,
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  aviso: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: SPACING,
+    padding: SPACING * 1.2,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: BORDER,
+  },
+  avisoTexto: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 17,
+    color: MUTED,
+  },
+  avisoFuerte: {
+    fontWeight: "600",
+    color: TEXT,
+  },
   flex: {
     flex: 1,
   },

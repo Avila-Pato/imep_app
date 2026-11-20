@@ -1,5 +1,6 @@
 import { revocarGoogleNativo, salirGoogleNativo } from "./googleNativo";
 import { supabase } from "@/lib/supabase";
+import { tokenDeEsteTelefono } from "./push";
 
 // "Reiniciar la app" tambien borra lo del servidor (si no, al abrir la app
 // todo volveria a aparecer):
@@ -54,5 +55,26 @@ export async function borrarDelServidor() {
   if (e3) throw e3;
 
   await supabase.auth.signOut();
+  await salirGoogleNativo();
+}
+
+// Con cuenta de Google: "Reiniciar" solo cierra la sesion en ESTE telefono.
+// Su perfil y sus iglesias quedan en el servidor: al entrar de nuevo con
+// Google vuelve todo. Solo se quita este telefono de los avisos push
+export async function salirDeEsteTelefono() {
+  if (!supabase) return;
+  const { data } = await supabase.auth.getSession();
+  const yo = data.session?.user.id;
+  if (!yo) return;
+  const token = await tokenDeEsteTelefono();
+  if (token) {
+    const { error } = await supabase
+      .from("dispositivos")
+      .delete()
+      .eq("usuario_id", yo)
+      .eq("token", token);
+    if (error) throw error;
+  }
+  await supabase.auth.signOut({ scope: "local" });
   await salirGoogleNativo();
 }
