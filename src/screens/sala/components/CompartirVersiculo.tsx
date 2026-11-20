@@ -27,7 +27,6 @@ import {
 } from "expo-audio";
 import { useRef, useState } from "react";
 import {
-  KeyboardAvoidingView,
   Modal,
   Pressable,
   ScrollView,
@@ -38,7 +37,7 @@ import {
 } from "react-native";
 import Animated, { Easing, SlideInDown } from "react-native-reanimated";
 import ConBordes from "@/components/ConBordes";
-import { useTecladoAbierto } from "@/hooks/useEspacioBarra";
+import { useAltoTeclado } from "@/hooks/useEspacioBarra";
 import ElegirVersiculoTikTok from "@/screens/biblia/ElegirVersiculoTikTok";
 import PasajeTexto from "../../(tab)/components/PasajeTexto";
 import NotaVoz, { minutos } from "./NotaVoz";
@@ -75,7 +74,8 @@ export default function CompartirVersiculo({
   const [texto, setTexto] = useState("");
   const [audio, setAudio] = useState<NotaDeVoz | null>(null);
   const [sinPermiso, setSinPermiso] = useState(false);
-  const teclado = useTecladoAbierto();
+  // el teclado se mide solo con la hoja abierta (el del chat no cuenta)
+  const altoTeclado = useAltoTeclado(visible);
   const pasaje = usePasaje(cita);
   // Autocompletado: solo mientras escribe (al elegir una cita se oculta)
   const [sugerir, setSugerir] = useState(false);
@@ -169,13 +169,9 @@ export default function CompartirVersiculo({
       <ConBordes>
         {(insets) => (
           <>
-            <KeyboardAvoidingView
-              style={styles.fondo}
-              // en Android la hoja (pantalla completa) no se achica sola: se
-              // sube aqui. Solo con el teclado abierto: cerrado, Android
-              // sumaba la barra de navegacion y la hoja quedaba separada abajo
-              behavior={teclado ? "padding" : undefined}
-            >
+            {/* el Modal no se achica con el teclado: la hoja deja su
+                espacio abajo. Cerrado, llega hasta el borde del telefono */}
+            <View style={styles.fondo}>
               <Pressable style={styles.cerrarFondo} onPress={cerrar} />
               <Animated.View
                 // solo la hoja sube desde abajo, sobre el chat oscurecido
@@ -184,7 +180,7 @@ export default function CompartirVersiculo({
                 )}
                 style={[
                   styles.hoja,
-                  { paddingBottom: insets.bottom + SPACING },
+                  { paddingBottom: insets.bottom + SPACING + altoTeclado },
                 ]}
               >
                 <View style={styles.asa} />
@@ -418,7 +414,7 @@ export default function CompartirVersiculo({
                   </Pressable>
                 </ScrollView>
               </Animated.View>
-            </KeyboardAvoidingView>
+            </View>
           </>
         )}
       </ConBordes>

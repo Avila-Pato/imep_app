@@ -57,7 +57,7 @@ Congrega es la app para organizar tu iglesia. El pastor y su equipo manejan el c
 
 Congrega no tiene publicidad.
 
-¿Dudas o sugerencias? Escríbenos a <<TU CORREO DE SOPORTE>>.
+¿Dudas o sugerencias? Escríbenos a p.avilaf1998@gmail.com.
 ```
 
 > Palabras clave que la descripción ya repite (Google las lee aquí, no hay campo aparte):
@@ -70,7 +70,7 @@ Congrega no tiene publicidad.
 - **Tipo:** Aplicación
 - **Categoría:** Estilo de vida
 - **Etiquetas** (Play Console › Etiquetas de la tienda): Religión · Comunidad · Organización
-- **Correo de contacto:** `<<TU CORREO DE SOPORTE>>` (obligatorio, es público)
+- **Correo de contacto:** `p.avilaf1998@gmail.com` (obligatorio, es público)
 - **Sitio web:** `https://congrega.expo.app` (opcional)
 - **Política de privacidad:** `https://congrega.expo.app/privacidad` (obligatoria)
 

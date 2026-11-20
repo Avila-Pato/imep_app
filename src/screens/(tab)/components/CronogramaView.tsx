@@ -20,6 +20,7 @@ import {
 import { useEspacioBarra } from "@/hooks/useEspacioBarra";
 import {
   asignarTurno,
+  copiarTurnos,
   fijarHoraTurno,
   quitarRol,
   useAvatarDe,
@@ -149,6 +150,13 @@ function cultosDeLaSemana(key: string) {
     });
 }
 
+// Misma fecha corrida en semanas (+1 = la proxima)
+function masSemanas(key: string, semanas: number) {
+  const f = deKey(key);
+  f.setDate(f.getDate() + semanas * 7);
+  return aKey(f);
+}
+
 const LINEA_SEP = 22; // separacion entre lineas del fondo
 
 // Fondo de celdas: lineas punteadas y una solida cada 4 (como cuartos de hora)
@@ -190,6 +198,26 @@ export default function CronogramaView() {
   const semana = cultosDeLaSemana(seleccionado);
   const diasSel = diasDesdeHoy(seleccionado);
 
+  // Semana anterior / siguiente: el mismo dia de culto, 7 dias antes o
+  // despues (el pastor arma la proxima semana sin esperar a que llegue)
+  const cambiarSemana = (delta: number) => {
+    const nueva = masSemanas(seleccionado, delta);
+    const f = deKey(nueva);
+    setSeleccionado(nueva);
+    setMes({ y: f.getFullYear(), m: f.getMonth() });
+  };
+  const queSemana = (() => {
+    const d = Math.round(
+      (deKey(cultosDeLaSemana(seleccionado)[0]?.key ?? seleccionado).getTime() -
+        deKey(cultosDeLaSemana(HOY_KEY)[0]?.key ?? HOY_KEY).getTime()) /
+        (7 * 86400000),
+    );
+    if (d === 0) return "Esta semana";
+    if (d === 1) return "Próxima semana";
+    if (d === -1) return "Semana pasada";
+    return d > 0 ? `En ${d} semanas` : `Hace ${-d} semanas`;
+  })();
+
   // Turnos de ejemplo + los que asigno el admin
   const { turnosEditados } = useEstudios("turnosEditados");
   const claveSubida = useClaveSubidaCronograma();
@@ -201,6 +229,38 @@ export default function CronogramaView() {
   useHorarios();
   const nombreIglesia = useNombreIglesiaSiVarias();
   const turnos = unirTurnos(turnosEditados);
+
+  // "Copiar semana anterior": cada culto de esta semana que aun no pasa y
+  // esta vacio toma los turnos del mismo dia de la semana mas reciente que
+  // tenga (busca hasta 8 semanas atras)
+  const copiables = semana
+    .filter(
+      (d) => diasDesdeHoy(d.key) >= 0 && !turnos.some((t) => t.fecha === d.key),
+    )
+    .map((d) => {
+      for (let n = 1; n <= 8; n++) {
+        const origen = masSemanas(d.key, -n);
+        if (turnos.some((t) => t.fecha === origen))
+          return { origen, destino: d.key, nombre: d.nombre };
+      }
+      return null;
+    })
+    .filter((c) => c !== null);
+  const copiarSemana = () =>
+    confirmar(
+      "¿Copiar la semana anterior?",
+      `Se llenarán ${copiables.map((c) => c.nombre).join(", ")} con los mismos hermanos y roles del culto anterior. A cada uno le llegará la notificación de su turno. Después puedes cambiar lo que quieras.`,
+      "Copiar",
+      () => {
+        for (const c of copiables)
+          copiarTurnos(
+            c.origen,
+            c.destino,
+            horaCulto(c.origen),
+            horaCulto(c.destino),
+          );
+      },
+    );
 
   // Modo admin: asigna quien sirve en cada rol (solo cultos que no pasaron)
   const [editando, setEditando] = useState(false);
@@ -568,6 +628,26 @@ export default function CronogramaView() {
                 <View style={styles.asa} />
               </Pressable>
 
+              {/* Semana que se esta viendo, con flechas para moverse */}
+              <View style={styles.semanaFila}>
+                <Pressable
+                  onPress={() => cambiarSemana(-1)}
+                  hitSlop={10}
+                  style={styles.flecha}
+                  accessibilityLabel="Semana anterior"
+                >
+                  <Octicons name="chevron-left" size={16} color={TEXT} />
+                </Pressable>
+                <Text style={styles.semanaTexto}>{queSemana}</Text>
+                <Pressable
+                  onPress={() => cambiarSemana(1)}
+                  hitSlop={10}
+                  style={styles.flecha}
+                  accessibilityLabel="Semana siguiente"
+                >
+                  <Octicons name="chevron-right" size={16} color={TEXT} />
+                </Pressable>
+              </View>
               {/* Dias de culto de la semana */}
               <View style={styles.tabs}>
                 {semana.map((d) => {
@@ -731,6 +811,28 @@ export default function CronogramaView() {
                     instante.
                   </Text>
                 </View>
+                {copiables.length > 0 && (
+                  <Pressable
+                    onPress={copiarSemana}
+                    style={({ pressed }) => [
+                      styles.horarios,
+                      pressed && styles.presionado,
+                    ]}
+                    accessibilityLabel="Copiar turnos de la semana anterior"
+                  >
+                    <Octicons name="copy" size={15} color={TEXT} />
+                    <View style={styles.flex}>
+                      <Text style={styles.horariosTitulo}>
+                        Copiar la semana anterior
+                      </Text>
+                      <Text style={styles.horariosTexto}>
+                        Llena {copiables.map((c) => c.nombre).join(", ")} con
+                        los mismos turnos
+                      </Text>
+                    </View>
+                    <Octicons name="chevron-right" size={16} color={MUTED} />
+                  </Pressable>
+                )}
                 {ordenRoles.map((id) => (
                   <View
                     key={id}
@@ -755,6 +857,12 @@ export default function CronogramaView() {
               <View style={styles.vacio}>
                 <Octicons name="calendar" size={22} color={MUTED} />
                 <Text style={styles.vacioTexto}>No hay turnos este día</Text>
+                {puedeEditar && (
+                  <Text style={styles.vacioAyuda}>
+                    Toca Editar para armarlo. Con las flechas ‹ › puedes
+                    preparar las próximas semanas.
+                  </Text>
+                )}
               </View>
             ) : (
               <View style={styles.agenda}>
@@ -1125,6 +1233,20 @@ const styles = StyleSheet.create({
     backgroundColor: MUTED,
   },
 
+  // Semana que se ve (con flechas)
+  semanaFila: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: SPACING * 2,
+    paddingBottom: SPACING,
+  },
+  semanaTexto: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: TEXT,
+  },
+
   // Tabs de dias de culto
   tabs: {
     flexDirection: "row",
@@ -1298,5 +1420,11 @@ const styles = StyleSheet.create({
   vacioTexto: {
     fontSize: 13,
     color: MUTED,
+  },
+  vacioAyuda: {
+    fontSize: 12,
+    color: MUTED,
+    textAlign: "center",
+    paddingHorizontal: SPACING * 3,
   },
 });

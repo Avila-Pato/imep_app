@@ -1,4 +1,5 @@
-import { Text } from "react-native";
+import { CORREO_CONTACTO, MAILTO_CONTACTO } from "@/constants/contacto";
+import { Linking, Text } from "react-native";
 import PaginaInfo, {
   Apartado,
   estilosInfo,
@@ -164,8 +165,15 @@ export default function PrivacidadScreen() {
       <Apartado titulo="Contacto">
         <Parrafo>
           Si tienes dudas sobre tu información, habla con el pastor de tu
-          iglesia o escríbenos al correo de contacto que aparece en la ficha de
-          Congrega en Google Play.
+          iglesia o escríbenos a{" "}
+          <Text
+            style={estilosInfo.negrita}
+            onPress={() => Linking.openURL(MAILTO_CONTACTO).catch(() => {})}
+            accessibilityRole="link"
+          >
+            {CORREO_CONTACTO}
+          </Text>
+          .
         </Parrafo>
       </Apartado>
     </PaginaInfo>

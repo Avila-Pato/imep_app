@@ -12,7 +12,8 @@ import { IconName } from "@/types/typesCronogramas";
 import Octicons from "@expo/vector-icons/Octicons";
 import { Href, router } from "expo-router";
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { CORREO_CONTACTO, MAILTO_CONTACTO } from "@/constants/contacto";
+import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
 import PaginaInfo from "./PaginaInfo";
 
@@ -195,7 +196,14 @@ export default function AyudaScreen() {
           </Text>
           <Text style={styles.contactoTexto}>
             Habla con el pastor o el administrador de tu iglesia: ellos pueden
-            ayudarte con tu cuenta, tus salas y tus turnos.
+            ayudarte con tu cuenta, tus salas y tus turnos. O escríbenos a{" "}
+            <Text
+              style={styles.contactoCorreo}
+              onPress={() => Linking.openURL(MAILTO_CONTACTO).catch(() => {})}
+              accessibilityRole="link"
+            >
+              {CORREO_CONTACTO}
+            </Text>
           </Text>
         </View>
       </View>
@@ -314,6 +322,10 @@ const styles = StyleSheet.create({
     fontFamily: FUENTE.semibold,
     fontSize: 15,
     color: TEXT,
+  },
+  contactoCorreo: {
+    color: TEXT,
+    textDecorationLine: "underline",
   },
   contactoTexto: {
     fontSize: 13,

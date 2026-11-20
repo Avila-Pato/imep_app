@@ -7,7 +7,8 @@ import PaginaInfo, {
   Punto,
 } from "@/screens/perfil/PaginaInfo";
 import Head from "expo-router/head";
-import { Text } from "react-native";
+import { CORREO_CONTACTO, MAILTO_CONTACTO } from "@/constants/contacto";
+import { Linking, Text } from "react-native";
 
 export default function EliminarCuenta() {
   return (
@@ -58,9 +59,16 @@ export default function EliminarCuenta() {
         <Apartado titulo="¿Ya no tienes la app?">
           <Parrafo>
             Instálala de nuevo, entra con la misma cuenta de Google y sigue los
-            pasos de arriba. Si no puedes, escríbenos al correo de contacto de
-            la ficha de Congrega en Google Play, desde el correo de tu cuenta, y
-            la eliminaremos por ti en un plazo de 30 días.
+            pasos de arriba. Si no puedes, escríbenos a{" "}
+            <Text
+              style={estilosInfo.negrita}
+              onPress={() => Linking.openURL(MAILTO_CONTACTO).catch(() => {})}
+              accessibilityRole="link"
+            >
+              {CORREO_CONTACTO}
+            </Text>{" "}
+            desde el correo de tu cuenta, y la eliminaremos por ti en un plazo
+            de 30 días.
           </Parrafo>
         </Apartado>
       </PaginaInfo>

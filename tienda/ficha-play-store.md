@@ -78,7 +78,7 @@ Congrega es gratis. Descárgala, crea tu iglesia o únete con el código de tu p
 
 - Categoría: **Estilo de vida**
 - Etiquetas (elige hasta 5 en Play Console): Religión, Biblia, Comunidad, Productividad, Mensajería
-- Contacto: tu correo de soporte
+- Contacto: p.avilaf1998@gmail.com
 - Política de privacidad: `https://congrega.expo.app/privacidad`
 
 ## Recursos gráficos

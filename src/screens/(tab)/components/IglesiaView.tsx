@@ -27,7 +27,14 @@ import { esPrivado, otroDe } from "@/utils/privado";
 import Octicons from "@expo/vector-icons/Octicons";
 import { Href, router } from "expo-router";
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import ModalNuevaSala from "./ModalNuevaSala";
 
 type Sala = Grupo & { noLeidos: number };
@@ -119,6 +126,8 @@ export default function IglesiaView() {
   const yo = nombre?.trim() || USUARIO.nombre;
   const [invitando, setInvitando] = useState(false);
   const [enlace, setEnlace] = useState("");
+  // revisando el codigo en el servidor
+  const [uniendo, setUniendo] = useState(false);
   const [error, setError] = useState(false);
   const [creando, setCreando] = useState(false);
   const grupos = useGrupos(); // las de base y las que creo el pastor
@@ -186,8 +195,12 @@ export default function IglesiaView() {
     .sort((a, b) => b.fecha.localeCompare(a.fecha));
 
   const usarInvitacion = async () => {
+    if (!enlace.trim() || uniendo) return;
+    setUniendo(true);
+    setError(false);
     // tambien llega la iglesia (y su mapa en Inicio)
     const r = await unirse(enlace);
+    setUniendo(false);
     if (!r) return setError(true);
     setEnlace("");
     setInvitando(false);
@@ -311,7 +324,12 @@ export default function IglesiaView() {
                     autoCapitalize="none"
                     autoCorrect={false}
                     autoFocus
-                    style={[styles.input, error && styles.inputError]}
+                    editable={!uniendo}
+                    style={[
+                      styles.input,
+                      error && styles.inputError,
+                      uniendo && styles.botonApagado,
+                    ]}
                   />
                   {error && (
                     <Text style={styles.error}>
@@ -321,15 +339,24 @@ export default function IglesiaView() {
                   )}
                   <Pressable
                     onPress={usarInvitacion}
-                    disabled={!enlace.trim()}
+                    disabled={!enlace.trim() || uniendo}
                     style={({ pressed }) => [
                       styles.boton,
+                      uniendo && styles.botonCargando,
                       !enlace.trim() && styles.botonApagado,
                       pressed && styles.presionado,
                     ]}
+                    accessibilityState={{ busy: uniendo }}
                   >
+                    {uniendo && (
+                      <ActivityIndicator size="small" color={DARK_BG} />
+                    )}
                     <Text style={styles.botonTexto}>
-                      {sinIglesia ? "Unirme a mi iglesia" : "Entrar a la sala"}
+                      {uniendo
+                        ? "Verificando código…"
+                        : sinIglesia
+                          ? "Unirme a mi iglesia"
+                          : "Entrar a la sala"}
                     </Text>
                   </Pressable>
                 </View>
@@ -627,6 +654,10 @@ const styles = StyleSheet.create({
   error: {
     fontSize: 12,
     color: PRIMARY,
+  },
+  botonCargando: {
+    flexDirection: "row",
+    gap: 8,
   },
   boton: {
     height: 46,

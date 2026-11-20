@@ -715,7 +715,8 @@ export function alternarAyudante(grupo: GrupoId, nombre: string, id?: string) {
   if (!esUuid(iglesiaId)) return;
   const quitado = lo;
   // las cuentas solo si se saben todas (si no, el servidor las busca)
-  const ids = ayudantesIds.length === ayudantes.length ? ayudantesIds : undefined;
+  const ids =
+    ayudantesIds.length === ayudantes.length ? ayudantesIds : undefined;
   enFondo(
     cambiarAyudantesRemoto(iglesiaId, grupo, ayudantes, ids)
       .then(() => avisarCargoSala(grupo, nombre, "ayudante", quitado, id))
@@ -1406,8 +1407,9 @@ export function editarSala(
   cambiosPedidos: Partial<Omit<Grupo, "id">>,
 ) {
   const s0 = useStore.getState();
-  const previa: Partial<Grupo> =
-    s0.salas.find((g) => g.id === id) ?? { ...s0.salasEditadas[id] };
+  const previa: Partial<Grupo> = s0.salas.find((g) => g.id === id) ?? {
+    ...s0.salasEditadas[id],
+  };
   const antes = previa.lider;
   const antesId = previa.liderId;
   // otro lider sin su cuenta (escrito a mano): la cuenta vieja ya no vale
@@ -2089,8 +2091,9 @@ export function guardarAnuncio(
 
 // Cuando y donde es un anuncio (para notar si lo cambiaron): se guarda con
 // los anuncios avisados como "h:<id>=<fecha>|<hora>|<lugar>"
-export const firmaHorario = (a: Pick<Anuncio, "id" | "fecha" | "hora" | "lugar">) =>
-  `h:${a.id}=${a.fecha}|${a.hora ?? ""}|${(a.lugar ?? "").trim()}`;
+export const firmaHorario = (
+  a: Pick<Anuncio, "id" | "fecha" | "hora" | "lugar">,
+) => `h:${a.id}=${a.fecha}|${a.hora ?? ""}|${(a.lugar ?? "").trim()}`;
 
 // Copia de un anuncio NUEVO en otras iglesias del pastor (no la activa)
 function publicarEnOtras(
@@ -2413,7 +2416,8 @@ export function asignarTurno(
   const otra =
     antesId && personaId ? antesId !== personaId : persona !== antesPersona;
   const nuevo = !!persona && otra;
-  const quitado = !!antesPersona && (otra || !persona) ? antesPersona : undefined;
+  const quitado =
+    !!antesPersona && (otra || !persona) ? antesPersona : undefined;
   subirDia(
     fecha,
     nuevo ? rol : undefined,
@@ -2421,10 +2425,44 @@ export function asignarTurno(
   );
 }
 
+// Copia los turnos de un culto a otro (p. ej. el domingo pasado al de la
+// proxima semana) para no armarlo de cero. Solo llena el dia si esta vacio;
+// la hora de cada turno se ajusta a la del culto destino si era la del
+// culto origen. A cada persona le llega "Te asignaron un turno"
+export function copiarTurnos(
+  origen: string,
+  destino: string,
+  horaOrigen?: string,
+  horaDestino?: string,
+) {
+  const todos = unirTurnos(useStore.getState().turnosEditados);
+  if (todos.some((t) => t.fecha === destino)) return 0;
+  const copia = todos
+    .filter((t) => t.fecha === origen)
+    .map(({ id: _id, fecha: _f, hora, ...t }) => {
+      const nueva = hora && hora !== horaOrigen ? hora : horaDestino;
+      return {
+        ...t,
+        id: `${destino}-${t.rol}`,
+        fecha: destino,
+        ...(nueva ? { hora: nueva } : {}),
+      };
+    });
+  if (!copia.length) return 0;
+  cambiar((s) => ({
+    turnosEditados: { ...s.turnosEditados, [destino]: copia },
+  }));
+  subirDia(
+    destino,
+    copia.map((t) => t.rol),
+  );
+  return copia.length;
+}
+
 // Sube el dia completo (con el nombre visible de cada rol, para el aviso)
 function subirDia(
   fecha: string,
-  avisarRol?: RolId,
+  avisarRol?: RolId | RolId[], // a quien(es) les llega "Te asignaron"
   quitado?: { rol: RolId; persona: string; personaId?: string },
   cambioHora?: RolId, // se cambio la hora de este turno (ya con persona)
 ) {
@@ -2436,7 +2474,12 @@ function subirDia(
     ...t,
     rolNombre: nombres[t.rol]?.label,
   }));
-  const avisar = turnos.find((t) => t.rol === avisarRol);
+  const aAvisar = Array.isArray(avisarRol)
+    ? avisarRol
+    : avisarRol
+      ? [avisarRol]
+      : [];
+  const avisados = turnos.filter((t) => aAvisar.includes(t.rol));
   const conHoraNueva = turnos.find((t) => t.rol === cambioHora);
   // estado "Guardando cronograma…" (el aviso a la persona va aparte: si
   // falla, el cronograma igual quedo guardado)
@@ -2458,7 +2501,7 @@ function subirDia(
       )
       .then(() =>
         Promise.all([
-          avisar &&
+          ...avisados.map((avisar) =>
             avisarTurno({
               tipo: "asignado",
               iglesiaId,
@@ -2468,6 +2511,7 @@ function subirDia(
               persona: avisar.persona,
               personaId: avisar.personaId,
             }),
+          ),
           quitado &&
             avisarTurno({
               tipo: "quitado",

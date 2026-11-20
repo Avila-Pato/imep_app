@@ -13,7 +13,14 @@ import {
 import { useUnirse } from "@/hooks/useUnirse";
 import Octicons from "@expo/vector-icons/Octicons";
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 
 // En Inicio, cuando todavia no hay iglesia:
 // - pastor: invita a poner la ubicacion de su iglesia
@@ -31,9 +38,17 @@ export default function SinIglesia({
   const [invitando, setInvitando] = useState(false);
   const [enlace, setEnlace] = useState("");
   const [error, setError] = useState(false);
+  // revisando el codigo en el servidor (puede tardar unos segundos)
+  const [uniendo, setUniendo] = useState(false);
 
   const usar = async () => {
-    if (!(await unirse(enlace))) setError(true);
+    if (!enlace.trim() || uniendo) return;
+    setUniendo(true);
+    setError(false);
+    const r = await unirse(enlace);
+    // si sirvio, esta tarjeta se cambia sola por la de su iglesia
+    setUniendo(false);
+    if (!r) setError(true);
   };
 
   return (
@@ -100,7 +115,8 @@ export default function SinIglesia({
               autoCapitalize="none"
               autoCorrect={false}
               autoFocus
-              style={styles.inputTexto}
+              editable={!uniendo}
+              style={[styles.inputTexto, uniendo && styles.apagado]}
             />
           </View>
           {error && (
@@ -110,15 +126,24 @@ export default function SinIglesia({
           )}
           <Pressable
             onPress={usar}
-            disabled={!enlace.trim()}
+            disabled={!enlace.trim() || uniendo}
             style={({ pressed }) => [
               styles.boton,
               !enlace.trim() && styles.botonApagado,
               pressed && styles.presionado,
             ]}
+            accessibilityState={{ busy: uniendo }}
           >
-            <Text style={styles.botonTexto}>Unirme a mi iglesia</Text>
+            {uniendo && <ActivityIndicator size="small" color={DARK_BG} />}
+            <Text style={styles.botonTexto}>
+              {uniendo ? "Verificando código…" : "Unirme a mi iglesia"}
+            </Text>
           </Pressable>
+          {uniendo && (
+            <Text style={styles.esperando}>
+              Estamos buscando tu iglesia. Esto toma unos segundos.
+            </Text>
+          )}
         </View>
       ) : (
         <Pressable
@@ -251,6 +276,14 @@ const styles = StyleSheet.create({
   error: {
     fontSize: 12,
     color: PRIMARY,
+    textAlign: "center",
+  },
+  apagado: {
+    opacity: 0.5,
+  },
+  esperando: {
+    fontSize: 12,
+    color: MUTED,
     textAlign: "center",
   },
 });

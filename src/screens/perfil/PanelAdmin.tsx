@@ -42,6 +42,7 @@ import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import HojaCompartir from "./HojaCompartir";
+import HojaMiembros from "./HojaMiembros";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const aKey = (f: Date) =>
@@ -58,7 +59,14 @@ export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
     revisiones,
     anuncios,
     nombre,
-  } = useEstudios("codigos", "turnosEditados", "publicaciones", "revisiones", "anuncios", "nombre");
+  } = useEstudios(
+    "codigos",
+    "turnosEditados",
+    "publicaciones",
+    "revisiones",
+    "anuncios",
+    "nombre",
+  );
   // anuncio nuevo directo desde el perfil
   const [escribiendo, setEscribiendo] = useState(false);
   const [predicando, setPredicando] = useState(false);
@@ -73,6 +81,7 @@ export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
   const [creandoSala, setCreandoSala] = useState(false);
   const [ubicando, setUbicando] = useState(false);
   const [copiado, setCopiado] = useState(false);
+  const [viendoMiembros, setViendoMiembros] = useState(false);
 
   // el pastor siempre tiene un codigo de la iglesia listo para compartir
   useEffect(() => {
@@ -121,6 +130,7 @@ export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
             valor: miembros.length,
             label: "Miembros",
             icono: "people" as IconName,
+            onPress: () => setViendoMiembros(true),
           },
           {
             valor: totalSalas, // de todas sus iglesias
@@ -217,6 +227,9 @@ export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
 
   return (
     <View style={styles.panel}>
+      {viendoMiembros && (
+        <HojaMiembros onCerrar={() => setViendoMiembros(false)} />
+      )}
       {compartiendo && (
         <HojaCompartir
           codigo={compartiendo.codigo}
