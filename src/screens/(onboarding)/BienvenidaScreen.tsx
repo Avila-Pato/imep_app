@@ -85,7 +85,9 @@ export default function BienvenidaScreen() {
   const [paso, setPaso] = useState(0);
   // hacia donde se mueve (para que el paso entre del lado correcto)
   const [avanza, setAvanza] = useState(true);
-  const cargando = paso === PASOS.length;
+  // entro con una cuenta que ya tenia iglesia: salta directo a la carga
+  const [yaTiene, setYaTiene] = useState(false);
+  const cargando = yaTiene || paso === PASOS.length;
 
   const ir = (nuevo: number) => {
     setAvanza(nuevo > paso);
@@ -119,7 +121,12 @@ export default function BienvenidaScreen() {
   // Bienvenida: historias a pantalla completa, tambien detras de la barra
   // de estado (traen sus propias barras y margenes)
   if (paso === 0) {
-    return <PasoHistorias onSeguir={() => ir(1)} />;
+    return (
+      <PasoHistorias
+        onSeguir={() => ir(1)}
+        onYaTiene={() => setYaTiene(true)}
+      />
+    );
   }
 
   return (

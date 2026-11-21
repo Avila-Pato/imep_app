@@ -1236,6 +1236,19 @@ export async function sincronizarIglesias() {
   reintentar.forEach((x) => subir(x));
 }
 
+// "Ya tengo cuenta" al empezar: despues de entrar con Google, trae lo de su
+// cuenta (nombre, foto, iglesias) y su rol. Devuelve si ya tenia iglesias:
+// con iglesias no repite el onboarding; sin ellas sigue los pasos normales
+export async function recuperarCuenta(): Promise<boolean> {
+  const remotas = await misIglesias();
+  await sincronizarIglesias();
+  if (!remotas?.length) return false;
+  cambiar({
+    rol: remotas.some((r) => r.rol === "pastor") ? "pastor" : "hermano",
+  });
+  return true;
+}
+
 // Trae los anuncios y turnos de la iglesia activa (lo que publico el pastor).
 // Lo que solo esta en el telefono (anuncios antiguos sin uuid) se conserva
 export async function sincronizarContenido() {

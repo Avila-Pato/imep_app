@@ -8,11 +8,18 @@ import {
   SPACING,
   TEXT,
 } from "@/constants/constans";
+import { entrarConGoogle, miCuenta } from "@/services/cuenta";
+import { conectado } from "@/services/iglesias";
+import { conectarCuenta, recuperarCuenta } from "@/store/estudios";
 import { partirTitulo } from "@/utils/texto";
+import FontAwesome from "@expo/vector-icons/FontAwesome";
 import Octicons from "@expo/vector-icons/Octicons";
 import { Image } from "expo-image";
 import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -39,11 +46,47 @@ const ARRIBA = [0.55, 0.3, 0.12, 0];
 // Presentacion tipo "historias". No avanzan solas: cada uno lee a su ritmo.
 // Se cambia deslizando (izquierda = siguiente) o tocando: a la izquierda
 // vuelve, al centro o a la derecha avanza
-export default function PasoHistorias({ onSeguir }: { onSeguir: () => void }) {
+export default function PasoHistorias({
+  onSeguir,
+  onYaTiene,
+}: {
+  onSeguir: () => void;
+  // entro con su cuenta y ya tenia iglesia: no repite el onboarding
+  onYaTiene?: () => void;
+}) {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [actual, setActual] = useState(0);
   const zoom = useSharedValue(1);
+  const [entrando, setEntrando] = useState(false);
+  const [error, setError] = useState(false);
+
+  // "Ya tengo cuenta": entra con Google y recupera su perfil y su iglesia
+  const yaTengoCuenta = async () => {
+    if (entrando) return;
+    setError(false);
+    setEntrando(true);
+    try {
+      if ((await entrarConGoogle()) === "cancelado") return;
+      const cuenta = await miCuenta();
+      if (cuenta) await conectarCuenta(cuenta);
+      if ((await recuperarCuenta()) && onYaTiene) return onYaTiene();
+      // cuenta sin iglesia: sigue los pasos (ya con su cuenta guardada)
+      const titulo = "Tu cuenta aún no tiene iglesia";
+      const texto =
+        "Entraste con Google, pero no encontramos una iglesia en tu cuenta. Sigue los pasos para crear la tuya o unirte con una invitación.";
+      if (Platform.OS === "web") window.alert(`${titulo}
+
+${texto}`);
+      else Alert.alert(titulo, texto);
+      onSeguir();
+    } catch (e) {
+      console.warn("[supabase]", (e as Error)?.message ?? e);
+      setError(true);
+    } finally {
+      setEntrando(false);
+    }
+  };
 
   const siguiente = () =>
     actual < ULTIMA ? setActual(actual + 1) : onSeguir();
@@ -190,6 +233,41 @@ export default function PasoHistorias({ onSeguir }: { onSeguir: () => void }) {
           <View style={styles.pistaFila} pointerEvents="none">
             <Text style={styles.pista}>Desliza o toca para continuar</Text>
             <Octicons name="chevron-right" size={14} color="#8A8A8A" />
+          </View>
+        )}
+
+        {/* quien ya uso la app (reinstalo o cambio de telefono) no repite
+            todo: entra con su cuenta y vuelve su perfil y su iglesia */}
+        {conectado() && (
+          <View style={styles.cuentaCaja}>
+            <Pressable
+              onPress={yaTengoCuenta}
+              disabled={entrando}
+              hitSlop={8}
+              style={({ pressed }) => [
+                styles.cuenta,
+                (pressed || entrando) && styles.presionado,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Ya tengo cuenta, entrar con Google"
+            >
+              {entrando ? (
+                <ActivityIndicator size="small" color={TEXT} />
+              ) : (
+                <FontAwesome name="google" size={14} color={TEXT} />
+              )}
+              <Text style={styles.cuentaTexto}>
+                {entrando ? "Buscando tu cuenta…" : "¿Ya tienes cuenta? "}
+                {!entrando && (
+                  <Text style={styles.cuentaFuerte}>Entra con Google</Text>
+                )}
+              </Text>
+            </Pressable>
+            {error && (
+              <Text style={styles.cuentaError}>
+                No se pudo entrar con Google. Inténtalo de nuevo.
+              </Text>
+            )}
           </View>
         )}
       </View>
@@ -353,6 +431,31 @@ const styles = StyleSheet.create({
   pista: {
     fontSize: 12,
     color: "#8A8A8A",
+  },
+  cuentaCaja: {
+    alignItems: "center",
+    gap: 6,
+    marginTop: -SPACING / 2,
+  },
+  cuenta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: SPACING / 2,
+  },
+  cuentaTexto: {
+    fontSize: 14,
+    color: "#CFCFCF",
+  },
+  cuentaFuerte: {
+    fontFamily: FUENTE.semibold,
+    color: TEXT,
+    textDecorationLine: "underline",
+  },
+  cuentaError: {
+    fontSize: 12,
+    color: PRIMARY,
+    textAlign: "center",
   },
   boton: {
     flexDirection: "row",
