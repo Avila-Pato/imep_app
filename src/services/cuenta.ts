@@ -63,7 +63,27 @@ async function aplicar(p: URLSearchParams) {
   if (error) throw error;
 }
 
-async function iniciarSesion(): Promise<Resultado> {
+// Ese Google ya tenia su cuenta: al entrar a ella, lo que hizo como anonimo
+// (iglesias, salas, cronograma, anuncios...) se pasa a esa cuenta.
+// Se pide el codigo SIEMPRE antes de cambiar de sesion (como anonimo)
+async function prepararFusion(): Promise<string | null> {
+  const { data, error } = await supabase!.rpc("preparar_fusion");
+  if (error) {
+    console.warn("[google] preparar_fusion", error.message);
+    return null;
+  }
+  return (data as string) ?? null;
+}
+
+async function fusionar(codigo: string | null) {
+  if (!codigo) return;
+  const { error } = await supabase!.rpc("fusionar_cuenta", {
+    p_codigo: codigo,
+  });
+  if (error) console.warn("[google] fusionar_cuenta", error.message);
+}
+
+async function iniciarSesion(codigo: string | null = null): Promise<Resultado> {
   const { data, error } = await supabase!.auth.signInWithOAuth({
     provider: "google",
     options: { redirectTo: volverA(), skipBrowserRedirect: true },
@@ -73,6 +93,7 @@ async function iniciarSesion(): Promise<Resultado> {
   if (!p) return "cancelado";
   if (p.get("error")) throw new Error(p.get("error_description") ?? "error");
   await aplicar(p);
+  await fusionar(codigo);
   return "ok";
 }
 
@@ -92,11 +113,13 @@ async function conToken(idToken: string, anonimo: boolean) {
       /already (linked|exists)|already registered/i.test(error.message);
     if (!yaTenia) throw error;
   }
+  const codigo = anonimo ? await prepararFusion() : null;
   const { error } = await auth.signInWithIdToken({
     provider: "google",
     token: idToken,
   });
   if (error) throw error;
+  await fusionar(codigo);
 }
 
 export async function entrarConGoogle(): Promise<Resultado> {
@@ -132,8 +155,8 @@ export async function entrarConGoogle(): Promise<Resultado> {
   if (!p) return "cancelado";
 
   if (yaExiste(p)) {
-    // ese Google ya tiene su cuenta: entra a ella
-    return iniciarSesion();
+    // ese Google ya tiene su cuenta: entra a ella y le pasa lo de aqui
+    return iniciarSesion(await prepararFusion());
   }
   if (p.get("error")) throw new Error(p.get("error_description") ?? "error");
   await aplicar(p);
