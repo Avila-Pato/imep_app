@@ -12,7 +12,11 @@ import { IconName } from "@/types/typesCronogramas";
 import Octicons from "@expo/vector-icons/Octicons";
 import { Href, router } from "expo-router";
 import { useState } from "react";
-import { CORREO_CONTACTO, MAILTO_CONTACTO } from "@/constants/contacto";
+import {
+  CORREO_CONTACTO,
+  MAILTO_CONTACTO,
+  VIDEOS_AYUDA,
+} from "@/constants/contacto";
 import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
 import PaginaInfo from "./PaginaInfo";
@@ -137,6 +141,26 @@ export default function AyudaScreen() {
       etiqueta="CENTRO DE AYUDA"
       bajada="Respuestas rápidas a lo más común. Toca una pregunta para ver la respuesta."
     >
+      {/* Videos: como usar la app (sobre todo pastores y obispos) */}
+      <Pressable
+        onPress={() => Linking.openURL(VIDEOS_AYUDA).catch(() => {})}
+        style={({ pressed }) => [styles.videos, pressed && styles.presionado]}
+        accessibilityRole="link"
+        accessibilityLabel="Ver los videos de ayuda en YouTube"
+      >
+        <View style={styles.videosIcono}>
+          <Octicons name="play" size={18} color="#FFFFFF" />
+        </View>
+        <View style={styles.flex}>
+          <Text style={styles.videosTitulo}>Videos de ayuda</Text>
+          <Text style={styles.videosTexto}>
+            Aprende paso a paso a usar Congrega. Pensados para pastores y
+            obispos.
+          </Text>
+        </View>
+        <Octicons name="link-external" size={14} color={MUTED} />
+      </Pressable>
+
       {TEMAS.map((t) => (
         <View key={t.id} style={styles.tema}>
           <View style={styles.temaCabecera}>
@@ -238,6 +262,35 @@ const styles = StyleSheet.create({
   },
   presionado: {
     opacity: 0.7,
+  },
+  videos: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING * 1.2,
+    padding: SPACING * 1.4,
+    borderRadius: 18,
+    backgroundColor: SURFACE,
+    borderWidth: 1,
+    borderColor: primarioAlfa(0.4),
+  },
+  videosIcono: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: PRIMARY,
+  },
+  videosTitulo: {
+    fontFamily: FUENTE.semibold,
+    fontSize: 15,
+    color: TEXT,
+  },
+  videosTexto: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: MUTED,
+    marginTop: 2,
   },
   tema: {
     gap: SPACING,
