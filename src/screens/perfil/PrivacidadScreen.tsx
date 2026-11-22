@@ -1,5 +1,6 @@
 import { CORREO_CONTACTO, MAILTO_CONTACTO } from "@/constants/contacto";
-import { Linking, Text } from "react-native";
+import { Linking, Platform, Text } from "react-native";
+import ListaBloqueados from "./ListaBloqueados";
 import PaginaInfo, {
   Apartado,
   estilosInfo,
@@ -146,6 +147,22 @@ export default function PrivacidadScreen() {
           te saca de tu iglesia y borra lo de este teléfono, sin eliminar tu
           cuenta.
         </Parrafo>
+      </Apartado>
+
+      <Apartado titulo="Denunciar y bloquear">
+        <Parrafo>
+          Mantén presionado un mensaje de otra persona para denunciarlo o
+          bloquearla. La denuncia le llega al pastor de tu iglesia, que puede
+          borrar el mensaje o quitar a esa persona de la iglesia; no se dice
+          quién denunció. Si bloqueas a alguien, dejas de ver sus mensajes y no
+          puede escribirte en privado. No se le avisa.
+        </Parrafo>
+        {Platform.OS !== "web" && (
+          <Parrafo>
+            <Text style={estilosInfo.negrita}>Personas que bloqueaste:</Text>
+          </Parrafo>
+        )}
+        <ListaBloqueados />
       </Apartado>
 
       <Apartado titulo="Menores de edad">

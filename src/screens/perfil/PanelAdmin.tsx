@@ -42,7 +42,9 @@ import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import HojaCompartir from "./HojaCompartir";
+import HojaDenuncias from "./HojaDenuncias";
 import HojaMiembros from "./HojaMiembros";
+import { cargarDenuncias, useDenuncias } from "@/store/moderacion";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const aKey = (f: Date) =>
@@ -82,6 +84,14 @@ export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
   const [ubicando, setUbicando] = useState(false);
   const [copiado, setCopiado] = useState(false);
   const [viendoMiembros, setViendoMiembros] = useState(false);
+  // denuncias de mensajes (solo el pastor las revisa)
+  const [viendoDenuncias, setViendoDenuncias] = useState(false);
+  const denuncias = useDenuncias();
+  const pendientes = new Set(denuncias.map((d) => `${d.tipo}:${d.refId}`))
+    .size;
+  useEffect(() => {
+    if (esPastor) cargarDenuncias(iglesia?.id);
+  }, [esPastor, iglesia?.id]);
 
   // el pastor siempre tiene un codigo de la iglesia listo para compartir
   useEffect(() => {
@@ -210,6 +220,11 @@ export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
             icono: "location" as IconName,
             onPress: () => setUbicando(true),
           },
+          {
+            label: pendientes ? `Denuncias (${pendientes})` : "Denuncias",
+            icono: "report" as IconName,
+            onPress: () => setViendoDenuncias(true),
+          },
         ]
       : []),
   ];
@@ -229,6 +244,12 @@ export default function PanelAdmin({ esPastor }: { esPastor: boolean }) {
     <View style={styles.panel}>
       {viendoMiembros && (
         <HojaMiembros onCerrar={() => setViendoMiembros(false)} />
+      )}
+      {viendoDenuncias && (
+        <HojaDenuncias
+          iglesiaId={iglesia?.id}
+          onCerrar={() => setViendoDenuncias(false)}
+        />
       )}
       {compartiendo && (
         <HojaCompartir

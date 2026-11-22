@@ -97,6 +97,7 @@ export async function bajarMensajes(iglesiaId: string) {
     autor: f.autor,
     texto: f.texto,
     fecha: f.creado,
+    autorId: f.autor_id,
     mio: f.autor_id === yo,
   }));
 }
@@ -161,6 +162,7 @@ export async function bajarPrivados(
     autor: f.autor,
     texto: f.texto,
     fecha: f.creado,
+    autorId: f.de,
     mio: f.de === yo,
   }));
 }

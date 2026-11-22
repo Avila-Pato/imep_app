@@ -51,6 +51,7 @@ export type Mensaje = {
   id: string;
   grupo: GrupoId;
   autor: string;
+  autorId?: string; // su cuenta (para denunciar o bloquear)
   texto: string; // puede ir vacio si es una nota de voz
   fecha: string; // ISO
   cita?: string; // versiculo sobre el que se comparte

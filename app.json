@@ -39,7 +39,10 @@
           ]
         }
       ],
-      "playStoreUrl": "https://play.google.com/store/apps/details?id=com.avilapato.congrega"
+      "playStoreUrl": "https://play.google.com/store/apps/details?id=com.avilapato.congrega",
+      "blockedPermissions": [
+        "com.google.android.gms.permission.AD_ID"
+      ]
     },
     "web": {
       "output": "static",
@@ -82,7 +85,8 @@
           "locationWhenInUsePermission": "Congrega usa tu ubicación solo para marcar dónde está tu iglesia."
         }
       ],
-      "@react-native-google-signin/google-signin"
+      "@react-native-google-signin/google-signin",
+      "./plugins/withPantallaOpcional"
     ],
     "experiments": {
       "typedRoutes": true,

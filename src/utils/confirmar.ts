@@ -22,3 +22,12 @@ export function confirmar(
     },
   ]);
 }
+
+// Un aviso simple (solo "Entendido")
+export function avisar(titulo: string, texto: string) {
+  if (Platform.OS === "web") {
+    window.alert(`${titulo}\n\n${texto}`);
+    return;
+  }
+  Alert.alert(titulo, texto);
+}

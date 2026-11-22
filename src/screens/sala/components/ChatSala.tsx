@@ -25,11 +25,19 @@ import {
   useMisRestricciones,
 } from "@/store/estudios";
 import { EMOJIS_REACCION } from "@/services/chat";
+import { MOTIVOS_DENUNCIA } from "@/services/moderacion";
+import {
+  bloquear,
+  cargarBloqueos,
+  denunciar,
+  useBloqueados,
+} from "@/store/moderacion";
+import { avisar, confirmar } from "@/utils/confirmar";
 import { esUuid } from "@/services/iglesias";
 import { Grupo, Mensaje } from "@/types/typesComunidad";
 import { horaMensaje } from "@/utils/tiempo";
 import Octicons from "@expo/vector-icons/Octicons";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   FlatList,
   Modal,
@@ -112,10 +120,57 @@ export default function ChatSala({
   // sala con letra grande (ej: adultos mayores)
   const textoGrande = sala.letraGrande && styles.textoGrande;
   const [publicando, setPublicando] = useState(false);
+  // eligiendo el motivo para denunciar este mensaje
+  const [denunciando, setDenunciando] = useState<Mensaje | null>(null);
+  // personas que bloqueo: no ve sus mensajes
+  const bloqueados = useBloqueados();
+  useEffect(() => {
+    cargarBloqueos();
+  }, []);
+  const oculto = (m: Mensaje) =>
+    !!m.autorId && !m.mio && bloqueados.some((b) => b.id === m.autorId);
+
+  // de otra persona y ya en el servidor: se puede denunciar o bloquear
+  const moderable = (m: Mensaje) =>
+    !m.mio && m.autor !== yo && esUuid(m.id) && esUuid(m.autorId);
+
+  const bloquearA = (m: Mensaje, preguntar = true) => {
+    const id = m.autorId;
+    if (!id) return;
+    const hacer = async () => {
+      if (!(await bloquear({ id, nombre: m.autor })))
+        avisar("No se pudo bloquear", "Revisa tu conexión e inténtalo de nuevo.");
+    };
+    if (!preguntar) {
+      hacer();
+      return;
+    }
+    confirmar(
+      `¿Bloquear a ${m.autor}?`,
+      "Dejarás de ver sus mensajes en las salas y no podrá escribirte en privado. No se le avisa. Puedes desbloquearlo en Perfil › Privacidad.",
+      "Bloquear",
+      hacer,
+    );
+  };
+
+  const enviarDenuncia = async (m: Mensaje, motivo: string) => {
+    setDenunciando(null);
+    const ok = await denunciar(privado ? "privado" : "mensaje", m.id, motivo);
+    if (!ok) {
+      avisar("No se pudo enviar", "Revisa tu conexión e inténtalo de nuevo.");
+      return;
+    }
+    confirmar(
+      "Denuncia enviada",
+      `Gracias. El pastor de tu iglesia la revisará. ¿Quieres bloquear también a ${m.autor}? Dejarás de ver sus mensajes.`,
+      "Bloquear",
+      () => bloquearA(m, false),
+    );
+  };
 
   // Mas nuevo primero: la lista va invertida (el ultimo queda abajo)
   const lista = [...mensajes]
-    .filter((m) => m.grupo === grupo && m.fecha > desde)
+    .filter((m) => m.grupo === grupo && m.fecha > desde && !oculto(m))
     .sort((a, b) => b.fecha.localeCompare(a.fecha));
 
   const enviar = () => {
@@ -207,7 +262,9 @@ export default function ChatSala({
           const burbuja = (
             <Pressable
               onLongPress={
-                reaccionable ? () => setReaccionando(item) : undefined
+                reaccionable || moderable(item)
+                  ? () => setReaccionando(item)
+                  : undefined
               }
               delayLongPress={300}
               style={[
@@ -216,7 +273,11 @@ export default function ChatSala({
                 !primero && (mio ? styles.seguidoMio : styles.seguido),
               ]}
               accessibilityHint={
-                reaccionable ? "Mantén presionado para reaccionar" : undefined
+                reaccionable
+                  ? "Mantén presionado para reaccionar, denunciar o bloquear"
+                  : moderable(item)
+                    ? "Mantén presionado para denunciar o bloquear"
+                    : undefined
               }
             >
               {mostrarNombre && (
@@ -420,6 +481,11 @@ export default function ChatSala({
           style={styles.reaccionFondo}
           onPress={() => setReaccionando(null)}
         >
+          {/* reacciones: solo en las salas y en mensajes que ya llegaron */}
+          {reaccionando &&
+            !privado &&
+            !reaccionando.pendiente &&
+            esUuid(reaccionando.id) && (
           <View style={styles.reaccionBarra}>
             {EMOJIS_REACCION.map((emoji) => (
               <Pressable
@@ -439,11 +505,85 @@ export default function ChatSala({
               </Pressable>
             ))}
           </View>
+            )}
           {!!reaccionando?.texto && (
             <Text style={styles.reaccionCita} numberOfLines={2}>
               «{reaccionando.texto}»
             </Text>
           )}
+          {/* denunciar o bloquear a quien lo escribio */}
+          {reaccionando && moderable(reaccionando) && (
+            <View style={styles.moderar}>
+              <Pressable
+                onPress={() => {
+                  setDenunciando(reaccionando);
+                  setReaccionando(null);
+                }}
+                style={({ pressed }) => [
+                  styles.moderarBoton,
+                  pressed && styles.presionado,
+                ]}
+                accessibilityLabel="Denunciar este mensaje"
+              >
+                <Octicons name="report" size={15} color={TEXT} />
+                <Text style={styles.moderarTexto}>Denunciar</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  const m = reaccionando;
+                  setReaccionando(null);
+                  bloquearA(m);
+                }}
+                style={({ pressed }) => [
+                  styles.moderarBoton,
+                  pressed && styles.presionado,
+                ]}
+                accessibilityLabel={`Bloquear a ${reaccionando.autor}`}
+              >
+                <Octicons name="circle-slash" size={15} color={PRIMARY} />
+                <Text style={[styles.moderarTexto, styles.moderarPeligro]}>
+                  Bloquear a {reaccionando.autor}
+                </Text>
+              </Pressable>
+            </View>
+          )}
+        </Pressable>
+      </Modal>
+      {/* Denunciar: el motivo (le llega al pastor) */}
+      <Modal
+        visible={!!denunciando}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDenunciando(null)}
+        statusBarTranslucent
+        navigationBarTranslucent
+      >
+        <Pressable
+          style={styles.reaccionFondo}
+          onPress={() => setDenunciando(null)}
+        >
+          <View style={styles.motivos}>
+            <Text style={styles.motivosTitulo}>¿Por qué lo denuncias?</Text>
+            <Text style={styles.motivosSub}>
+              El pastor de tu iglesia lo revisará. {denunciando?.autor} no
+              sabrá quién lo denunció.
+            </Text>
+            {MOTIVOS_DENUNCIA.map((motivo) => (
+              <Pressable
+                key={motivo}
+                onPress={() =>
+                  denunciando && enviarDenuncia(denunciando, motivo)
+                }
+                style={({ pressed }) => [
+                  styles.motivo,
+                  pressed && styles.presionado,
+                ]}
+              >
+                <Text style={styles.motivoTexto}>{motivo}</Text>
+                <Octicons name="chevron-right" size={14} color={MUTED} />
+              </Pressable>
+            ))}
+          </View>
         </Pressable>
       </Modal>
       {publicando && (
@@ -630,6 +770,63 @@ const styles = StyleSheet.create({
   },
   reaccionGrande: {
     fontSize: 26,
+  },
+  moderar: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 8,
+  },
+  moderarBoton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: SURFACE,
+    borderWidth: 1,
+    borderColor: BORDER,
+  },
+  moderarTexto: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: TEXT,
+  },
+  moderarPeligro: {
+    color: PRIMARY,
+  },
+  motivos: {
+    alignSelf: "stretch",
+    gap: 4,
+    padding: SPACING * 1.6,
+    borderRadius: 20,
+    backgroundColor: SURFACE,
+    borderWidth: 1,
+    borderColor: BORDER,
+  },
+  motivosTitulo: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: TEXT,
+  },
+  motivosSub: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: MUTED,
+    marginBottom: SPACING / 2,
+  },
+  motivo: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: BORDER,
+  },
+  motivoTexto: {
+    fontSize: 15,
+    color: TEXT,
   },
   reaccionCita: {
     maxWidth: 300,
