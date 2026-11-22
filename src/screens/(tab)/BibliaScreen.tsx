@@ -113,6 +113,8 @@ export default function BibliaScreen() {
           onPress={arriba}
           style={({ pressed }) => [
             styles.opciones,
+            // debajo de la barra de estado (hora, bateria), con aire
+            { top: insets.top + SPACING * 1.5 },
             pressed && styles.presionado,
           ]}
           accessibilityLabel="Ver las opciones: libro, versión y letra"
@@ -210,7 +212,6 @@ const styles = StyleSheet.create({
   // barrita fija arriba (cuando las opciones quedaron fuera de la pantalla)
   opciones: {
     position: "absolute",
-    top: SPACING,
     alignSelf: "center",
     flexDirection: "row",
     alignItems: "center",
