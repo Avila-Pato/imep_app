@@ -18,8 +18,6 @@ import { Image } from "expo-image";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -49,10 +47,13 @@ const ARRIBA = [0.55, 0.3, 0.12, 0];
 export default function PasoHistorias({
   onSeguir,
   onYaTiene,
+  onCuentaNueva,
 }: {
   onSeguir: () => void;
   // entro con su cuenta y ya tenia iglesia: no repite el onboarding
   onYaTiene?: () => void;
+  // esa cuenta de Google era nueva: el siguiente paso lo cuenta
+  onCuentaNueva?: (correo?: string) => void;
 }) {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -72,12 +73,7 @@ export default function PasoHistorias({
       if (cuenta) await conectarCuenta(cuenta);
       if ((await recuperarCuenta()) && onYaTiene) return onYaTiene();
       // cuenta sin iglesia: sigue los pasos (ya con su cuenta guardada)
-      const titulo = "¡Bienvenido a Congrega!";
-      const texto = `Creamos tu cuenta${cuenta?.correo ? ` con ${cuenta.correo}` : ""}. Ahora sigue los pasos para crear tu iglesia o unirte con una invitación.`;
-      if (Platform.OS === "web") window.alert(`${titulo}
-
-${texto}`);
-      else Alert.alert(titulo, texto);
+      onCuentaNueva?.(cuenta?.correo);
       onSeguir();
     } catch (e) {
       console.warn("[supabase]", (e as Error)?.message ?? e);

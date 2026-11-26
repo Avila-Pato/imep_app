@@ -1,9 +1,13 @@
 import {
   BORDER,
   DARK_BG,
+  FUENTE,
   HOME_PADDING as PADDING,
+  MUTED,
+  PRIMARY,
   SPACING,
   TEXT,
+  primarioAlfa,
 } from "@/constants/constans";
 import { RolIglesia, useEstudios, verBienvenida } from "@/store/estudios";
 import Octicons from "@expo/vector-icons/Octicons";
@@ -11,6 +15,7 @@ import { useEffect, useState } from "react";
 import {
   BackHandler,
   KeyboardAvoidingView,
+  Text,
   Platform,
   Pressable,
   StyleSheet,
@@ -87,6 +92,10 @@ export default function BienvenidaScreen() {
   const [avanza, setAvanza] = useState(true);
   // entro con una cuenta que ya tenia iglesia: salta directo a la carga
   const [yaTiene, setYaTiene] = useState(false);
+  // entro con un Google que no tenia cuenta: se le cuenta en el paso 1
+  const [cuentaNueva, setCuentaNueva] = useState<{ correo?: string } | null>(
+    null,
+  );
   const cargando = yaTiene || paso === PASOS.length;
 
   const ir = (nuevo: number) => {
@@ -125,6 +134,7 @@ export default function BienvenidaScreen() {
       <PasoHistorias
         onSeguir={() => ir(1)}
         onYaTiene={() => setYaTiene(true)}
+        onCuentaNueva={(correo) => setCuentaNueva({ correo })}
       />
     );
   }
@@ -153,6 +163,28 @@ export default function BienvenidaScreen() {
             ))}
           </View>
         </View>
+
+        {/* Cuenta de Google nueva: se le explica que pasa (en el primer paso) */}
+        {cuentaNueva && paso === 1 && (
+          <Animated.View entering={FadeIn.duration(400)} style={styles.aviso}>
+            <View style={styles.avisoIcono}>
+              <Octicons name="person-add" size={16} color={PRIMARY} />
+            </View>
+            <View style={styles.flexTexto}>
+              <Text style={styles.avisoTitulo}>
+                No encontramos una cuenta con este correo
+              </Text>
+              <Text style={styles.avisoTexto}>
+                Creamos tu cuenta nueva
+                {cuentaNueva.correo ? (
+                  <Text style={styles.avisoCorreo}> {cuentaNueva.correo}</Text>
+                ) : null}
+                . Completa estos pasos para crear tu iglesia o unirte con una
+                invitación.
+              </Text>
+            </View>
+          </Animated.View>
+        )}
 
         {/* Paso actual: entra deslizandose del lado al que se avanza */}
         <Animated.View
@@ -190,6 +222,44 @@ const styles = StyleSheet.create({
     // mostrar el campo con foco mientras el paso entra de lado) y todo
     // queda pegado a la izquierda. "clip" recorta sin dejar desplazarse
     overflow: (Platform.OS === "web" ? "clip" : "hidden") as "hidden",
+  },
+  aviso: {
+    flexDirection: "row",
+    gap: SPACING * 1.2,
+    marginHorizontal: PADDING,
+    marginTop: SPACING * 1.6,
+    padding: SPACING * 1.4,
+    borderRadius: 16,
+    backgroundColor: primarioAlfa(0.12),
+    borderWidth: 1,
+    borderColor: primarioAlfa(0.35),
+  },
+  avisoIcono: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: primarioAlfa(0.18),
+  },
+  flexTexto: {
+    flex: 1,
+    gap: 3,
+  },
+  avisoTitulo: {
+    fontFamily: FUENTE.semibold,
+    fontSize: 14,
+    color: TEXT,
+  },
+  avisoTexto: {
+    fontFamily: FUENTE.regular,
+    fontSize: 13,
+    lineHeight: 19,
+    color: MUTED,
+  },
+  avisoCorreo: {
+    fontFamily: FUENTE.semibold,
+    color: TEXT,
   },
   arriba: {
     flexDirection: "row",

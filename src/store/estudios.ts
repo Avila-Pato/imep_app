@@ -497,7 +497,8 @@ export async function conectarCuenta(cuenta: CuentaConectada) {
   const guardado = await bajarMiPerfil().catch(() => null);
   cambiar((s) => ({
     cuenta,
-    nombre: guardado?.nombre ?? s.nombre ?? cuenta.nombre,
+    nombre:
+      guardado?.nombre?.trim() || s.nombre?.trim() || cuenta.nombre?.trim(),
     avatar:
       guardado?.avatar ??
       s.avatar ??
