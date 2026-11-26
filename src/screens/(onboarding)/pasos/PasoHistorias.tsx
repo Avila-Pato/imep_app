@@ -72,9 +72,8 @@ export default function PasoHistorias({
       if (cuenta) await conectarCuenta(cuenta);
       if ((await recuperarCuenta()) && onYaTiene) return onYaTiene();
       // cuenta sin iglesia: sigue los pasos (ya con su cuenta guardada)
-      const titulo = "Tu cuenta aún no tiene iglesia";
-      const texto =
-        "Entraste con Google, pero no encontramos una iglesia en tu cuenta. Sigue los pasos para crear la tuya o unirte con una invitación.";
+      const titulo = "¡Bienvenido a Congrega!";
+      const texto = `Creamos tu cuenta${cuenta?.correo ? ` con ${cuenta.correo}` : ""}. Ahora sigue los pasos para crear tu iglesia o unirte con una invitación.`;
       if (Platform.OS === "web") window.alert(`${titulo}
 
 ${texto}`);
@@ -257,7 +256,7 @@ ${texto}`);
                 <FontAwesome name="google" size={14} color={TEXT} />
               )}
               <Text style={styles.cuentaTexto}>
-                {entrando ? "Buscando tu cuenta…" : "¿Ya tienes cuenta? "}
+                {entrando ? "Entrando con Google…" : "¿Ya tienes cuenta? "}
                 {!entrando && (
                   <Text style={styles.cuentaFuerte}>Entra con Google</Text>
                 )}

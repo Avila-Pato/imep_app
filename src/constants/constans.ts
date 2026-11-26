@@ -261,6 +261,7 @@ export const MENU_PERFIL: { titulo: string; opciones: OpcionMenu[] }[] = [
     opciones: [
       { id: "privacidad", label: "Privacidad", icon: "lock" },
       { id: "ayuda", label: "Ayuda", icon: "question" },
+      { id: "salir", label: "Cerrar sesión", icon: "sign-out" },
       { id: "reiniciar", label: "Reiniciar app", icon: "sync", peligro: true },
       {
         id: "eliminar",

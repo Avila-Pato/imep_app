@@ -153,6 +153,28 @@ Si solo quieres salir de este teléfono, toca «Cerrar sesión»: ${guardada}`
   );
 };
 
+// Cerrar sesion: sale de su cuenta de Google en este telefono (todo queda
+// guardado en la cuenta; vuelve al inicio para entrar con otra o la misma)
+const confirmarSalir = (correo?: string) => {
+  const titulo = "¿Cerrar sesión?";
+  const texto = `Saldrás de tu cuenta${correo ? ` (${correo})` : ""} en este teléfono. Tu perfil y tu iglesia quedan guardados: entra de nuevo con Google cuando quieras.`;
+  const salir = () =>
+    reiniciarTodo(true).catch((e) => {
+      console.warn("[supabase]", e?.message ?? e);
+      const error = "No se pudo cerrar sesión. Revisa tu conexión.";
+      if (Platform.OS === "web") window.alert(error);
+      else Alert.alert("No se pudo cerrar sesión", error);
+    });
+  if (Platform.OS === "web") {
+    if (window.confirm(`${titulo}\n\n${texto}`)) salir();
+    return;
+  }
+  Alert.alert(titulo, texto, [
+    { text: "Cancelar", style: "cancel" },
+    { text: "Cerrar sesión", onPress: salir },
+  ]);
+};
+
 // Eliminar la cuenta (Google Play lo exige): avisa que es para siempre y,
 // si es pastor, que tambien se borra su iglesia
 const confirmarEliminar = (esPastor: boolean, iglesias: string[]) => {
@@ -511,6 +533,8 @@ export default function PerfilScreen() {
               {grupo.opciones
                 // el pastor no se une con codigo: el los crea (Panel)
                 .filter((op) => !(esPastor && op.id === "codigo"))
+                // cerrar sesion: solo con cuenta de Google
+                .filter((op) => op.id !== "salir" || !!cuenta)
                 .map((op, i) => (
                   <Pressable
                     key={op.id}
@@ -532,7 +556,9 @@ export default function PerfilScreen() {
                                 ? () => setConCodigo(true)
                                 : op.id === "notificaciones"
                                   ? () => router.push("/notificaciones" as Href)
-                                  : op.id === "reiniciar"
+                                  : op.id === "salir"
+                                    ? () => confirmarSalir(cuenta?.correo)
+                                    : op.id === "reiniciar"
                                     ? () =>
                                         confirmarReinicio(
                                           esPastor,

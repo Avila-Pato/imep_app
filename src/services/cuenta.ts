@@ -24,6 +24,10 @@ function leerRetorno(url: string) {
 
 const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// Google siempre muestra "Elegir una cuenta" (sin esto el navegador entra
+// solo con la cuenta conectada en Chrome, aunque eligiera otra)
+const ELEGIR_CUENTA = { prompt: "select_account" };
+
 // Abre Google en el navegador y aplica la sesion que vuelve.
 // En Android el navegador anterior tarda un momento en "cerrarse" despues de
 // volver a la app: si se abre otro enseguida (vincular -> ya existia -> entrar)
@@ -86,7 +90,11 @@ async function fusionar(codigo: string | null) {
 async function iniciarSesion(codigo: string | null = null): Promise<Resultado> {
   const { data, error } = await supabase!.auth.signInWithOAuth({
     provider: "google",
-    options: { redirectTo: volverA(), skipBrowserRedirect: true },
+    options: {
+      redirectTo: volverA(),
+      skipBrowserRedirect: true,
+      queryParams: ELEGIR_CUENTA,
+    },
   });
   if (error) throw error;
   const p = await abrir(data.url);
@@ -131,13 +139,10 @@ export async function entrarConGoogle(): Promise<Resultado> {
   const nativo = await googleNativo();
   if (nativo.tipo === "cancelado") return "cancelado";
   if (nativo.tipo === "token") {
-    try {
-      await conToken(nativo.idToken, !!yo.user?.is_anonymous);
-      return "ok";
-    } catch (e) {
-      // el servidor no acepto el token: se intenta por el navegador
-      console.warn("[google]", (e as Error)?.message ?? e);
-    }
+    // ya eligio su cuenta: si falla se avisa (abrir el navegador aqui podia
+    // entrar con OTRA cuenta, la que esta conectada en Chrome)
+    await conToken(nativo.idToken, !!yo.user?.is_anonymous);
+    return "ok";
   }
 
   // 2) por el navegador (web, Expo Go, o si lo nativo no esta configurado)
@@ -148,7 +153,11 @@ export async function entrarConGoogle(): Promise<Resultado> {
   // anonimo: vincula Google a este mismo usuario
   const { data, error } = await supabase.auth.linkIdentity({
     provider: "google",
-    options: { redirectTo: volverA(), skipBrowserRedirect: true },
+    options: {
+      redirectTo: volverA(),
+      skipBrowserRedirect: true,
+      queryParams: ELEGIR_CUENTA,
+    },
   });
   if (error) throw error;
   const p = await abrir(data.url);
