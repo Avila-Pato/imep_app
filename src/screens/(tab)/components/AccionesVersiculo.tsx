@@ -258,16 +258,17 @@ export default function AccionesVersiculo({ seleccion, onListo }: Props) {
           titulo={cita}
           onElegir={(g) => {
             setEligiendo(false);
-            onListo(); // se limpia la seleccion de versiculos
-            // al chat de esa sala: ahi se abre compartir con el versiculo
-            // (cuando ya se cerro la hoja de salas)
-            setTimeout(
-              () =>
-                router.push(
-                  `/sala/${g.id}?verso=${encodeURIComponent(cita)}` as Href,
-                ),
-              300,
-            );
+            // al chat de esa sala: ahi se abre compartir con el versiculo.
+            // Primero se deja cerrar la hoja de salas y RECIEN despues se
+            // limpia la seleccion (eso quita esta barra y la hoja con ella:
+            // si se quitaba mientras se cerraba, en algunos Android la
+            // ventana quedaba pegada y la pantalla en negro)
+            setTimeout(() => {
+              router.push(
+                `/sala/${g.id}?verso=${encodeURIComponent(cita)}` as Href,
+              );
+              setTimeout(onListo, 600);
+            }, 400);
           }}
           onCerrar={() => setEligiendo(false)}
         />

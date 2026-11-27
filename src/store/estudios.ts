@@ -1408,7 +1408,12 @@ function generarCodigoLocal(grupo: GrupoId) {
 export function useGrupos(): Grupo[] {
   const creadas = useStore((s) => s.salas);
   const editadas = useStore((s) => s.salasEditadas);
-  return [...GRUPOS.map((g) => ({ ...g, ...editadas[g.id] })), ...creadas];
+  // el id de la sala base siempre se queda (aunque lo guardado traiga otro,
+  // o "id: undefined" de versiones anteriores ya guardado en el telefono)
+  return [
+    ...GRUPOS.map((g) => ({ ...g, ...editadas[g.id], id: g.id })),
+    ...creadas,
+  ];
 }
 
 // Cuantas salas hay en TODAS las iglesias de esta persona (las de base +
@@ -1492,7 +1497,7 @@ function subirSalaActual(id: GrupoId, despues?: () => unknown) {
   if (!esUuid(iglesiaId)) return;
   const base = GRUPOS.find((g) => g.id === id);
   const sala = base
-    ? { ...base, ...s.salasEditadas[id] }
+    ? { ...base, ...s.salasEditadas[id], id: base.id }
     : s.salas.find((g) => g.id === id);
   if (!sala) return;
   enFondo(
@@ -1534,17 +1539,21 @@ export async function sincronizarSalas() {
     const locales = [
       ...s.salas,
       ...(s.salasEditadas.general
-        ? [{ ...GRUPOS[0], ...s.salasEditadas.general }]
+        ? [{ ...GRUPOS[0], ...s.salasEditadas.general, id: GRUPOS[0].id }]
         : []),
     ];
     for (const g of locales) enFondo(subirSala(id, g));
     return;
   }
   const general = remotas.find((g) => g.id === "general");
+  // sin el id: lo editado se mezcla encima de la sala base. Con
+  // "id: undefined" la sala de toda la iglesia perdia su id ("general") y
+  // la app la trataba como otra sala (pedia lider, no abria al compartir)
+  const { id: _sinId, ...editadaGeneral } = general ?? { id: "" };
   cambiar((x) => ({
     salas: remotas.filter((g) => !GRUPOS.some((b) => b.id === g.id)),
     salasEditadas: general
-      ? { ...x.salasEditadas, general: { ...general, id: undefined } }
+      ? { ...x.salasEditadas, general: editadaGeneral }
       : x.salasEditadas,
   }));
 }
