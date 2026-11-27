@@ -20,9 +20,7 @@ import Octicons from "@expo/vector-icons/Octicons";
 import * as Clipboard from "expo-clipboard";
 import { Href, router } from "expo-router";
 import { useEffect, useState } from "react";
-import CompartirVersiculo from "@/screens/sala/components/CompartirVersiculo";
 import ElegirSala from "@/screens/sala/components/ElegirSala";
-import { Grupo } from "@/types/typesComunidad";
 import ModalOracion from "./ModalOracion";
 import {
   Pressable,
@@ -67,7 +65,6 @@ export default function AccionesVersiculo({ seleccion, onListo }: Props) {
   const esPastor = useEsPastor();
   // mandar el versiculo a un chat: primero se elige la sala
   const [eligiendo, setEligiendo] = useState(false);
-  const [sala, setSala] = useState<Grupo | null>(null);
   const version = useVersion();
   // aviso corto en lugar de la cita (la barra no se cierra)
   const [aviso, setAviso] = useState<string | null>(null);
@@ -261,23 +258,18 @@ export default function AccionesVersiculo({ seleccion, onListo }: Props) {
           titulo={cita}
           onElegir={(g) => {
             setEligiendo(false);
-            // espera a que se cierre la hoja de salas (si no, en Android
-            // la pantalla quedaba en negro)
-            setTimeout(() => setSala(g), 350);
+            onListo(); // se limpia la seleccion de versiculos
+            // al chat de esa sala: ahi se abre compartir con el versiculo
+            // (cuando ya se cerro la hoja de salas)
+            setTimeout(
+              () =>
+                router.push(
+                  `/sala/${g.id}?verso=${encodeURIComponent(cita)}` as Href,
+                ),
+              300,
+            );
           }}
           onCerrar={() => setEligiendo(false)}
-        />
-      )}
-      {sala && (
-        <CompartirVersiculo
-          sala={sala}
-          visible
-          citaInicial={cita}
-          onCerrar={() => setSala(null)}
-          onEnviado={(id) => {
-            onListo(); // se limpia la seleccion de versiculos
-            setTimeout(() => router.push(`/sala/${id}` as Href), 350);
-          }}
         />
       )}
 

@@ -91,10 +91,12 @@ export default function ChatSala({
   sala,
   cerrado,
   privado,
+  versoInicial,
 }: {
   sala: Grupo;
   cerrado?: boolean; // el pastor apago el chat: solo el lider publica avisos
   privado?: boolean; // chat de dos personas (sin avisos para todos)
+  versoInicial?: string; // desde la Biblia: abre compartir con este versiculo
 }) {
   const grupo = sala.id;
   const { mensajes, nombre, vaciados } = useEstudios("mensajes", "nombre", "vaciados");
@@ -104,6 +106,12 @@ export default function ChatSala({
   const [texto, setTexto] = useState("");
   // hoja para compartir un versiculo (texto o audio)
   const [compartir, setCompartir] = useState(false);
+  // llego desde la Biblia: se abre sola cuando la pantalla ya entro
+  useEffect(() => {
+    if (!versoInicial) return;
+    const t = setTimeout(() => setCompartir(true), 450);
+    return () => clearTimeout(t);
+  }, [versoInicial]);
   // mensaje cuyo versiculo se esta leyendo
   const [leyendo, setLeyendo] = useState<Mensaje | null>(null);
   // mensaje al que se le esta eligiendo una reaccion (mantener presionado)
@@ -465,6 +473,7 @@ export default function ChatSala({
       <CompartirVersiculo
         sala={sala}
         visible={compartir}
+        citaInicial={versoInicial}
         onCerrar={() => setCompartir(false)}
       />
       <ModalVersiculo mensaje={leyendo} onCerrar={() => setLeyendo(null)} />

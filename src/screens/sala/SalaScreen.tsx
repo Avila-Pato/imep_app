@@ -59,11 +59,17 @@ const VISTAS: { id: Vista; label: string }[] = [
 
 export default function SalaScreen() {
   const iglesiaActiva = useIglesia();
-  const params = useLocalSearchParams<{ id: GrupoId; vista?: Vista }>();
+  const params = useLocalSearchParams<{
+    id: GrupoId;
+    vista?: Vista;
+    verso?: string; // viene de la Biblia: compartir este versiculo
+  }>();
   const grupos = useGrupos(); // incluye las salas que creo el pastor
   const grupo = grupos.find((g) => g.id === params.id) ?? grupos[0];
   const esPastor = useEsPastor();
-  const [elegida, setVista] = useState<Vista>(params.vista ?? "chat");
+  const [elegida, setVista] = useState<Vista>(
+    params.verso ? "chat" : (params.vista ?? "chat"),
+  );
   // solo lo que el pastor activo al crear la sala (Miembros siempre)
   // el chat siempre se ve: si se apago, dice que no se puede hablar
   // Oracion: los hermanos ven el muro; el pastor tiene su propia vista
@@ -191,7 +197,13 @@ export default function SalaScreen() {
         keyboardVerticalOffset={top}
       >
         <VistaAnimada vista={vista} style={styles.flex}>
-          {vista === "chat" && <ChatSala sala={grupo} cerrado={chatCerrado} />}
+          {vista === "chat" && (
+            <ChatSala
+              sala={grupo}
+              cerrado={chatCerrado}
+              versoInicial={params.verso}
+            />
+          )}
           {vista === "oracion" && (
             <ScrollView
               contentContainerStyle={styles.muro}
