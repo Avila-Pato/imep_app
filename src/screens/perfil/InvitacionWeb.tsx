@@ -12,7 +12,7 @@ import {
 import { extraerCodigo } from "@/services/iglesias";
 import {
   codigoVisible,
-  DESCARGA_ANDROID,
+  descargaConCodigo,
   EN_PLAY_STORE,
 } from "@/utils/invitacion";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
@@ -39,7 +39,7 @@ export default function InvitacionWeb() {
     const android = /android/i.test(navigator.userAgent);
     // Android: abre la app si esta; si no, la descarga (Google Play o el APK)
     const url = android
-      ? `intent://unirse/${codigo}#Intent;scheme=congrega;package=com.avilapato.congrega;S.browser_fallback_url=${encodeURIComponent(DESCARGA_ANDROID)};end`
+      ? `intent://unirse/${codigo}#Intent;scheme=congrega;package=com.avilapato.congrega;S.browser_fallback_url=${encodeURIComponent(descargaConCodigo(codigo))};end`
       : `congrega://unirse/${codigo}`;
     window.location.href = url;
   };
@@ -94,7 +94,7 @@ export default function InvitacionWeb() {
             </Pressable>
 
             <Pressable
-              onPress={() => Linking.openURL(DESCARGA_ANDROID)}
+              onPress={() => Linking.openURL(descargaConCodigo(codigo))}
               style={({ pressed }) => [
                 styles.botonSecundario,
                 pressed && styles.presionado,

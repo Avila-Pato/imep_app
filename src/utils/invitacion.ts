@@ -91,3 +91,9 @@ export const PLAY_STORE =
 const APK = process.env.EXPO_PUBLIC_DESCARGA_ANDROID;
 export const DESCARGA_ANDROID = APK || PLAY_STORE;
 export const EN_PLAY_STORE = !APK;
+// Descargar desde la invitacion: Google Play guarda el codigo ("referrer")
+// y la app lo lee al abrirse por primera vez (ya viene escrito al unirse)
+export const descargaConCodigo = (codigo: string | null) =>
+  codigo && EN_PLAY_STORE
+    ? `${PLAY_STORE}&referrer=${encodeURIComponent(`codigo=${codigo}`)}`
+    : DESCARGA_ANDROID;

@@ -9,7 +9,15 @@ import {
   TEXT,
   primarioAlfa,
 } from "@/constants/constans";
-import { RolIglesia, useEstudios, verBienvenida } from "@/store/estudios";
+import { extraerCodigo } from "@/services/iglesias";
+import {
+  guardarInvitacion,
+  RolIglesia,
+  useEstudios,
+  verBienvenida,
+} from "@/store/estudios";
+import { codigoVisible } from "@/utils/invitacion";
+import * as Application from "expo-application";
 import Octicons from "@expo/vector-icons/Octicons";
 import { useEffect, useState } from "react";
 import {
@@ -85,7 +93,25 @@ const entraIzquierda = entrada(-40); // al volver
 // Onboarding por pasos (solo la primera vez): crear cuenta, conocer a la
 // persona, presentar la app y entrar a su grupo
 export default function BienvenidaScreen() {
-  const { nombre, rol } = useEstudios("nombre", "rol");
+  const { nombre, rol, invitacion } = useEstudios(
+    "nombre",
+    "rol",
+    "invitacion",
+  );
+
+  // Instalo la app desde la invitacion (Google Play): el codigo viene en el
+  // "referrer" de la instalacion. Se guarda para el paso "Unete a tu iglesia"
+  useEffect(() => {
+    if (Platform.OS !== "android" || invitacion) return;
+    Application.getInstallReferrerAsync()
+      .then((ref) => {
+        const codigo = extraerCodigo(decodeURIComponent(ref ?? ""));
+        if (codigo) guardarInvitacion(codigo);
+      })
+      .catch(() => {});
+    // solo al abrir el onboarding
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const PASOS = pasosPara(rol);
   const [paso, setPaso] = useState(0);
   // hacia donde se mueve (para que el paso entre del lado correcto)
@@ -163,6 +189,27 @@ export default function BienvenidaScreen() {
             ))}
           </View>
         </View>
+
+        {/* Llego con una invitacion: sabe que al final se une solo */}
+        {!!invitacion && !cuentaNueva && paso === 1 && (
+          <Animated.View entering={FadeIn.duration(400)} style={styles.aviso}>
+            <View style={styles.avisoIcono}>
+              <Octicons name="people" size={16} color={PRIMARY} />
+            </View>
+            <View style={styles.flexTexto}>
+              <Text style={styles.avisoTitulo}>Te invitaron a tu iglesia</Text>
+              <Text style={styles.avisoTexto}>
+                Tu código{" "}
+                <Text style={styles.avisoCorreo}>
+                  {codigoVisible(invitacion)}
+                </Text>{" "}
+                ya está guardado. Completa estos pasos y al final te unes con
+                un toque. ¿Eres el pastor? Vuelve atrás y toca «Entra con
+                Google» para abrir tu cuenta.
+              </Text>
+            </View>
+          </Animated.View>
+        )}
 
         {/* Cuenta de Google nueva: se le explica que pasa (en el primer paso) */}
         {cuentaNueva && paso === 1 && (

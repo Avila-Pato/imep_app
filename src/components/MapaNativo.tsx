@@ -10,7 +10,13 @@ import MapView, { MapStyleElement, PROVIDER_GOOGLE } from "react-native-maps";
 // Solo en la app compilada (lleva nuestra clave, firmada con nuestra huella).
 // En Expo Go el mapa de Google sale vacio (no tiene la clave): ahi se siguen
 // usando las teselas, para poder probar mientras se desarrolla
+// APAGADO por ahora: en la version de Play el mapa de Google salia negro
+// (Google rechaza la clave: facturacion o huellas). Mientras tanto se usan
+// las teselas (Esri / OpenStreetMap), que no necesitan clave. Para volver al
+// de Google, cambiar USAR_GOOGLE a true (cuando se vea bien en Play)
+const USAR_GOOGLE = false;
 export const HAY_MAPA_NATIVO =
+  USAR_GOOGLE &&
   Constants.executionEnvironment !== ExecutionEnvironment.StoreClient &&
   !!process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY;
 

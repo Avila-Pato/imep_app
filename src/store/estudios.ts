@@ -1244,8 +1244,11 @@ export async function recuperarCuenta(): Promise<boolean> {
   const remotas = await misIglesias();
   await sincronizarIglesias();
   if (!remotas?.length) return false;
+  const pastor = remotas.some((r) => r.rol === "pastor");
   cambiar({
-    rol: remotas.some((r) => r.rol === "pastor") ? "pastor" : "hermano",
+    rol: pastor ? "pastor" : "hermano",
+    // abrio su propio enlace antes de entrar: ya no hay nada que unir
+    ...(pastor ? { invitacion: undefined } : {}),
   });
   return true;
 }
@@ -1680,7 +1683,11 @@ export function registrarPush() {
 // Abrio un enlace de invitacion antes de terminar el onboarding: se guarda
 // para que en "Unete a tu iglesia" ya este escrito (null = ya se uso)
 export function guardarInvitacion(codigo: string | null) {
-  cambiar({ invitacion: codigo ?? undefined });
+  cambiar((s) => ({
+    invitacion: codigo ?? undefined,
+    // llego invitado: es hermano (si aun no eligio otra cosa)
+    ...(codigo && !s.bienvenida && !s.rol ? { rol: "hermano" as const } : {}),
+  }));
 }
 
 // Termina el onboarding (false = volver a verlo, para probar)

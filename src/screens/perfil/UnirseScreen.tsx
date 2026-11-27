@@ -14,8 +14,10 @@ import { extraerCodigo } from "@/services/iglesias";
 import {
   guardarInvitacion,
   useCargado,
+  useEsPastor,
   useEstudios,
   useIglesia,
+  useIglesias,
 } from "@/store/estudios";
 import Octicons from "@expo/vector-icons/Octicons";
 import { Href, Redirect, router, useLocalSearchParams } from "expo-router";
@@ -45,7 +47,7 @@ export default function UnirseScreen() {
     return (
       <>
         {limpio && <GuardarInvitacion codigo={limpio} />}
-        <Redirect href={"/" as Href} />
+        <Redirect href={"/bienvenida" as Href} />
       </>
     );
   }
@@ -77,6 +79,20 @@ function Invitacion({ codigo }: { codigo: string | null }) {
   const iglesia = useIglesia();
   const revision = useVerificarCodigo(codigo ?? "");
   const [uniendo, setUniendo] = useState(false);
+  // el pastor abrio el enlace que el mismo compartio (de una de sus iglesias)
+  const esPastor = useEsPastor();
+  const { codigos } = useEstudios("codigos");
+  const misIglesias = useIglesias();
+  const esMio =
+    esPastor &&
+    !!codigo &&
+    (Object.values(codigos).some((c) => c?.codigo === codigo) ||
+      (revision.estado === "valido" &&
+        misIglesias.some(
+          (i) =>
+            i.sede.trim().toLowerCase() ===
+            revision.iglesia?.trim().toLowerCase(),
+        )));
   // undefined = aun no se une; null = no se pudo
   const [unido, setUnido] = useState<Unido | null>();
 
@@ -91,6 +107,8 @@ function Invitacion({ codigo }: { codigo: string | null }) {
   if (codigo && revision.estado === "revisando" && unido === undefined) {
     return <Cargando texto="Revisando la invitación…" />;
   }
+
+  if (esMio) return <EnlacePropio codigo={codigo} />;
 
   const invalido = !codigo || revision.estado === "invalido" || unido === null;
   const listo = !!unido;
@@ -157,6 +175,32 @@ function Invitacion({ codigo }: { codigo: string | null }) {
           >
             {listo || invalido ? "Ir al inicio" : "Ahora no"}
           </Text>
+        </Pressable>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+// El pastor abrio su propio enlace: es el que comparte con los hermanos
+// (no se une como hermano ni cambia nada de su cuenta)
+function EnlacePropio({ codigo }: { codigo: string }) {
+  return (
+    <SafeAreaView style={styles.safe}>
+      <View style={styles.centro}>
+        <View style={styles.icono}>
+          <Octicons name="link" size={28} color="#FFFFFF" />
+        </View>
+        <Text style={styles.titulo}>Es tu invitación</Text>
+        <Text style={styles.texto}>
+          Este es el enlace de tu iglesia (código {codigo}). Compártelo con los
+          hermanos para que se unan. Tú ya eres el pastor: no tienes que hacer
+          nada.
+        </Text>
+        <Pressable
+          onPress={() => router.replace("/" as Href)}
+          style={({ pressed }) => [styles.boton, pressed && styles.presionado]}
+        >
+          <Text style={styles.botonTexto}>Ir al inicio</Text>
         </Pressable>
       </View>
     </SafeAreaView>
