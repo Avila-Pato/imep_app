@@ -57,6 +57,8 @@ type Props = {
   onCerrar: () => void;
   desafio?: Desafio; // respondiendo la "Palabra de la semana"
   citaInicial?: string; // desde la Biblia: el versiculo ya elegido
+  // ya se envio (desde la Biblia: se abre el chat de esa sala)
+  onEnviado?: (salaId: string) => void;
 };
 
 // Desde el chat de la sala: compartir lo que entendi de un versiculo,
@@ -67,6 +69,7 @@ export default function CompartirVersiculo({
   onCerrar,
   desafio,
   citaInicial,
+  onEnviado,
 }: Props) {
   // si el lider fijo un versiculo, ya viene puesto
   const [cita, setCita] = useState(desafio?.cita ?? citaInicial ?? "");
@@ -149,6 +152,7 @@ export default function CompartirVersiculo({
     setTexto("");
     setAudio(null);
     onCerrar(); // ya estamos en el chat: se ve el mensaje enviado
+    onEnviado?.(sala.id);
   };
 
   const cerrar = () => {

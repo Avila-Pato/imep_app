@@ -18,6 +18,7 @@ import {
 } from "@/store/estudios";
 import Octicons from "@expo/vector-icons/Octicons";
 import * as Clipboard from "expo-clipboard";
+import { Href, router } from "expo-router";
 import { useEffect, useState } from "react";
 import CompartirVersiculo from "@/screens/sala/components/CompartirVersiculo";
 import ElegirSala from "@/screens/sala/components/ElegirSala";
@@ -260,7 +261,9 @@ export default function AccionesVersiculo({ seleccion, onListo }: Props) {
           titulo={cita}
           onElegir={(g) => {
             setEligiendo(false);
-            setSala(g);
+            // espera a que se cierre la hoja de salas (si no, en Android
+            // la pantalla quedaba en negro)
+            setTimeout(() => setSala(g), 350);
           }}
           onCerrar={() => setEligiendo(false)}
         />
@@ -271,6 +274,10 @@ export default function AccionesVersiculo({ seleccion, onListo }: Props) {
           visible
           citaInicial={cita}
           onCerrar={() => setSala(null)}
+          onEnviado={(id) => {
+            onListo(); // se limpia la seleccion de versiculos
+            setTimeout(() => router.push(`/sala/${id}` as Href), 350);
+          }}
         />
       )}
 

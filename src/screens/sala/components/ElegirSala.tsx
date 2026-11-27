@@ -16,6 +16,7 @@ import {
   useEstudios,
   useGrupos,
   useIglesia,
+  useMisRestricciones,
   useSalasQueGuio,
 } from "@/store/estudios";
 import { Grupo } from "@/types/typesComunidad";
@@ -37,11 +38,20 @@ export default function ElegirSala({
   const esPastor = useEsPastor();
   const guio = useSalasQueGuio();
   const iglesia = useIglesia(); // la sala general lleva su nombre
-  // las salas donde puede escribir (con el chat abierto)
-  const salas = useGrupos().filter(
-    (g) =>
-      (esPastor || puedeVerSala(g.id, miGrupo, guio)) && g.funciones?.chat !== false,
-  );
+  // el pastor le quito el chat: no puede compartir en ninguna sala
+  const { sinChat } = useMisRestricciones();
+  // solo las salas en las que esta (o que guia) y donde puede escribir:
+  // con el chat abierto y sin "solo el lider escribe" (salvo que la guie)
+  const salas = useGrupos().filter((g) => {
+    if (esPastor) return g.funciones?.chat !== false;
+    const guia = guio.includes(g.id);
+    return (
+      puedeVerSala(g.id, miGrupo, guio) &&
+      g.funciones?.chat !== false &&
+      (!g.soloLider || guia) &&
+      (!sinChat || guia)
+    );
+  });
 
   return (
     <Modal
@@ -64,6 +74,12 @@ export default function ElegirSala({
               <Text style={styles.sub}>
                 {titulo} · elige la sala donde quieres compartirlo
               </Text>
+              {!salas.length && (
+                <Text style={styles.sub}>
+                  Aún no estás en una sala donde puedas escribir. Pídele a tu
+                  pastor que te agregue.
+                </Text>
+              )}
               <View style={styles.lista}>
                 {salas.map((g, i) => (
                   <Pressable
