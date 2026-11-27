@@ -12,6 +12,8 @@ import { Unido, useUnirse } from "@/hooks/useUnirse";
 import { useVerificarCodigo } from "@/hooks/useVerificarCodigo";
 import { extraerCodigo } from "@/services/iglesias";
 import {
+  elegirIglesia,
+  esActiva,
   guardarInvitacion,
   useCargado,
   useEsPastor,
@@ -83,16 +85,22 @@ function Invitacion({ codigo }: { codigo: string | null }) {
   const esPastor = useEsPastor();
   const { codigos } = useEstudios("codigos");
   const misIglesias = useIglesias();
-  const esMio =
-    esPastor &&
-    !!codigo &&
-    (Object.values(codigos).some((c) => c?.codigo === codigo) ||
-      (revision.estado === "valido" &&
-        misIglesias.some(
+  // la iglesia del codigo, si ya es una de las suyas
+  const yaEsMia =
+    revision.estado === "valido"
+      ? misIglesias.find(
           (i) =>
             i.sede.trim().toLowerCase() ===
             revision.iglesia?.trim().toLowerCase(),
-        )));
+        )
+      : undefined;
+  const esMio =
+    esPastor &&
+    !!codigo &&
+    (Object.values(codigos).some((c) => c?.codigo === codigo) || !!yaEsMia);
+  // hermano que ya esta en esa iglesia (y el codigo no es de otra sala)
+  const yaMiembro =
+    !esMio && !!yaEsMia && revision.estado === "valido" && !revision.sala;
   // undefined = aun no se une; null = no se pudo
   const [unido, setUnido] = useState<Unido | null>();
 
@@ -109,6 +117,16 @@ function Invitacion({ codigo }: { codigo: string | null }) {
   }
 
   if (esMio) return <EnlacePropio codigo={codigo} />;
+  if (yaMiembro && yaEsMia && unido === undefined)
+    return (
+      <YaMiembro
+        nombre={yaEsMia.sede}
+        onIr={() => {
+          if (!esActiva(yaEsMia, iglesia)) elegirIglesia(yaEsMia);
+          router.replace("/" as Href);
+        }}
+      />
+    );
 
   const invalido = !codigo || revision.estado === "invalido" || unido === null;
   const listo = !!unido;
@@ -175,6 +193,29 @@ function Invitacion({ codigo }: { codigo: string | null }) {
           >
             {listo || invalido ? "Ir al inicio" : "Ahora no"}
           </Text>
+        </Pressable>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+// Ya es de esa iglesia: no hay nada que unir, solo ir a ella
+function YaMiembro({ nombre, onIr }: { nombre: string; onIr: () => void }) {
+  return (
+    <SafeAreaView style={styles.safe}>
+      <View style={styles.centro}>
+        <View style={styles.icono}>
+          <Octicons name="check" size={28} color="#FFFFFF" />
+        </View>
+        <Text style={styles.titulo}>Ya eres parte</Text>
+        <Text style={styles.texto}>
+          Ya perteneces a {nombre}. No tienes que unirte otra vez.
+        </Text>
+        <Pressable
+          onPress={onIr}
+          style={({ pressed }) => [styles.boton, pressed && styles.presionado]}
+        >
+          <Text style={styles.botonTexto}>Ir a {nombre}</Text>
         </Pressable>
       </View>
     </SafeAreaView>
