@@ -20,6 +20,7 @@ import {
 } from "@/constants/constans";
 import { useRecordatorios } from "@/hooks/useRecordatorios";
 import { useEnVivo } from "@/hooks/useEnVivo";
+import { useActualizacionAuto } from "@/hooks/useActualizacionAuto";
 import {
   irAIglesia,
   reintentarPendientes,
@@ -100,6 +101,9 @@ export default function RootLayout() {
     if (!listo) return;
     SplashScreen.hideAsync();
   }, [listo]);
+
+  // actualizaciones nuevas: se bajan y la app se reinicia sola
+  useActualizacionAuto();
 
   // Con servidor: trae sus iglesias, anuncios y turnos, y registra este
   // telefono para recibir push. Al volver a la app, trae lo nuevo
